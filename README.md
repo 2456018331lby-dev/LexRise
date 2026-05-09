@@ -1,0 +1,112 @@
+# Englishdemo / LexRise v0.2
+
+LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.2 亮点
+
+- **三本真实规模内置词书**（首启自动导入，约 14000 词，来自 MIT 协议的 ECDICT）
+  - 四级高频 · 词根序（CET4 约 3800 词）
+  - 六级进阶 · 词根序（CET6 约 5400 词）
+  - 考研英语 · 大纲词（考研英语一约 4800 词）
+- **词根聚簇排序**：同词根的词连着出现（例：state → statement → status；include → conclude → exclude）。比按字母序或死记高频表更接近墨墨的学习节奏，但是用的是完全开源合法的词根数据。
+- **翻卡释义面升级**：除了中文翻译和例句，展示词根及含义、同根例词、ECDICT 派生词（复数、过去式等），并允许本地编辑巧记/助记口诀。
+- **30 日热力图 + 连续徽章**：Dashboard 顶部展示 5×6 热力格，连续打卡 3 / 7 / 30 / 100 天有不同徽章文案和进度条。
+- **翻卡交互**：默认盖住释义，点击卡片才翻出，评分按钮在翻出后激活，强制"先自测再对答案"的主动回忆流程。
+- **词汇浏览 Tab**：全本词书按关键词搜索（term / translation / definition 都命中）+ 按学习阶段筛选。
+- **词书管理**：非 builtin 可改名、可删除；重复导入同名词书自动合并去重，不产生副本。
+- **SRS**：修过 `interval*1.2` 不推进、streak 在"今天没打卡"情形归零等 v0.1 的边界 bug。
+- **发音**：系统 `TextToSpeech`。
+
+## 内容合法性
+
+LexRise 不打包以下任何商业词书的原文：墨墨背单词、不背单词、百词斩、新东方红宝书、考研闪过、有道词典精选等。词本体来自 MIT 协议的 [skywind3000/ECDICT](https://github.com/skywind3000/ECDICT)，词根来自 [WithEnglishWeCan/generated-english-roots-list](https://github.com/WithEnglishWeCan/generated-english-roots-list)。巧记/口诀字段默认留空，由用户本地编辑。
+
+## 技术栈
+
+- Kotlin
+- Jetpack Compose + Material3
+- Room v2（新 schema，含 rootKey / derivatives / mnemonic / frq / pos / positionInBook 等字段）
+- DataStore Preferences
+- WorkManager
+- Android TextToSpeech
+
+## 目录结构
+
+- `app/` Android 应用模块
+- `app/src/main/assets/books/` 内置 CSV 词书（由 `tools/build_wordlists.py` 生成）
+- `app/src/main/assets/reference/roots.json` 1000+ 词根词缀及含义
+- `tools/` 词库构建脚本和它的使用说明
+- `docs/` 发布手册和架构笔记
+
+## 自定义词书导入
+
+### CSV（新 10 列格式）
+
+```csv
+term,phonetic,definition,translation,example,tags,rootKey,derivatives,frq,pos
+clarify,/ˈklærəfaɪ/,make easy to understand,澄清,Please clarify the goal.,cet4|core,clar,clarified|clarifies,1200,vt.
+```
+
+后四列可留空以兼容旧 6 列格式，不会报错。
+
+### TXT
+
+```text
+abandon :: 放弃 :: Never abandon your plan.
+benefit :: 益处 :: Daily practice brings benefit.
+```
+
+TAB 或 ` - ` 也作分隔符。空词条和重复单词自动过滤。
+
+### 去重规则
+
+导入时若已有同名词书（非 builtin），新文件中已存在的 term 会跳过，只追加新词并刷新总词数。要生成新词书，改导入文件标题或先把现有同名词书重命名。
+
+## 本地开发
+
+```bash
+./gradlew test
+./gradlew assembleDebug
+```
+
+Windows PowerShell：
+
+```powershell
+.\gradlew.bat test
+.\gradlew.bat assembleDebug
+```
+
+`local.properties` 的 `sdk.dir` 在 Windows 下建议正斜杠 + `\:` 冒号转义：
+
+```properties
+sdk.dir=C\:/Users/你的用户名/Desktop/study/Englishdemo/.android-sdk
+```
+
+## 词库再生成
+
+原始词典不入仓（体积 + license），按 [tools/README.md](tools/README.md) 说明下载 ECDICT 和 roots 源数据到 `tools/raw/`，然后：
+
+```bash
+python tools/build_wordlists.py
+```
+
+脚本会重建 `app/src/main/assets/books/*.csv` 和 `app/src/main/assets/reference/roots.json`。
+
+## 发布
+
+见 [docs/github-release-playbook.md](docs/github-release-playbook.md)，包含签名 release APK 的完整最小步骤。
+
+## 进度 / 变更日志
+
+### v0.2（2026-05-09）
+- 内置词库由 390 词扩到 14000 词
+- 新增词根聚簇排序、词根面板、同根词和派生词
+- Dashboard 从 7 日柱状图升级为 30 日热力图 + 连续徽章
+- 翻卡可编辑本地巧记
+- Room schema v1 → v2（首次升级清库重建）
+- 新增 `tools/build_wordlists.py` 词库构建脚本
+- 清理 JVM 崩溃残留、修 `local.properties` 转义、`.gitignore` 覆盖 `tools/raw/`
+
+### v0.1（2026-05-09）
+- 首版翻卡交互、词汇 Tab、7 日柱状图、词书删除与重命名、SRS 区间推进 bug 修复
+- 11 个单元测试，`assembleDebug` 成功
