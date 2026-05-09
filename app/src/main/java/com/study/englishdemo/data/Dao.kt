@@ -76,6 +76,18 @@ interface WordEntryDao {
         """,
     )
     suspend fun getBookRootSiblings(bookId: Long, rootKey: String, excludeId: Long, limit: Int): List<WordEntryEntity>
+
+    @Query(
+        """
+        SELECT * FROM word_entries
+        WHERE bookId = :bookId AND rootKey != ''
+        ORDER BY rootKey ASC, frq ASC, positionInBook ASC
+        """,
+    )
+    suspend fun getClusteredEntries(bookId: Long): List<WordEntryEntity>
+
+    @Query("SELECT COUNT(*) FROM word_entries WHERE bookId = :bookId AND rootKey != ''")
+    suspend fun countClusteredForBook(bookId: Long): Int
 }
 
 @Dao
@@ -140,6 +152,18 @@ interface WordProgressDao {
         """,
     )
     suspend fun countNewForBook(bookId: Long): Int
+
+    @Query("SELECT * FROM word_progress WHERE wordId IN (:ids)")
+    suspend fun getByWordIds(ids: List<Long>): List<WordProgressEntity>
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM word_progress AS wp
+        INNER JOIN word_entries AS we ON we.id = wp.wordId
+        WHERE we.bookId = :bookId AND wp.phase != 'NEW'
+        """,
+    )
+    suspend fun countLearnedForBook(bookId: Long): Int
 }
 
 @Dao

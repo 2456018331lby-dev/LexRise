@@ -4,9 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.study.englishdemo.AppContainer
+import com.study.englishdemo.data.BookRootSnapshot
 import com.study.englishdemo.data.DailyReviewCount
 import com.study.englishdemo.data.LearningSession
+import com.study.englishdemo.data.PaceRecommendation
 import com.study.englishdemo.data.ReviewRating
+import com.study.englishdemo.data.RootGroup
 import com.study.englishdemo.data.RootReference
 import com.study.englishdemo.data.SettingsState
 import com.study.englishdemo.data.StudyPhase
@@ -14,12 +17,13 @@ import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
 
 data class AppUiState(
     val loading: Boolean = true,
@@ -37,6 +41,15 @@ data class AppUiState(
     val vocabularyLoading: Boolean = false,
     val rootRefByKey: Map<String, RootReference> = emptyMap(),
     val siblingsByWordId: Map<Long, List<WordEntry>> = emptyMap(),
+    val anchorWordIds: Set<Long> = emptySet(),
+    val rootSnapshot: BookRootSnapshot = BookRootSnapshot(0, 0, 0, 0),
+    val pace: PaceRecommendation = PaceRecommendation(
+        target = 20, remainingWords = 0, remainingDays = null,
+        examDate = null, isAuto = false,
+    ),
+    val rootsQuery: String = "",
+    val rootGroups: List<RootGroup> = emptyList(),
+    val rootsLoading: Boolean = false,
 )
 
 class AppViewModel(private val container: AppContainer) : ViewModel() {
@@ -44,6 +57,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     val uiState: StateFlow<AppUiState> = _uiState.asStateFlow()
 
     private var vocabularySearchJob: Job? = null
+    private var rootsSearchJob: Job? = null
 
     init {
         refresh()
@@ -61,6 +75,9 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
             val session = container.repository.getLearningSession(selectedBookId)
             val settings = container.repository.getSettings()
             val recent = container.repository.recentReviewCounts(30)
+            val snapshot = container.repository.getBookRootSnapshot(selectedBookId)
+            val anchors = container.repository.getAnchorWordIds(selectedBookId)
+            val pace = container.repository.getPaceRecommendation(selectedBookId)
             _uiState.value = AppUiState(
                 loading = false,
                 books = books,
@@ -73,8 +90,13 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
                 recentReviewCounts = recent,
                 vocabularyQuery = _uiState.value.vocabularyQuery,
                 vocabularyPhaseFilter = _uiState.value.vocabularyPhaseFilter,
+                anchorWordIds = anchors,
+                rootSnapshot = snapshot,
+                pace = pace,
+                rootsQuery = _uiState.value.rootsQuery,
             )
             loadVocabulary()
+            loadRootGroups()
             hydrateRootsAndSiblings(session)
         }
     }
@@ -106,12 +128,17 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
             _uiState.value = _uiState.value.copy(message = "已记录 ${rating.name.lowercase()} 反馈")
             val selectedBookId = _uiState.value.selectedBookId ?: return@launch
             val session = container.repository.getLearningSession(selectedBookId)
+            val snapshot = container.repository.getBookRootSnapshot(selectedBookId)
+            val pace = container.repository.getPaceRecommendation(selectedBookId)
             _uiState.value = _uiState.value.copy(
                 session = session,
                 settings = container.repository.getSettings(),
                 recentReviewCounts = container.repository.recentReviewCounts(30),
+                rootSnapshot = snapshot,
+                pace = pace,
             )
             loadVocabulary()
+            loadRootGroups()
             hydrateRootsAndSiblings(session)
         }
     }
@@ -139,6 +166,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
             _uiState.value = _uiState.value.copy(
                 session = container.repository.getLearningSession(selectedBookId),
                 settings = container.repository.getSettings(),
+                pace = container.repository.getPaceRecommendation(selectedBookId),
             )
         }
     }
@@ -149,6 +177,20 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
             val settings = container.repository.getSettings()
             container.reminderScheduler.sync(settings)
             _uiState.value = _uiState.value.copy(settings = settings, message = "复习提醒已更新")
+        }
+    }
+
+    fun updateExamPlan(examDate: LocalDate?, autoPaceEnabled: Boolean) {
+        viewModelScope.launch {
+            container.repository.updateExamPlan(examDate, autoPaceEnabled)
+            val selectedBookId = _uiState.value.selectedBookId ?: return@launch
+            val session = container.repository.getLearningSession(selectedBookId)
+            _uiState.value = _uiState.value.copy(
+                settings = container.repository.getSettings(),
+                session = session,
+                pace = container.repository.getPaceRecommendation(selectedBookId),
+                message = if (examDate == null) "已清除考试日期" else "学习计划已更新",
+            )
         }
     }
 
@@ -193,6 +235,11 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         loadVocabulary()
     }
 
+    fun updateRootsQuery(query: String) {
+        _uiState.value = _uiState.value.copy(rootsQuery = query)
+        loadRootGroups()
+    }
+
     private fun loadVocabulary() {
         val bookId = _uiState.value.selectedBookId ?: return
         vocabularySearchJob?.cancel()
@@ -204,6 +251,24 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
             _uiState.value = _uiState.value.copy(
                 vocabularyResults = filtered,
                 vocabularyLoading = false,
+            )
+        }
+    }
+
+    private fun loadRootGroups() {
+        val bookId = _uiState.value.selectedBookId ?: return
+        rootsSearchJob?.cancel()
+        rootsSearchJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(rootsLoading = true)
+            val groups = container.repository.getRootGroups(
+                bookId = bookId,
+                loader = { container.rootReferenceLoader.lookup(it) },
+                query = _uiState.value.rootsQuery,
+                limit = 120,
+            )
+            _uiState.value = _uiState.value.copy(
+                rootGroups = groups,
+                rootsLoading = false,
             )
         }
     }

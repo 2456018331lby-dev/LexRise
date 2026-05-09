@@ -203,9 +203,41 @@ data class SettingsState(
     val reviewReminderEnabled: Boolean = true,
     val reminderHour: Int = 20,
     val reminderMinute: Int = 30,
+    val examDate: LocalDate? = null,
+    val autoPaceEnabled: Boolean = false,
 )
 
 data class DailyReviewCount(
     val date: LocalDate,
     val count: Int,
+)
+
+data class RootGroup(
+    val rootKey: String,
+    val meanings: List<String>,
+    val totalWords: Int,
+    val learnedWords: Int,
+    val members: List<WordEntry>,
+)
+
+data class BookRootSnapshot(
+    val totalRoots: Int,
+    val touchedRoots: Int,
+    val totalClustered: Int,
+    val learnedClustered: Int,
+)
+
+data class PaceRecommendation(
+    val target: Int,
+    val remainingWords: Int,
+    val remainingDays: Int?,
+    val examDate: LocalDate?,
+    val isAuto: Boolean,
+)
+
+enum class Morpheme { PREFIX, ROOT, SUFFIX, PLAIN }
+
+data class MorphemeSegment(
+    val text: String,
+    val kind: Morpheme,
 )

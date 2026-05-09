@@ -33,14 +33,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.EventAvailable
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.PsychologyAlt
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.AlertDialog
@@ -48,10 +51,14 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -65,6 +72,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -84,16 +92,21 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.study.englishdemo.data.DailyReviewCount
+import com.study.englishdemo.data.Morpheme
 import com.study.englishdemo.data.ReviewRating
+import com.study.englishdemo.data.RootGroup
 import com.study.englishdemo.data.StudyPhase
 import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
+import com.study.englishdemo.data.decomposeWord
 import com.study.englishdemo.ui.AppUiState
 import com.study.englishdemo.ui.AppViewModel
 import com.study.englishdemo.ui.AppViewModelFactory
 import com.study.englishdemo.ui.LexRiseTheme
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<AppViewModel> {
@@ -112,12 +125,14 @@ class MainActivity : ComponentActivity() {
                     onSpeak = viewModel::speakWord,
                     onDailyTargetChange = viewModel::updateDailyTarget,
                     onReminderSettingsSave = viewModel::updateReminderSettings,
+                    onExamPlanSave = viewModel::updateExamPlan,
                     onSelectBook = viewModel::selectBook,
                     onImportBook = viewModel::importBook,
                     onDeleteBook = viewModel::deleteBook,
                     onRenameBook = viewModel::renameBook,
                     onVocabularyQuery = viewModel::updateVocabularyQuery,
                     onVocabularyPhase = viewModel::updateVocabularyPhase,
+                    onRootsQuery = viewModel::updateRootsQuery,
                     onMnemonic = viewModel::updateMnemonic,
                 )
             }
@@ -125,7 +140,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class HomeTab { DASHBOARD, LEARN, REVIEW, VOCAB, SETTINGS }
+private enum class HomeTab { DASHBOARD, LEARN, REVIEW, ROOTS, VOCAB, SETTINGS }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -135,12 +150,14 @@ private fun LexRiseApp(
     onSpeak: (String) -> Unit,
     onDailyTargetChange: (Int) -> Unit,
     onReminderSettingsSave: (Boolean, Int, Int) -> Unit,
+    onExamPlanSave: (LocalDate?, Boolean) -> Unit,
     onSelectBook: (Long) -> Unit,
     onImportBook: (android.content.Context, android.net.Uri) -> Unit,
     onDeleteBook: (Long) -> Unit,
     onRenameBook: (Long, String) -> Unit,
     onVocabularyQuery: (String) -> Unit,
     onVocabularyPhase: (StudyPhase?) -> Unit,
+    onRootsQuery: (String) -> Unit,
     onMnemonic: (Long, String) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -205,6 +222,12 @@ private fun LexRiseApp(
                     label = { Text("复习") },
                 )
                 NavigationBarItem(
+                    selected = currentTab == HomeTab.ROOTS,
+                    onClick = { currentTab = HomeTab.ROOTS },
+                    icon = { Icon(Icons.Rounded.AccountTree, contentDescription = null) },
+                    label = { Text("词根") },
+                )
+                NavigationBarItem(
                     selected = currentTab == HomeTab.VOCAB,
                     onClick = { currentTab = HomeTab.VOCAB },
                     icon = { Icon(Icons.Rounded.Translate, contentDescription = null) },
@@ -239,10 +262,12 @@ private fun LexRiseApp(
                     HomeTab.DASHBOARD -> DashboardScreen(uiState, onSelectBook, onDeleteBook, onRenameBook)
                     HomeTab.LEARN -> LearnScreen(uiState, onRate, onSpeak, onMnemonic)
                     HomeTab.REVIEW -> ReviewScreen(uiState, onRate, onSpeak, onMnemonic)
+                    HomeTab.ROOTS -> RootsScreen(uiState, onSpeak, onRootsQuery)
                     HomeTab.VOCAB -> VocabularyScreen(uiState, onSpeak, onVocabularyQuery, onVocabularyPhase)
                     HomeTab.SETTINGS -> SettingsScreen(
                         uiState = uiState,
                         onDailyTargetChange = onDailyTargetChange,
+                        onExamPlanSave = onExamPlanSave,
                         onReminderSettingsSave = { enabled, hour, minute ->
                             onReminderSettingsSave(enabled, hour, minute)
                             if (
@@ -314,6 +339,12 @@ private fun DashboardScreen(
                 MetricCard("复习债务", "${session.overview.reviewDueCount}", Modifier.weight(1f))
                 MetricCard("完成率", "${(session.overview.completionRatio * 100).toInt()}%", Modifier.weight(1f))
             }
+        }
+        if (uiState.settings.examDate != null || uiState.pace.isAuto) {
+            item { ExamCountdownCard(uiState) }
+        }
+        if (uiState.rootSnapshot.totalRoots > 0) {
+            item { RootCoverageCard(uiState) }
         }
         item {
             SectionTitle("最近 30 日复习")
@@ -764,10 +795,12 @@ private fun PhaseTag(phase: StudyPhase?) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsScreen(
     uiState: AppUiState,
     onDailyTargetChange: (Int) -> Unit,
+    onExamPlanSave: (LocalDate?, Boolean) -> Unit,
     onReminderSettingsSave: (Boolean, Int, Int) -> Unit,
 ) {
     var sliderValue by remember(uiState.settings.dailyNewWordTarget) {
@@ -798,9 +831,16 @@ private fun SettingsScreen(
             }
         }
         item {
+            ExamPlanCard(
+                settings = uiState.settings,
+                pace = uiState.pace,
+                onSave = onExamPlanSave,
+            )
+        }
+        item {
             Card(shape = RoundedCornerShape(24.dp)) {
                 Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("每日新词目标", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("手动基线（每日新词）", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text("${sliderValue.toInt()} 个", style = MaterialTheme.typography.headlineMedium)
                     Slider(
                         value = sliderValue,
@@ -808,8 +848,15 @@ private fun SettingsScreen(
                         valueRange = 5f..40f,
                         steps = 6,
                     )
+                    if (uiState.settings.autoPaceEnabled && uiState.pace.isAuto) {
+                        Text(
+                            "自动配速开启，实际使用 ${uiState.pace.target} 个/天。关闭后回到此基线。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                        )
+                    }
                     Button(onClick = { onDailyTargetChange(sliderValue.toInt()) }) {
-                        Text("保存计划")
+                        Text("保存基线")
                     }
                 }
             }
@@ -904,6 +951,7 @@ private fun WordQueueScreen(
                     word = word,
                     rootRef = uiState.rootRefByKey[word.rootKey],
                     siblings = uiState.siblingsByWordId[word.id].orEmpty(),
+                    isAnchor = word.id in uiState.anchorWordIds,
                     onRate = onRate,
                     onSpeak = onSpeak,
                     onMnemonic = onMnemonic,
@@ -918,6 +966,7 @@ private fun FlipWordCard(
     word: WordEntry,
     rootRef: com.study.englishdemo.data.RootReference?,
     siblings: List<WordEntry>,
+    isAnchor: Boolean,
     onRate: (Long, ReviewRating) -> Unit,
     onSpeak: (String) -> Unit,
     onMnemonic: (Long, String) -> Unit,
@@ -945,11 +994,15 @@ private fun FlipWordCard(
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (isAnchor) AnchorBadge()
                     PhaseTag(word.progress?.phase)
                     IconButton(onClick = { onSpeak(word.term) }) {
                         Icon(Icons.Rounded.GraphicEq, contentDescription = "播放发音")
                     }
                 }
+            }
+            if (word.rootKey.isNotBlank()) {
+                MorphemeRow(term = word.term, rootKey = word.rootKey)
             }
             AnimatedVisibility(visible = revealed) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1006,10 +1059,7 @@ private fun FlipWordCard(
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             siblings.take(4).forEach { sib ->
-                                AssistChip(
-                                    onClick = { onSpeak(sib.term) },
-                                    label = { Text("${sib.term} · ${sib.translation.take(6)}") },
-                                )
+                                SiblingChip(sib = sib, onSpeak = onSpeak)
                             }
                         }
                     }
@@ -1123,3 +1173,421 @@ private fun EmptyStateCard(text: String) {
         }
     }
 }
+
+@Composable
+private fun AnchorBadge() {
+    Row(
+        modifier = Modifier
+            .background(
+                MaterialTheme.colorScheme.tertiaryContainer,
+                RoundedCornerShape(10.dp),
+            )
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(
+            Icons.Rounded.Star,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+            modifier = Modifier.size(12.dp),
+        )
+        Text(
+            "地基词",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onTertiaryContainer,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun MorphemeRow(term: String, rootKey: String) {
+    val segments = remember(term, rootKey) { decomposeWord(term, rootKey) }
+    if (segments.size <= 1) return
+    val prefixBg = MaterialTheme.colorScheme.secondaryContainer
+    val prefixFg = MaterialTheme.colorScheme.onSecondaryContainer
+    val rootBg = MaterialTheme.colorScheme.primaryContainer
+    val rootFg = MaterialTheme.colorScheme.onPrimaryContainer
+    val suffixBg = MaterialTheme.colorScheme.tertiaryContainer
+    val suffixFg = MaterialTheme.colorScheme.onTertiaryContainer
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        segments.forEach { seg ->
+            val (bg, fg, label) = when (seg.kind) {
+                Morpheme.PREFIX -> Triple(prefixBg, prefixFg, "前缀")
+                Morpheme.ROOT -> Triple(rootBg, rootFg, "词根")
+                Morpheme.SUFFIX -> Triple(suffixBg, suffixFg, "后缀")
+                Morpheme.PLAIN -> return@forEach
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .background(bg, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                ) {
+                    Text(
+                        seg.text,
+                        color = fg,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
+                Text(
+                    label,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SiblingChip(sib: WordEntry, onSpeak: (String) -> Unit) {
+    val phase = sib.progress?.phase
+    val (dotColor, _) = when (phase) {
+        StudyPhase.MASTERED -> Color(0xFF6E8B3D) to "掌握"
+        StudyPhase.REVIEW -> MaterialTheme.colorScheme.primary to "复习"
+        StudyPhase.LEARNING -> MaterialTheme.colorScheme.secondary to "学习中"
+        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f) to "新词"
+    }
+    AssistChip(
+        onClick = { onSpeak(sib.term) },
+        label = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(dotColor, RoundedCornerShape(4.dp)),
+                )
+                Text("${sib.term} · ${sib.translation.take(6)}")
+            }
+        },
+    )
+}
+
+@Composable
+private fun ExamCountdownCard(uiState: AppUiState) {
+    val examDate = uiState.settings.examDate ?: return
+    val today = LocalDate.now()
+    val daysLeft = ChronoUnit.DAYS.between(today, examDate).toInt()
+    val formatter = remember { DateTimeFormatter.ofPattern("yyyy-M-d") }
+    val gradientStart = MaterialTheme.colorScheme.primary
+    val gradientEnd = MaterialTheme.colorScheme.tertiary
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Brush.linearGradient(listOf(gradientStart, gradientEnd)))
+                .padding(22.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        Icons.Rounded.EventAvailable,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                    )
+                    Text(
+                        "考试倒计时",
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Text(
+                    when {
+                        daysLeft < 0 -> "已过考试日期 ${-daysLeft} 天"
+                        daysLeft == 0 -> "就是今天，冲刺一把"
+                        else -> "还有 $daysLeft 天"
+                    },
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "考试日：${examDate.format(formatter)}" +
+                        if (uiState.pace.isAuto) "，自动配速 ${uiState.pace.target} 词/天" else "",
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RootCoverageCard(uiState: AppUiState) {
+    val snap = uiState.rootSnapshot
+    val rootRatio = if (snap.totalRoots == 0) 0f else snap.touchedRoots.toFloat() / snap.totalRoots
+    val wordRatio = if (snap.totalClustered == 0) 0f else snap.learnedClustered.toFloat() / snap.totalClustered
+    val animatedRoot by animateFloatAsState(rootRatio, tween(500), label = "rootRatio")
+    Card(shape = RoundedCornerShape(24.dp)) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    Icons.Rounded.AccountTree,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text("词根覆盖", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(72.dp)) {
+                    CircularProgressIndicator(
+                        progress = { 1f },
+                        modifier = Modifier.size(72.dp),
+                        strokeWidth = 8.dp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        trackColor = Color.Transparent,
+                    )
+                    CircularProgressIndicator(
+                        progress = { animatedRoot },
+                        modifier = Modifier.size(72.dp),
+                        strokeWidth = 8.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = Color.Transparent,
+                    )
+                    Text(
+                        "${(rootRatio * 100).toInt()}%",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
+                    Text(
+                        "已接触 ${snap.touchedRoots} / ${snap.totalRoots} 个词根",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        "聚簇词掌握 ${snap.learnedClustered} / ${snap.totalClustered}（${(wordRatio * 100).toInt()}%）",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
+                    )
+                    Text(
+                        "学词根就是学一大把同源词，打开『词根』Tab 看全景",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExamPlanCard(
+    settings: com.study.englishdemo.data.SettingsState,
+    pace: com.study.englishdemo.data.PaceRecommendation,
+    onSave: (LocalDate?, Boolean) -> Unit,
+) {
+    var pickerOpen by remember { mutableStateOf(false) }
+    var autoOn by remember(settings.autoPaceEnabled) { mutableStateOf(settings.autoPaceEnabled) }
+    val formatter = remember { DateTimeFormatter.ofPattern("yyyy-M-d") }
+    Card(shape = RoundedCornerShape(24.dp)) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("考试计划", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Switch(
+                    checked = autoOn,
+                    onCheckedChange = {
+                        autoOn = it
+                        onSave(settings.examDate, it)
+                    },
+                )
+            }
+            Text(
+                if (settings.examDate != null) {
+                    val left = ChronoUnit.DAYS.between(LocalDate.now(), settings.examDate).toInt()
+                    "考试日：${settings.examDate.format(formatter)}（还有 $left 天）"
+                } else {
+                    "未设置考试日期"
+                },
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+            )
+            if (autoOn && pace.isAuto) {
+                Text(
+                    "自动配速：根据剩余 ${pace.remainingWords} 词 + 剩余 ${pace.remainingDays} 天，推荐 ${pace.target} 词/天（含 20% 缓冲）",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            } else {
+                Text(
+                    "开启后按考试日期自动计算每日新词量；关闭则使用下方手动基线。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { pickerOpen = true }) {
+                    Text(if (settings.examDate == null) "设置考试日期" else "修改日期")
+                }
+                if (settings.examDate != null) {
+                    TextButton(onClick = { onSave(null, autoOn) }) { Text("清除日期") }
+                }
+            }
+        }
+    }
+    if (pickerOpen) {
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = settings.examDate
+                ?.atStartOfDay(java.time.ZoneId.systemDefault())
+                ?.toInstant()
+                ?.toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { pickerOpen = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val millis = state.selectedDateMillis
+                    if (millis != null) {
+                        val date = java.time.Instant.ofEpochMilli(millis)
+                            .atZone(java.time.ZoneOffset.UTC)
+                            .toLocalDate()
+                        onSave(date, autoOn)
+                    }
+                    pickerOpen = false
+                }) { Text("保存") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pickerOpen = false }) { Text("取消") }
+            },
+        ) {
+            DatePicker(state = state)
+        }
+    }
+}
+
+@Composable
+private fun RootsScreen(
+    uiState: AppUiState,
+    onSpeak: (String) -> Unit,
+    onQuery: (String) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            SectionTitle(
+                "词根图谱",
+                "「${uiState.selectedBookTitle}」的 ${uiState.rootSnapshot.totalRoots} 个词根。按词根成员数倒序，搜词根、含义或例词都能命中。",
+            )
+        }
+        item {
+            OutlinedTextField(
+                value = uiState.rootsQuery,
+                onValueChange = onQuery,
+                modifier = Modifier.fillMaxWidth(),
+                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                singleLine = true,
+                label = { Text("搜索词根（如 spec / 看见）") },
+            )
+        }
+        if (uiState.rootsLoading && uiState.rootGroups.isEmpty()) {
+            item { EmptyStateCard("正在整理词根…") }
+        } else if (uiState.rootGroups.isEmpty()) {
+            item { EmptyStateCard("没有匹配的词根，换个关键词试试。") }
+        } else {
+            items(uiState.rootGroups, key = { it.rootKey }) { group ->
+                RootGroupCard(group = group, onSpeak = onSpeak)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RootGroupCard(group: RootGroup, onSpeak: (String) -> Unit) {
+    var expanded by remember(group.rootKey) { mutableStateOf(false) }
+    val ratio = if (group.totalWords == 0) 0f else group.learnedWords.toFloat() / group.totalWords
+    val animatedRatio by animateFloatAsState(ratio, tween(360), label = "rootGroupRatio")
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded },
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+                    Text(
+                        group.rootKey,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    if (group.meanings.isNotEmpty()) {
+                        Text(
+                            group.meanings.joinToString("；"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                        )
+                    }
+                }
+                Text(
+                    "${group.learnedWords}/${group.totalWords}",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            LinearProgressIndicator(
+                progress = { animatedRatio },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+            )
+            val preview = if (expanded) group.members else group.members.take(6)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f)) {
+                    preview.chunked(2).forEach { rowWords ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            rowWords.forEach { w ->
+                                SiblingChip(sib = w, onSpeak = onSpeak)
+                            }
+                        }
+                    }
+                }
+            }
+            if (group.members.size > 6) {
+                TextButton(onClick = { expanded = !expanded }) {
+                    Text(if (expanded) "收起" else "展开全部 ${group.members.size} 个词")
+                }
+            }
+        }
+    }
+}
+
+
+
+
+

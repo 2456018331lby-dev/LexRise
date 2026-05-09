@@ -128,6 +128,124 @@ class StudyRepositoryTest {
         assertThat(siblings).hasSize(1)
         assertThat(siblings.first().term).isEqualTo("statement")
     }
+
+    @Test
+    fun getRootGroups_groupsBookEntriesByRootAndCountsLearned() = runBlocking {
+        val wordBookDao = FakeWordBookDao()
+        val wordEntryDao = FakeWordEntryDao()
+        val progressDao = FakeWordProgressDao()
+        val reviewLogDao = FakeReviewLogDao()
+        val preview = ImportPreview(
+            title = "roots_demo",
+            description = "",
+            source = "imported",
+            examTag = "cet4",
+            words = listOf(
+                ImportedWord(term = "state", phonetic = "", definition = "", translation = "陈述", example = "", tags = listOf("cet4"), rootKey = "stat", frq = 100),
+                ImportedWord(term = "statement", phonetic = "", definition = "", translation = "声明", example = "", tags = listOf("cet4"), rootKey = "stat", frq = 500),
+                ImportedWord(term = "include", phonetic = "", definition = "", translation = "包括", example = "", tags = listOf("cet4"), rootKey = "clud", frq = 200),
+                ImportedWord(term = "floor", phonetic = "", definition = "", translation = "地板", example = "", tags = listOf("cet4"), rootKey = "", frq = 50),
+            ),
+        )
+        val repo = StudyRepository(
+            wordBookDao = wordBookDao,
+            wordEntryDao = wordEntryDao,
+            progressDao = progressDao,
+            reviewLogDao = reviewLogDao,
+            preferencesRepository = FakePreferences(),
+            importer = FakeImporter(preview),
+            scheduler = SpacedRepetitionScheduler(clock),
+            clock = clock,
+        )
+        val book = repo.importBook("roots_demo.csv", ByteArrayInputStream("".toByteArray()))
+        val state = wordEntryDao.getEntriesForBook(book.bookId).first { it.term == "state" }
+        // mark 'state' as learned
+        progressDao.mutate(state.id) { it.copy(phase = StudyPhase.LEARNING) }
+
+        val groups = repo.getRootGroups(book.bookId, loader = {
+            if (it == "stat") RootReference("stat", listOf("stand, stay"), listOf("status")) else null
+        })
+
+        val stat = groups.first { it.rootKey == "stat" }
+        assertThat(stat.totalWords).isEqualTo(2)
+        assertThat(stat.learnedWords).isEqualTo(1)
+        assertThat(stat.meanings).containsExactly("stand, stay")
+        assertThat(groups.map { it.rootKey }).containsExactly("stat", "clud").inOrder()
+    }
+
+    @Test
+    fun getAnchorWordIds_picksLowestFrqPerRoot() = runBlocking {
+        val wordBookDao = FakeWordBookDao()
+        val wordEntryDao = FakeWordEntryDao()
+        val progressDao = FakeWordProgressDao()
+        val reviewLogDao = FakeReviewLogDao()
+        val preview = ImportPreview(
+            title = "anchors",
+            description = "",
+            source = "imported",
+            examTag = "cet4",
+            words = listOf(
+                ImportedWord(term = "state", phonetic = "", definition = "", translation = "陈述", example = "", tags = listOf("cet4"), rootKey = "stat", frq = 100),
+                ImportedWord(term = "statement", phonetic = "", definition = "", translation = "声明", example = "", tags = listOf("cet4"), rootKey = "stat", frq = 500),
+                ImportedWord(term = "include", phonetic = "", definition = "", translation = "包括", example = "", tags = listOf("cet4"), rootKey = "clud", frq = 200),
+                ImportedWord(term = "exclude", phonetic = "", definition = "", translation = "排除", example = "", tags = listOf("cet4"), rootKey = "clud", frq = 700),
+            ),
+        )
+        val repo = StudyRepository(
+            wordBookDao = wordBookDao,
+            wordEntryDao = wordEntryDao,
+            progressDao = progressDao,
+            reviewLogDao = reviewLogDao,
+            preferencesRepository = FakePreferences(),
+            importer = FakeImporter(preview),
+            scheduler = SpacedRepetitionScheduler(clock),
+            clock = clock,
+        )
+        val book = repo.importBook("anchors.csv", ByteArrayInputStream("".toByteArray()))
+        val state = wordEntryDao.getEntriesForBook(book.bookId).first { it.term == "state" }
+        val include = wordEntryDao.getEntriesForBook(book.bookId).first { it.term == "include" }
+
+        val anchors = repo.getAnchorWordIds(book.bookId)
+
+        assertThat(anchors).isEqualTo(setOf(state.id, include.id))
+    }
+
+    @Test
+    fun getPaceRecommendation_honorsAutoPaceWithBuffer() = runBlocking {
+        val wordBookDao = FakeWordBookDao()
+        val wordEntryDao = FakeWordEntryDao()
+        val progressDao = FakeWordProgressDao()
+        val reviewLogDao = FakeReviewLogDao()
+        val preferences = FakePreferences()
+        val preview = ImportPreview(
+            title = "pace",
+            description = "",
+            source = "imported",
+            examTag = "cet4",
+            words = (1..100).map { i ->
+                ImportedWord(term = "w$i", phonetic = "", definition = "", translation = "t$i", example = "", tags = emptyList())
+            },
+        )
+        val repo = StudyRepository(
+            wordBookDao = wordBookDao,
+            wordEntryDao = wordEntryDao,
+            progressDao = progressDao,
+            reviewLogDao = reviewLogDao,
+            preferencesRepository = preferences,
+            importer = FakeImporter(preview),
+            scheduler = SpacedRepetitionScheduler(clock),
+            clock = clock,
+        )
+        val book = repo.importBook("pace.csv", ByteArrayInputStream("".toByteArray()))
+        // 100 new words, 20 days to exam (2026-05-29 from 2026-05-09) -> 5/day raw, 6/day with buffer
+        preferences.updateExamPlan(java.time.LocalDate.parse("2026-05-29"), autoPaceEnabled = true)
+
+        val pace = repo.getPaceRecommendation(book.bookId)
+
+        assertThat(pace.isAuto).isTrue()
+        assertThat(pace.remainingDays).isEqualTo(20)
+        assertThat(pace.target).isEqualTo(6)
+    }
 }
 
 private class FakeWordBookDao : WordBookDao {
@@ -182,6 +300,11 @@ private class FakeWordEntryDao : WordEntryDao {
         items.filter { it.bookId == bookId }
     override suspend fun getBookRootSiblings(bookId: Long, rootKey: String, excludeId: Long, limit: Int) =
         items.filter { it.bookId == bookId && it.rootKey == rootKey && it.id != excludeId }.take(limit)
+    override suspend fun getClusteredEntries(bookId: Long) =
+        items.filter { it.bookId == bookId && it.rootKey.isNotBlank() }
+            .sortedWith(compareBy({ it.rootKey }, { it.frq }, { it.positionInBook }))
+    override suspend fun countClusteredForBook(bookId: Long) =
+        items.count { it.bookId == bookId && it.rootKey.isNotBlank() }
 }
 
 private class FakeWordProgressDao : WordProgressDao {
@@ -206,6 +329,12 @@ private class FakeWordProgressDao : WordProgressDao {
     override suspend fun countDueForBook(bookId: Long, now: Instant) = 0
     override suspend fun countNew() = items.count { it.phase == StudyPhase.NEW }
     override suspend fun countNewForBook(bookId: Long) = items.count { it.phase == StudyPhase.NEW }
+    override suspend fun getByWordIds(ids: List<Long>) = items.filter { it.wordId in ids }
+    override suspend fun countLearnedForBook(bookId: Long) = items.count { it.phase != StudyPhase.NEW }
+    fun mutate(wordId: Long, transform: (WordProgressEntity) -> WordProgressEntity) {
+        val idx = items.indexOfFirst { it.wordId == wordId }
+        if (idx >= 0) items[idx] = transform(items[idx])
+    }
 }
 
 private class FakeReviewLogDao : ReviewLogDao {
@@ -228,6 +357,12 @@ private class FakePreferences : UserPreferencesProvider {
             reviewReminderEnabled = enabled,
             reminderHour = hour,
             reminderMinute = minute,
+        )
+    }
+    override suspend fun updateExamPlan(examDate: java.time.LocalDate?, autoPaceEnabled: Boolean) {
+        state.value = state.value.copy(
+            examDate = examDate,
+            autoPaceEnabled = autoPaceEnabled,
         )
     }
 }

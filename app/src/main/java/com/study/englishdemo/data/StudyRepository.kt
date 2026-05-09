@@ -193,23 +193,30 @@ class StudyRepository(
         val studiedToday = reviewLogDao.countReviewedBetween(start, end)
         val reviewDueCount = progressDao.countDueForBook(bookId, now)
         val newCount = progressDao.countNewForBook(bookId)
+        val paceTarget = computePaceRecommendation(
+            remainingWords = newCount,
+            examDate = settings.examDate,
+            today = today,
+            baseline = settings.dailyNewWordTarget,
+            autoEnabled = settings.autoPaceEnabled,
+        ).target
         val overview = DailyOverview(
             today = today,
-            newWordTarget = settings.dailyNewWordTarget,
-            newWordsRemaining = newCount.coerceAtMost(settings.dailyNewWordTarget),
+            newWordTarget = paceTarget,
+            newWordsRemaining = newCount.coerceAtMost(paceTarget),
             reviewDueCount = reviewDueCount,
             streakDays = computeStreakDays(),
             studiedToday = studiedToday,
-            completionRatio = if (settings.dailyNewWordTarget + reviewDueCount == 0) {
+            completionRatio = if (paceTarget + reviewDueCount == 0) {
                 0f
             } else {
-                studiedToday.toFloat() / (settings.dailyNewWordTarget + reviewDueCount).toFloat()
+                studiedToday.toFloat() / (paceTarget + reviewDueCount).toFloat()
             }.coerceIn(0f, 1f),
         )
 
         val dueWords = hydrate(progressDao.getDueForBook(bookId, now, 12))
         val newWords = hydrate(
-            progressDao.getFreshForBook(bookId, settings.dailyNewWordTarget.coerceAtMost(12)),
+            progressDao.getFreshForBook(bookId, paceTarget.coerceAtMost(12)),
         )
 
         return LearningSession(
@@ -217,6 +224,22 @@ class StudyRepository(
             dueReviewWords = dueWords,
             recommendedNewWords = newWords,
         )
+    }
+
+    suspend fun getPaceRecommendation(bookId: Long): PaceRecommendation {
+        val settings = preferencesRepository.settings.first()
+        val remaining = progressDao.countNewForBook(bookId)
+        return computePaceRecommendation(
+            remainingWords = remaining,
+            examDate = settings.examDate,
+            today = LocalDate.now(clock),
+            baseline = settings.dailyNewWordTarget,
+            autoEnabled = settings.autoPaceEnabled,
+        )
+    }
+
+    suspend fun updateExamPlan(examDate: LocalDate?, autoPaceEnabled: Boolean) {
+        preferencesRepository.updateExamPlan(examDate, autoPaceEnabled)
     }
 
     suspend fun reviewWord(wordId: Long, rating: ReviewRating) {
@@ -286,6 +309,104 @@ class StudyRepository(
             }
             sibling.toDomain(progress)
         }
+    }
+
+    suspend fun getRootGroups(
+        bookId: Long,
+        loader: suspend (String) -> RootReference?,
+        query: String = "",
+        limit: Int = 200,
+    ): List<RootGroup> {
+        val clustered = wordEntryDao.getClusteredEntries(bookId)
+        if (clustered.isEmpty()) return emptyList()
+        val byRoot = clustered.groupBy { it.rootKey }
+        val progressMap = progressDao
+            .getByWordIds(clustered.map { it.id })
+            .associateBy { it.wordId }
+        val normalizedQuery = query.trim().lowercase()
+        val result = mutableListOf<RootGroup>()
+        for ((rootKey, entries) in byRoot) {
+            val ref = loader(rootKey)
+            if (normalizedQuery.isNotEmpty()) {
+                val hit = rootKey.lowercase().contains(normalizedQuery) ||
+                    (ref?.meanings?.any { it.lowercase().contains(normalizedQuery) } == true) ||
+                    entries.any { it.term.lowercase().contains(normalizedQuery) }
+                if (!hit) continue
+            }
+            val members = entries.map { entry ->
+                val p = progressMap[entry.id]?.let {
+                    WordProgress(
+                        phase = it.phase,
+                        familiarity = it.familiarity,
+                        streak = it.streak,
+                        lapses = it.lapses,
+                        easeFactor = it.easeFactor,
+                        intervalDays = it.intervalDays,
+                        lastReviewedAt = it.lastReviewedAt,
+                        nextReviewAt = it.nextReviewAt,
+                    )
+                }
+                entry.toDomain(p)
+            }
+            val learned = members.count {
+                val phase = it.progress?.phase
+                phase != null && phase != StudyPhase.NEW
+            }
+            result += RootGroup(
+                rootKey = rootKey,
+                meanings = ref?.meanings.orEmpty(),
+                totalWords = members.size,
+                learnedWords = learned,
+                members = members,
+            )
+        }
+        return result
+            .sortedWith(
+                compareByDescending<RootGroup> { it.totalWords }
+                    .thenBy { it.rootKey },
+            )
+            .take(limit)
+    }
+
+    suspend fun getBookRootSnapshot(bookId: Long): BookRootSnapshot {
+        val clustered = wordEntryDao.getClusteredEntries(bookId)
+        if (clustered.isEmpty()) {
+            return BookRootSnapshot(0, 0, 0, 0)
+        }
+        val progressMap = progressDao
+            .getByWordIds(clustered.map { it.id })
+            .associateBy { it.wordId }
+        val rootsAll = clustered.map { it.rootKey }.toSet()
+        val rootsTouched = clustered
+            .filter { (progressMap[it.id]?.phase ?: StudyPhase.NEW) != StudyPhase.NEW }
+            .map { it.rootKey }
+            .toSet()
+        val learnedClustered = clustered.count {
+            (progressMap[it.id]?.phase ?: StudyPhase.NEW) != StudyPhase.NEW
+        }
+        return BookRootSnapshot(
+            totalRoots = rootsAll.size,
+            touchedRoots = rootsTouched.size,
+            totalClustered = clustered.size,
+            learnedClustered = learnedClustered,
+        )
+    }
+
+    /**
+     * Returns the set of word ids that are the "anchor" (lowest-frq clustered
+     * member) inside their rootKey bucket for the given book. These are
+     * surfaced in UI as 地基词 badges.
+     */
+    suspend fun getAnchorWordIds(bookId: Long): Set<Long> {
+        val clustered = wordEntryDao.getClusteredEntries(bookId)
+        if (clustered.isEmpty()) return emptySet()
+        return clustered
+            .groupBy { it.rootKey }
+            .values
+            .mapNotNull { group ->
+                group.minByOrNull { it.frq.takeIf { v -> v > 0 } ?: Int.MAX_VALUE }?.id
+            }
+            .toSet()
     }
 
     suspend fun deleteBook(bookId: Long) {
