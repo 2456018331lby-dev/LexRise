@@ -3,19 +3,19 @@
 这份文档专门给下一个 AI（或人）接手这个项目时读。
 README 面向用户，这份面向开发者/AI——信息密度优先，直接给"当前到哪了、地雷在哪、下一步候选是什么"。
 
-**最近一次更新**：2026-05-09（v0.3 完工后）
+**最近一次更新**：2026-05-09（v0.4 完工后）
 
 ---
 
 ## 1. 项目一句话描述
 
-`c:/Users/24560/Desktop/study/Englishdemo` 是一个本地离线的 Android 背单词 App（Kotlin + Compose + Material3 dynamicColor + Room v2 + WorkManager），面向 CET4/CET6/考研。当前能跑、23 个单测全绿、APK 67 MB 可装。
+`c:/Users/24560/Desktop/study/Englishdemo` 是一个本地离线的 Android 背单词 App（Kotlin + Compose + Material3 dynamicColor + Room v2 + WorkManager），面向 CET4/CET6/考研。当前能跑、30 个单测全绿、APK 67 MB 可装。
 
-**本项目现在有自己的 git 仓库**（v0.3 起）：在 `Englishdemo/.git/`，分支 `main`。家目录 `C:/Users/24560/` 仍然是一个单独的 git 仓库，但两者独立；在 Englishdemo 里跑 `git` 命令只影响项目仓库。
+**独立 git 仓库**（v0.3 起）：`Englishdemo/.git/`，分支 `main`，家目录级别仓库被完全隔离。
 
 ---
 
-## 2. 当前版本：v0.3（已完成）
+## 2. 当前版本：v0.4（已完成）
 
 **词库规模**（全部来自合法开源源头，首启自动导入）：
 
@@ -27,18 +27,22 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 
 **学习核心**：
 
-- 词按 **rootKey 聚簇 + 簇内 frq 升序** 出现（不是字母序）。约 21–25% 的词能聚簇，其余按 frq 排
-- 翻卡：默认盖住释义，点击才翻；**始终显示拆词分段**（前缀/词根/后缀三色），翻出后显示词根定义 + 同根兄弟词（带阶段色点）+ 派生词 + 用户编辑的巧记
-- **簇首词**（同根中 frq 最低的那个）顶上有『地基词』徽章——鼓励用户先背地基再展开
-- **词根 Tab**：按根聚合整本词书，每根一个进度环、成员词 chip 列表（带阶段色点）
-- Dashboard：考试倒计时卡 + 词根覆盖卡 + 30 日热力图 + 连续打卡徽章（3/7/30/100 天阶梯）
-- **考试日期 + 自动配速**：设置考试日期后开启自动配速，按剩余词量 / 剩余天数 + 20% 缓冲算每日目标（5~40 词/天内 clamp）
-- SRS：AGAIN/HARD/GOOD/EASY 四档，任何评分都严格推进 interval
+- 词按 **rootKey 聚簇 + 簇内 frq 升序** 出现。约 21–25% 的词能聚簇
+- **复习模式（v0.4 新）**：翻卡 / 选择题 / 拼写 / 听写 四种统一走 SRS
+  - 翻卡：默认盖住释义，点击才翻；**拆词条和词根意思常驻显示**（v0.4 bug fix，不再要翻卡二次揭示）
+  - 选择题：`buildQuizQuestion` 从同根词优先抽干扰项；答对 → GOOD，答错 → AGAIN
+  - 拼写/听写：Levenshtein 距离 `normalizedEditDistance` → `ratingFromEditDistance` 四档映射（0 → EASY，≤0.15 → GOOD，≤0.35 → HARD，余 → AGAIN）
+- **难词专攻 Tab**（v0.4 新）：`getToughWords` 聚合 `review_logs` 中 `rating=AGAIN` 计数 top N；支持原地"会了/不会"快速评分
+- **簇首词**（同根中 frq 最低的那个）顶上『地基词』徽章
+- **词根 Tab**：按根聚合整本词书，每根一个进度环
+- Dashboard：考试倒计时卡 + 词根覆盖卡 + 30 日热力图 + 连续打卡徽章
+- **考试日期 + 自动配速**：按剩余词量 / 剩余天数 + 20% 缓冲算每日目标
+- SRS：AGAIN/HARD/GOOD/EASY 四档
 
 **已做的测试 / 构建验证**：
 
-- `./gradlew.bat :app:testDebugUnitTest` — **23 个 test 全绿**（v0.2 为 12 个）
-- `./gradlew.bat :app:assembleDebug` — 成功，APK 在 `app/build/outputs/apk/debug/app-debug.apk` ≈ 67 MB
+- `./gradlew.bat :app:testDebugUnitTest` — **30 个 test 全绿**（v0.3 为 23 个）
+- `./gradlew.bat :app:assembleDebug` — 成功，APK 67 MB
 
 ---
 
@@ -48,28 +52,27 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 
 | 文件 | 职责 |
 |------|------|
-| `Models.kt` | Room 实体 + 领域模型（`WordEntryEntity` / `WordEntry` / `RootReference`）；v0.3 增：`SettingsState.examDate / autoPaceEnabled`、`RootGroup`、`BookRootSnapshot`、`PaceRecommendation`、`MorphemeSegment` |
-| `Dao.kt` | `WordBookDao / WordEntryDao / WordProgressDao / ReviewLogDao`；v0.3 增：`getClusteredEntries / countClusteredForBook / getByWordIds / countLearnedForBook` |
+| `Models.kt` | Room 实体 + 领域模型。v0.4 增：`PracticeMode`、`QuizQuestion`、`ToughWord`；v0.3 增：`SettingsState.examDate / autoPaceEnabled`、`RootGroup`、`BookRootSnapshot`、`PaceRecommendation`、`MorphemeSegment` |
+| `Dao.kt` | 四个 DAO。v0.4 增：`getDistractorPool`（词根优先 + RANDOM 兜底）、`getToughWordsForBook`（AGAIN 次数聚合）、`ToughWordRow` 投影；v0.3 增：`getClusteredEntries / countClusteredForBook / getByWordIds / countLearnedForBook` |
 | `AppDatabase.kt` | Room DB，version=2，`fallbackToDestructiveMigration()` |
 | `SpacedRepetitionScheduler.kt` | SRS 算法（纯函数，已测） |
-| `MorphologyHelpers.kt` | v0.3 新增：`decomposeWord`（拆前缀/词根/后缀）+ `computePaceRecommendation`（配速计算），纯函数，8 个单测 |
-| `StudyRepository.kt` | 业务层；v0.3 增：`getRootGroups / getBookRootSnapshot / getAnchorWordIds / getPaceRecommendation / updateExamPlan` |
+| `MorphologyHelpers.kt` | 纯函数。v0.4 增：`buildQuizOptions`（干扰项生成）、`normalizedEditDistance`（Levenshtein / 长度）、`ratingFromEditDistance`（距离 → 四档）；v0.3 有：`decomposeWord`、`computePaceRecommendation` |
+| `StudyRepository.kt` | 业务层。v0.4 增：`buildQuizQuestion(wordId, bookId)`、`getToughWords(bookId, limit)`；v0.3 增：`getRootGroups / getBookRootSnapshot / getAnchorWordIds / getPaceRecommendation / updateExamPlan` |
 | `WordBookParser.kt` / `WordBookImporter.kt` | CSV/TXT 解析；新 10 列 + 旧 6 列兼容 |
-| `UserPreferencesRepository.kt` | DataStore 设置；v0.3 增：`examDate`（ISO string）、`autoPaceEnabled` |
+| `UserPreferencesRepository.kt` | DataStore 设置 |
 | `RootReferenceLoader.kt` | 懒加载 `assets/reference/roots.json`，带 `Mutex` |
 
 ### 3.2 UI 层 `app/src/main/java/com/study/englishdemo/`
 
 | 文件 | 职责 |
 |------|------|
-| `MainActivity.kt` | 所有 Compose 页面：Dashboard/Learn/Review/**Roots**/Vocab/Settings + `FlipWordCard`（含 `MorphemeRow` 拆词、`AnchorBadge` 地基词）/ `ReviewHeatmap` / `StreakBadge` / `ExamCountdownCard` / `RootCoverageCard` / `ExamPlanCard`（带 DatePicker）/ `RootsScreen` + `RootGroupCard` / `SiblingChip`（带阶段色点） |
-| `ui/AppViewModel.kt` | `AppUiState` + 所有 action；v0.3 增：`anchorWordIds / rootSnapshot / pace / rootGroups / rootsQuery`、`updateExamPlan / updateRootsQuery / loadRootGroups` |
+| `MainActivity.kt` | 所有 Compose 页面：Dashboard / Learn / Review / **Roots** / **Tough** / Vocab / Settings（Settings 移到 TopAppBar 齿轮按钮）。v0.4 增组件：`PracticeModeBar / PracticeChip / QuizPracticePager / QuizOptionButton / QuizOptionState / SpellPracticePager / ToughWordsScreen / ToughWordCard`；v0.4 改 `MorphemeRow` 接收 `rootRef` 常驻显示词根意思；v0.3 有：`FlipWordCard / AnchorBadge / ReviewHeatmap / StreakBadge / ExamCountdownCard / RootCoverageCard / ExamPlanCard / RootsScreen / RootGroupCard / SiblingChip` |
+| `ui/AppViewModel.kt` | `AppUiState` + action。v0.4 增：`practiceMode / toughWords / toughLoading`、`setPracticeMode / buildQuiz / gradeSpelling / loadToughWords`；`refresh` 和 `reviewWord` 现在同步 resolve roots/siblings（v0.4 bug fix，消除空壳闪烁） |
 | `ui/PreviewData.kt` | Compose Preview 样板数据 |
-| `ui/Theme.kt` | Material 3 配色；v0.3 升级：dynamicLight/Dark (Android 12+)，低版本 fallback 到 LexRise 品牌色 |
-| `reminder/ReviewReminderWorker.kt` + `ReviewReminderScheduler.kt` | WorkManager 每日复习提醒 |
-| `speech/WordSpeaker.kt` | Android TextToSpeech |
+| `ui/Theme.kt` | Material 3 dynamicLight/Dark (Android 12+)，低版本 fallback 到 LexRise 品牌色 |
+| `reminder/*.kt` | WorkManager 每日复习提醒 |
+| `speech/WordSpeaker.kt` | Android TextToSpeech（听写模式依赖） |
 | `AppContainer.kt` | 手写 DI 容器 |
-| `EnglishDemoApplication.kt` | Application 入口，首启同步 reminder |
 
 ### 3.3 资源 `app/src/main/assets/`
 
@@ -90,26 +93,30 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 
 ### 3.5 测试 `app/src/test/java/com/study/englishdemo/data/`
 
-| 文件 | 覆盖 |
-|------|------|
-| `SpacedRepetitionSchedulerTest.kt` | SRS 4 用例（含 HARD/GOOD 严格推进） |
-| `WordBookParserTest.kt` | CSV/TXT 解析 3 用例 |
-| `ReviewReminderSchedulerTest.kt` | 提醒时间计算 2 用例 |
-| `StudyRepositoryTest.kt` | `recentReviewCounts / merge 去重 / getSemanticNeighbors / getRootGroups / getAnchorWordIds / getPaceRecommendation` 6 用例 |
-| `MorphologyHelpersTest.kt` | `decomposeWord` 4 用例 + `computePaceRecommendation` 4 用例 |
+| 文件 | 用例数 | 覆盖 |
+|------|-------|------|
+| `SpacedRepetitionSchedulerTest.kt` | 4 | SRS 四档含 HARD/GOOD 严格推进 |
+| `WordBookParserTest.kt` | 3 | CSV/TXT 解析 |
+| `ReviewReminderSchedulerTest.kt` | 2 | 提醒时间计算 |
+| `StudyRepositoryTest.kt` | 8 | recentReviewCounts / 合并去重 / 同根近邻 / 词根聚合 / 簇首 / 配速 / **选择题构建** / **难词 TopN** |
+| `MorphologyHelpersTest.kt` | 13 | decomposeWord / computePaceRecommendation / **buildQuizOptions** / **normalizedEditDistance** / **ratingFromEditDistance** |
+
+**总计 30 个单测**。
 
 ---
 
 ## 4. 关键不变量（改动前必读）
 
-1. **Room schema 现在是 v2**。v0.3 新增功能刻意走派生查询（`getClusteredEntries / getAnchorWordIds`）而不加列，避免 destructive migration 清掉 v0.2 用户数据。再次改 `WordEntryEntity` 必须升到 v3 并决定迁移策略
-2. **内置词书不可删/不可改名**：判断 `source == "builtin"`，UI 和 Repository 两层都有守卫。别绕过
-3. **positionInBook 决定背词顺序**：CSV 里行的顺序就是学习顺序（已经由 `build_wordlists.py` 排好词根聚簇）。任何"打乱/随机"特性要另起字段，不要直接改 `positionInBook`
-4. **mnemonic 是用户本地内容**：不要自动填充或从外部同步覆盖
-5. **reviewWord 空安全**：`progressDao.getByWordId` 可能为 null（数据库异常/竞态），保持静默返回而不是 `requireNotNull`
-6. **StudyRepository 解耦了接口**：`UserPreferencesProvider` / `BookImporter`。测试都走 Fake，**不要**在测试里直接 new `UserPreferencesRepository`（需要 Context，会让单测变 instrumented test）
-7. **自动配速是"覆盖"不是"替换"基线**：用户的手动基线（`dailyNewWordTarget`）始终保留在 DataStore 里；autoPace 开启时 `DailyOverview.newWordTarget` 用计算值，关闭即回到基线。不要在自动配速触发时写回基线
-8. **decomposeWord 永不抛异常**：找不到 rootKey 返回单个 PLAIN 段。UI 只要在 `segments.size > 1` 时渲染拆词行，零维护
+1. **Room schema 现在是 v2**。v0.3/v0.4 的新功能刻意走派生查询而不加列（`getClusteredEntries / getAnchorWordIds / getDistractorPool / getToughWordsForBook`），避免 destructive migration 清掉用户数据。再次改 `WordEntryEntity` 必须升到 v3 并决定迁移策略
+2. **内置词书不可删/不可改名**：判断 `source == "builtin"`，UI 和 Repository 两层都有守卫
+3. **positionInBook 决定背词顺序**
+4. **mnemonic 是用户本地内容**
+5. **reviewWord 空安全**
+6. **StudyRepository 解耦了 UserPreferencesProvider / BookImporter 接口**
+7. **自动配速是"覆盖"不是"替换"基线**
+8. **decomposeWord 永不抛异常**，UI 在 `segments.size > 1` 时才渲染
+9. **所有练习模式的评分必须经 reviewWord**：选择题/拼写/听写 UI 最终调 `onRate(wordId, rating)`，不绕过 SRS。打分不要新开表，`review_logs` 是"难词专攻"的唯一数据源
+10. **buildQuizOptions / normalizedEditDistance 是纯函数**：不要换成带 Context 的实现。SRS / 干扰项 / 拼写判定都应该能在 `:app:testDebugUnitTest`（non-instrumented）里跑
 
 ---
 
@@ -162,16 +169,16 @@ v0.3 刚完工，以下是还没开工的。按优先级从高到低。
 
 ### P1 — 学习体验深化
 
-1. **听写模式**：给释义让用户打英文。Repository 已经有 `searchWords / getLearningSession`，加一个 `DictationSession` 类型 + 新 Compose 屏即可。无 schema 变动
-2. **选择题模式**：从 `rootRef.examples / derivatives / getSemanticNeighbors` 抽干扰项（天然同难度）。同样无 schema 变动
-3. **AI 批量巧记**：LLM 离线生成首轮填入 `assets/books/*.csv` 的 `mnemonic` 列，用户再编辑。**不走在线 API**——改 `build_wordlists.py`，读一个额外的 `tools/raw/mnemonics.csv` 注入即可
-4. **词根→例词跳转**：词根 Tab 里 chip 点击目前只播音；改成弹出该词 FlipWordCard 的 BottomSheet，体验更连贯
+1. **词根→例词跳转**：词根 Tab 里 chip 点击目前只播音；改成弹出该词 FlipWordCard 的 BottomSheet，体验更连贯
+2. **AI 批量巧记**：LLM 离线生成首轮填入 `assets/books/*.csv` 的 `mnemonic` 列，用户再编辑。**不走在线 API**——改 `build_wordlists.py`，读一个额外的 `tools/raw/mnemonics.csv` 注入即可
+3. **完形/例句挖空模式**：用 `example` 字段把 term 替换成 `___`，是复习模式的自然扩展；放一批 DistractorPool 做候选
 
 ### P2 — 补全记忆辅助
 
 1. **同义词/反义词**：等 Open English WordNet 能拉到时（当前域名受限），补 `synonyms.json`，灌进 schema 已预留的 `synonyms/antonyms` 字段；WordEntryEntity 不用改
-2. **搜索拼写容错**：vocab Tab 搜索当前只做 `LIKE %q%`，加 Levenshtein 距离排序或前缀索引
+2. **搜索拼写容错**：vocab Tab 搜索当前只做 `LIKE %q%`，用 v0.4 已有的 `normalizedEditDistance` 做二级排序
 3. **导出学习报告**：CSV/图片分享
+4. **练习模式内单次 session 统计**：选择题做完 10 题给一个"对 8 / 错 2 · 正确率 80%"小结卡
 
 ### P3 — 工程化 / 发布
 
@@ -218,23 +225,26 @@ curl -fL -o tools/raw/roots_raw.md \
 1. `./gradlew.bat :app:testDebugUnitTest` 全绿（v0.3 基线 23 个）
 2. `./gradlew.bat :app:assembleDebug` 成功
 3. APK 体积 < 80 MB（v0.3 基线 67 MB）
-4. 手装 APK 到手机/模拟器，**v0.3 冒烟清单**：
+4. 手装 APK 到手机/模拟器，**v0.4 冒烟清单**：
    - 首启 Dashboard 看到三本内置词书，词根覆盖卡出现
-   - 新词页卡片顶部显示拆词分段（`pre-scrib-e` 三色），簇首词有『地基词』徽章
-   - 点击翻卡，同根词 chip 上有学习阶段色点
-   - 切到词根 Tab，搜 `stat` 能看到成员词列表，进度环正确
-   - 设置页选考试日期 + 开自动配速，Dashboard 顶部出考试倒计时卡、推荐词数变动
-   - 切系统深色模式，界面整体跟随，无白色硬块
-   - Android 12+：换系统壁纸，重启 App，主色跟随壁纸
+   - 新词页卡片拆词条显示 `pre-scrib-e` 三色 + 紧跟一行"scrib = 写"（无需翻卡点击）
+   - 翻卡后不再出现重复的词根意思段，节奏紧凑
+   - 复习 Tab 顶部切换"选择/拼写/听写"都能正常出题并评分
+   - 选择题的 3 个干扰项包含同根词（若可用）
+   - 拼写时一字母错评 HARD，完全写错评 AGAIN
+   - 听写模式进页自动播词，"重播"按钮能再播一次
+   - 难词 Tab 把刚才选错的词按次数倒序排列
+   - 设置齿轮从 TopAppBar 能打开，底栏 6 项无 Settings
 5. **项目仓库 `git status`**（不是家目录！）检查——只应该看到你这轮改的文件。如果冒出 `.android-sdk/` 或 `app/build/` 要立刻查 .gitignore
 6. **家目录 `cd ~ && git status`** 检查——如果 Englishdemo 下的文件出现在 staged 区域，说明有人把 `.git` 删掉了，立刻停止
 
-### v0.3 之后新增 feature 的"最小验证套路"
+### v0.4 之后新增 feature 的"最小验证套路"
 
-- 纯函数逻辑（拆词、配速、打分）：补 `MorphologyHelpersTest.kt` 或 `SpacedRepetitionSchedulerTest.kt` 用例
-- Repository 新方法：扩 `StudyRepositoryTest.kt` 里的 `FakeDao` 并加用例
+- **新复习模式**：在 `PracticeMode` 枚举加一项，在 `ReviewScreen` 的 when 加分支；所有评分依然回 `onRate(wordId, rating)`
+- 纯函数逻辑（拆词、配速、打分、距离）：补 `MorphologyHelpersTest.kt`
+- Repository 新方法：扩 `StudyRepositoryTest.kt` 里的 `FakeDao`（现在支持 `getDistractorPool` / `getToughWordsForBook`）并加用例
 - UI：用 `PreviewData.kt` 在 Android Studio Preview 里先对视觉
-- 任何 Room 查询：先加一个 test 再写实现（DAO 返回类型换了编译都过不了 = 最快的反馈）
+- 任何 Room 查询：先加一个 test 再写实现
 
 ---
 
@@ -243,6 +253,7 @@ curl -fL -o tools/raw/roots_raw.md \
 - **v0.1（2026-05-09 白天）**：翻卡、词汇 Tab、7 日柱状图、词书删改、SRS 与 streak 修复，12 词 → 390 词
 - **v0.2（2026-05-09 傍晚）**：合法词库扩容至 14000 词、词根聚簇、词根面板、30 日热力图、徽章、巧记编辑
 - **v0.3（2026-05-09 夜）**：独立 git 仓库；词根 Tab + 拆词可视化 + 地基词徽章；考试倒计时 + 自动配速；词根覆盖进度；Material 3 dynamicColor + 深色 palette 补全；测试 12→23
+- **v0.4（2026-05-09 深夜）**：复习四模式（翻卡/选择/拼写/听写）；难词专攻 Tab；修翻卡空壳闪烁 + 词根意思常驻显示；底栏 6 项 + Settings 移 TopAppBar；测试 23→30
 
 ---
 

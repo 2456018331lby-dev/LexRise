@@ -246,6 +246,97 @@ class StudyRepositoryTest {
         assertThat(pace.remainingDays).isEqualTo(20)
         assertThat(pace.target).isEqualTo(6)
     }
+
+    @Test
+    fun buildQuizQuestion_includesCorrectTermAndFourOptions() = runBlocking {
+        val repo = miniRepoForQuiz()
+        val book = repo.importBook("quiz.csv", ByteArrayInputStream("".toByteArray()))
+        val state = (repo as StudyRepository).let {
+            // expose via DAO through repo-specific helpers: search to find state
+            it.searchWords(book.bookId, "state").first()
+        }
+
+        val question = repo.buildQuizQuestion(state.id, book.bookId)
+
+        assertThat(question).isNotNull()
+        assertThat(question!!.options).hasSize(4)
+        assertThat(question.correct).isEqualTo("state")
+        assertThat(question.options).contains("state")
+        assertThat(question.options.toSet()).hasSize(4)
+    }
+
+    @Test
+    fun getToughWords_ordersByAgainCountDesc() = runBlocking {
+        val wordBookDao = FakeWordBookDao()
+        val wordEntryDao = FakeWordEntryDao()
+        val progressDao = FakeWordProgressDao()
+        val reviewLogDao = FakeReviewLogDao()
+        val preview = ImportPreview(
+            title = "tough",
+            description = "",
+            source = "imported",
+            examTag = "cet4",
+            words = listOf(
+                ImportedWord(term = "alpha", phonetic = "", definition = "", translation = "一", example = "", tags = listOf("cet4")),
+                ImportedWord(term = "bravo", phonetic = "", definition = "", translation = "二", example = "", tags = listOf("cet4")),
+                ImportedWord(term = "charlie", phonetic = "", definition = "", translation = "三", example = "", tags = listOf("cet4")),
+            ),
+        )
+        val repo = StudyRepository(
+            wordBookDao = wordBookDao,
+            wordEntryDao = wordEntryDao,
+            progressDao = progressDao,
+            reviewLogDao = reviewLogDao,
+            preferencesRepository = FakePreferences(),
+            importer = FakeImporter(preview),
+            scheduler = SpacedRepetitionScheduler(clock),
+            clock = clock,
+        )
+        val book = repo.importBook("tough.csv", ByteArrayInputStream("".toByteArray()))
+        val entries = wordEntryDao.getEntriesForBook(book.bookId)
+        val alpha = entries.first { it.term == "alpha" }
+        val bravo = entries.first { it.term == "bravo" }
+        // bravo: 3 AGAIN; alpha: 1 AGAIN; charlie: none
+        repo.reviewWord(bravo.id, ReviewRating.AGAIN)
+        repo.reviewWord(bravo.id, ReviewRating.AGAIN)
+        repo.reviewWord(bravo.id, ReviewRating.AGAIN)
+        repo.reviewWord(alpha.id, ReviewRating.AGAIN)
+
+        val tough = repo.getToughWords(book.bookId)
+
+        assertThat(tough.map { it.word.term }).containsExactly("bravo", "alpha").inOrder()
+        assertThat(tough.first().againCount).isEqualTo(3)
+    }
+
+    private fun miniRepoForQuiz(): StudyRepository {
+        val wordBookDao = FakeWordBookDao()
+        val wordEntryDao = FakeWordEntryDao()
+        val progressDao = FakeWordProgressDao()
+        val reviewLogDao = FakeReviewLogDao()
+        val preview = ImportPreview(
+            title = "quiz",
+            description = "",
+            source = "imported",
+            examTag = "cet4",
+            words = listOf(
+                ImportedWord(term = "state", phonetic = "", definition = "", translation = "陈述", example = "", tags = listOf("cet4"), rootKey = "stat"),
+                ImportedWord(term = "statement", phonetic = "", definition = "", translation = "声明", example = "", tags = listOf("cet4"), rootKey = "stat"),
+                ImportedWord(term = "status", phonetic = "", definition = "", translation = "状态", example = "", tags = listOf("cet4"), rootKey = "stat"),
+                ImportedWord(term = "include", phonetic = "", definition = "", translation = "包括", example = "", tags = listOf("cet4"), rootKey = "clud"),
+                ImportedWord(term = "floor", phonetic = "", definition = "", translation = "地板", example = "", tags = listOf("cet4")),
+            ),
+        )
+        return StudyRepository(
+            wordBookDao = wordBookDao,
+            wordEntryDao = wordEntryDao,
+            progressDao = progressDao,
+            reviewLogDao = reviewLogDao,
+            preferencesRepository = FakePreferences(),
+            importer = FakeImporter(preview),
+            scheduler = SpacedRepetitionScheduler(clock),
+            clock = clock,
+        )
+    }
 }
 
 private class FakeWordBookDao : WordBookDao {
@@ -305,6 +396,10 @@ private class FakeWordEntryDao : WordEntryDao {
             .sortedWith(compareBy({ it.rootKey }, { it.frq }, { it.positionInBook }))
     override suspend fun countClusteredForBook(bookId: Long) =
         items.count { it.bookId == bookId && it.rootKey.isNotBlank() }
+    override suspend fun getDistractorPool(bookId: Long, excludeId: Long, rootKey: String, limit: Int) =
+        items.filter { it.bookId == bookId && it.id != excludeId }
+            .sortedByDescending { it.rootKey.isNotBlank() && it.rootKey == rootKey }
+            .take(limit)
 }
 
 private class FakeWordProgressDao : WordProgressDao {
@@ -338,14 +433,30 @@ private class FakeWordProgressDao : WordProgressDao {
 }
 
 private class FakeReviewLogDao : ReviewLogDao {
-    private val times = mutableListOf<Instant>()
-    fun seed(values: List<Instant>) { times.addAll(values) }
-    override suspend fun insert(log: ReviewLogEntity) { times.add(log.reviewedAt) }
+    private val logs = mutableListOf<ReviewLogEntity>()
+    fun seed(values: List<Instant>) {
+        values.forEach { logs += ReviewLogEntity(wordId = 0, rating = ReviewRating.GOOD, reviewedAt = it, nextReviewAt = it) }
+    }
+    override suspend fun insert(log: ReviewLogEntity) { logs.add(log.copy(id = (logs.size + 1).toLong())) }
     override suspend fun countReviewedBetween(start: Instant, end: Instant) =
-        times.count { !it.isBefore(start) && it.isBefore(end) }
-    override suspend fun getAllReviewTimesDesc() = times.sortedDescending()
+        logs.count { !it.reviewedAt.isBefore(start) && it.reviewedAt.isBefore(end) }
+    override suspend fun getAllReviewTimesDesc() = logs.map { it.reviewedAt }.sortedDescending()
     override suspend fun getReviewTimesSince(since: Instant) =
-        times.filter { !it.isBefore(since) }.sorted()
+        logs.map { it.reviewedAt }.filter { !it.isBefore(since) }.sorted()
+    override suspend fun getToughWordsForBook(bookId: Long, limit: Int): List<ToughWordRow> {
+        return logs
+            .filter { it.rating == ReviewRating.AGAIN }
+            .groupBy { it.wordId }
+            .map { (wordId, group) ->
+                ToughWordRow(
+                    wordId = wordId,
+                    againCount = group.size,
+                    lastReviewedAt = group.maxOf { it.reviewedAt },
+                )
+            }
+            .sortedWith(compareByDescending<ToughWordRow> { it.againCount }.thenByDescending { it.lastReviewedAt })
+            .take(limit)
+    }
 }
 
 private class FakePreferences : UserPreferencesProvider {

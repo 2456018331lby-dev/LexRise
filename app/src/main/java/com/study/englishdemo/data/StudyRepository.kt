@@ -409,6 +409,72 @@ class StudyRepository(
             .toSet()
     }
 
+    suspend fun buildQuizQuestion(wordId: Long, bookId: Long): QuizQuestion? {
+        val entry = wordEntryDao.getEntriesByIds(listOf(wordId)).firstOrNull() ?: return null
+        val pool = wordEntryDao.getDistractorPool(
+            bookId = bookId,
+            excludeId = entry.id,
+            rootKey = entry.rootKey,
+            limit = 24,
+        ).map { it.toDomain(null) }
+        if (pool.size < 3) return null
+        val options = buildQuizOptions(
+            correctTerm = entry.term,
+            correctRootKey = entry.rootKey,
+            pool = pool,
+        )
+        val progress = progressDao.getByWordId(entry.id)?.let {
+            WordProgress(
+                phase = it.phase,
+                familiarity = it.familiarity,
+                streak = it.streak,
+                lapses = it.lapses,
+                easeFactor = it.easeFactor,
+                intervalDays = it.intervalDays,
+                lastReviewedAt = it.lastReviewedAt,
+                nextReviewAt = it.nextReviewAt,
+            )
+        }
+        return QuizQuestion(
+            word = entry.toDomain(progress),
+            options = options,
+            correct = entry.term,
+        )
+    }
+
+    suspend fun getToughWords(bookId: Long, limit: Int = 30): List<ToughWord> {
+        val rows = reviewLogDao.getToughWordsForBook(bookId, limit)
+        if (rows.isEmpty()) return emptyList()
+        val entries = wordEntryDao
+            .getEntriesByIds(rows.map { it.wordId })
+            .associateBy { it.id }
+        val progresses = progressDao
+            .getByWordIds(rows.map { it.wordId })
+            .associateBy { it.wordId }
+        return rows.mapNotNull { row ->
+            val entry = entries[row.wordId] ?: return@mapNotNull null
+            val p = progresses[row.wordId]
+            val progress = p?.let {
+                WordProgress(
+                    phase = it.phase,
+                    familiarity = it.familiarity,
+                    streak = it.streak,
+                    lapses = it.lapses,
+                    easeFactor = it.easeFactor,
+                    intervalDays = it.intervalDays,
+                    lastReviewedAt = it.lastReviewedAt,
+                    nextReviewAt = it.nextReviewAt,
+                )
+            }
+            ToughWord(
+                word = entry.toDomain(progress),
+                againCount = row.againCount,
+                lapses = p?.lapses ?: 0,
+                lastReviewedAt = row.lastReviewedAt,
+            )
+        }
+    }
+
     suspend fun deleteBook(bookId: Long) {
         val book = wordBookDao.getById(bookId) ?: return
         require(book.source != "builtin") { "内置词书不可删除" }

@@ -92,4 +92,66 @@ class MorphologyHelpersTest {
         assertThat(pace.target).isEqualTo(20)
         assertThat(pace.remainingDays).isLessThan(0)
     }
+
+    @Test
+    fun buildQuizOptions_alwaysIncludesCorrectAndFourTotal() {
+        val pool = listOf(
+            fakeEntry("state", "stat"),
+            fakeEntry("statement", "stat"),
+            fakeEntry("status", "stat"),
+            fakeEntry("include", "clud"),
+            fakeEntry("floor", ""),
+        )
+        val opts = buildQuizOptions("exclude", "clud", pool, seed = 42L)
+        assertThat(opts).contains("exclude")
+        assertThat(opts).hasSize(4)
+        assertThat(opts.toSet()).hasSize(4)
+    }
+
+    @Test
+    fun buildQuizOptions_prefersSameRootDistractors() {
+        val pool = listOf(
+            fakeEntry("statement", "stat"),
+            fakeEntry("status", "stat"),
+            fakeEntry("include", "clud"),
+            fakeEntry("banana", ""),
+            fakeEntry("cherry", ""),
+        )
+        // With 2 same-root and 3 others, same-root should be picked first
+        val opts = buildQuizOptions("state", "stat", pool, seed = 123L).toSet()
+        assertThat(opts).containsAtLeast("statement", "status")
+    }
+
+    @Test
+    fun normalizedEditDistance_exactMatchIsZero() {
+        assertThat(normalizedEditDistance("focus", "focus")).isEqualTo(0.0)
+        assertThat(normalizedEditDistance("Focus", "focus")).isEqualTo(0.0)
+    }
+
+    @Test
+    fun normalizedEditDistance_onetypo() {
+        // "focu" vs "focus" = 1 edit over 5 chars = 0.2
+        val d = normalizedEditDistance("focu", "focus")
+        assertThat(d).isWithin(0.001).of(0.2)
+    }
+
+    @Test
+    fun ratingFromEditDistance_mapping() {
+        assertThat(ratingFromEditDistance(0.0)).isEqualTo(ReviewRating.EASY)
+        assertThat(ratingFromEditDistance(0.1)).isEqualTo(ReviewRating.GOOD)
+        assertThat(ratingFromEditDistance(0.25)).isEqualTo(ReviewRating.HARD)
+        assertThat(ratingFromEditDistance(0.6)).isEqualTo(ReviewRating.AGAIN)
+    }
+
+    private fun fakeEntry(term: String, rootKey: String): WordEntry = WordEntry(
+        id = term.hashCode().toLong(),
+        term = term,
+        phonetic = "",
+        definition = "",
+        translation = "",
+        example = "",
+        tags = emptyList(),
+        rootKey = rootKey,
+        progress = null,
+    )
 }

@@ -8,13 +8,18 @@ import com.study.englishdemo.data.BookRootSnapshot
 import com.study.englishdemo.data.DailyReviewCount
 import com.study.englishdemo.data.LearningSession
 import com.study.englishdemo.data.PaceRecommendation
+import com.study.englishdemo.data.PracticeMode
+import com.study.englishdemo.data.QuizQuestion
 import com.study.englishdemo.data.ReviewRating
 import com.study.englishdemo.data.RootGroup
 import com.study.englishdemo.data.RootReference
 import com.study.englishdemo.data.SettingsState
 import com.study.englishdemo.data.StudyPhase
+import com.study.englishdemo.data.ToughWord
 import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
+import com.study.englishdemo.data.normalizedEditDistance
+import com.study.englishdemo.data.ratingFromEditDistance
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +55,9 @@ data class AppUiState(
     val rootsQuery: String = "",
     val rootGroups: List<RootGroup> = emptyList(),
     val rootsLoading: Boolean = false,
+    val practiceMode: PracticeMode = PracticeMode.FLIP,
+    val toughWords: List<ToughWord> = emptyList(),
+    val toughLoading: Boolean = false,
 )
 
 class AppViewModel(private val container: AppContainer) : ViewModel() {
@@ -78,6 +86,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
             val snapshot = container.repository.getBookRootSnapshot(selectedBookId)
             val anchors = container.repository.getAnchorWordIds(selectedBookId)
             val pace = container.repository.getPaceRecommendation(selectedBookId)
+            val (rootMap, siblingsMap) = resolveRootsAndSiblings(session)
             _uiState.value = AppUiState(
                 loading = false,
                 books = books,
@@ -94,28 +103,27 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
                 rootSnapshot = snapshot,
                 pace = pace,
                 rootsQuery = _uiState.value.rootsQuery,
+                rootRefByKey = rootMap,
+                siblingsByWordId = siblingsMap,
             )
             loadVocabulary()
             loadRootGroups()
-            hydrateRootsAndSiblings(session)
+            loadToughWords()
         }
     }
 
-    private fun hydrateRootsAndSiblings(session: LearningSession) {
-        viewModelScope.launch {
-            val allWords = session.recommendedNewWords + session.dueReviewWords
-            val rootKeys = allWords.mapNotNull { w -> w.rootKey.takeIf { it.isNotBlank() } }.toSet()
-            val rootMap = rootKeys.mapNotNull { key ->
-                container.rootReferenceLoader.lookup(key)?.let { key to it }
-            }.toMap()
-            val siblings = allWords.filter { it.rootKey.isNotBlank() }.associate { w ->
-                w.id to container.repository.getSemanticNeighbors(w.id, 4)
-            }
-            _uiState.value = _uiState.value.copy(
-                rootRefByKey = rootMap,
-                siblingsByWordId = siblings,
-            )
+    private suspend fun resolveRootsAndSiblings(
+        session: LearningSession,
+    ): Pair<Map<String, RootReference>, Map<Long, List<WordEntry>>> {
+        val allWords = session.recommendedNewWords + session.dueReviewWords
+        val rootKeys = allWords.mapNotNull { w -> w.rootKey.takeIf { it.isNotBlank() } }.toSet()
+        val rootMap = rootKeys.mapNotNull { key ->
+            container.rootReferenceLoader.lookup(key)?.let { key to it }
+        }.toMap()
+        val siblings = allWords.filter { it.rootKey.isNotBlank() }.associate { w ->
+            w.id to container.repository.getSemanticNeighbors(w.id, 4)
         }
+        return rootMap to siblings
     }
 
     fun selectBook(bookId: Long) {
@@ -130,16 +138,19 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
             val session = container.repository.getLearningSession(selectedBookId)
             val snapshot = container.repository.getBookRootSnapshot(selectedBookId)
             val pace = container.repository.getPaceRecommendation(selectedBookId)
+            val (rootMap, siblingsMap) = resolveRootsAndSiblings(session)
             _uiState.value = _uiState.value.copy(
                 session = session,
                 settings = container.repository.getSettings(),
                 recentReviewCounts = container.repository.recentReviewCounts(30),
                 rootSnapshot = snapshot,
                 pace = pace,
+                rootRefByKey = rootMap,
+                siblingsByWordId = siblingsMap,
             )
             loadVocabulary()
             loadRootGroups()
-            hydrateRootsAndSiblings(session)
+            loadToughWords()
         }
     }
 
@@ -238,6 +249,41 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     fun updateRootsQuery(query: String) {
         _uiState.value = _uiState.value.copy(rootsQuery = query)
         loadRootGroups()
+    }
+
+    fun setPracticeMode(mode: PracticeMode) {
+        _uiState.value = _uiState.value.copy(practiceMode = mode)
+    }
+
+    /**
+     * For CHOICE/SPELL/DICTATION modes: user picks/types an answer. Repository
+     * records the rating against SRS exactly like a flip-card review. Caller
+     * handles advancing to the next word from `session` state.
+     */
+    fun submitAnswer(wordId: Long, rating: ReviewRating) {
+        reviewWord(wordId, rating)
+    }
+
+    suspend fun buildQuiz(wordId: Long): QuizQuestion? {
+        val bookId = _uiState.value.selectedBookId ?: return null
+        return container.repository.buildQuizQuestion(wordId, bookId)
+    }
+
+    fun gradeSpelling(answer: String, correct: String): ReviewRating {
+        val d = normalizedEditDistance(answer, correct)
+        return ratingFromEditDistance(d)
+    }
+
+    fun loadToughWords() {
+        val bookId = _uiState.value.selectedBookId ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(toughLoading = true)
+            val list = container.repository.getToughWords(bookId, limit = 40)
+            _uiState.value = _uiState.value.copy(
+                toughWords = list,
+                toughLoading = false,
+            )
+        }
     }
 
     private fun loadVocabulary() {

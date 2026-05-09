@@ -88,6 +88,16 @@ interface WordEntryDao {
 
     @Query("SELECT COUNT(*) FROM word_entries WHERE bookId = :bookId AND rootKey != ''")
     suspend fun countClusteredForBook(bookId: Long): Int
+
+    @Query(
+        """
+        SELECT * FROM word_entries
+        WHERE bookId = :bookId AND id != :excludeId
+        ORDER BY (rootKey = :rootKey AND rootKey != '') DESC, RANDOM()
+        LIMIT :limit
+        """,
+    )
+    suspend fun getDistractorPool(bookId: Long, excludeId: Long, rootKey: String, limit: Int): List<WordEntryEntity>
 }
 
 @Dao
@@ -179,7 +189,29 @@ interface ReviewLogDao {
 
     @Query("SELECT reviewedAt FROM review_logs WHERE reviewedAt >= :since ORDER BY reviewedAt ASC")
     suspend fun getReviewTimesSince(since: Instant): List<Instant>
+
+    @Query(
+        """
+        SELECT rl.wordId AS wordId,
+               SUM(CASE WHEN rl.rating = 'AGAIN' THEN 1 ELSE 0 END) AS againCount,
+               MAX(rl.reviewedAt) AS lastReviewedAt
+        FROM review_logs AS rl
+        INNER JOIN word_entries AS we ON we.id = rl.wordId
+        WHERE we.bookId = :bookId
+        GROUP BY rl.wordId
+        HAVING againCount > 0
+        ORDER BY againCount DESC, lastReviewedAt DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun getToughWordsForBook(bookId: Long, limit: Int): List<ToughWordRow>
 }
+
+data class ToughWordRow(
+    val wordId: Long,
+    val againCount: Int,
+    val lastReviewedAt: Instant?,
+)
 
 data class WordWithProgressRow(
     val id: Long,
