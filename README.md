@@ -118,6 +118,11 @@ python tools/build_wordlists.py
 
 见 [docs/github-release-playbook.md](docs/github-release-playbook.md)，包含签名 release APK 的完整最小步骤。
 
+## 维护
+
+- [docs/MAINTENANCE.md](docs/MAINTENANCE.md)：日常维护手册，涵盖改词库、升级依赖、Room 迁移、排错、Git 安全清单等高频场景
+- [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
+
 ## 进度 / 变更日志
 
 ### v0.4（2026-05-09）
