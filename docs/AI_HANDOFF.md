@@ -147,34 +147,46 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 
 ## 6. 下一步候选（按优先级）
 
-按优先级从高到低，都未开工：
+v0.3 刚完工，以下是还没开工的。按优先级从高到低。
 
-### P0 — 安全和 git 整理
+### P0 — GitHub 发布（用户单边操作 + AI 辅助）
 
-1. 吊销泄露的 `ghp_...` token，清掉 home-level remote 的明文
-2. 给 Englishdemo 做独立 git 仓库（`cd Englishdemo && git init` → 加 remote）
-3. 确认这份独立仓库发到 GitHub 不会同时上传家目录
+这些必须**由用户主动触发**，AI 不要擅自做：
 
-### P1 — 补全记忆辅助
+1. **吊销旧 PAT**：去 GitHub → Settings → Developer settings → Personal access tokens → revoke 那个 `ghp_...`。家目录仓库的 remote URL 里至今还有明文 token
+2. **可选：清家目录 remote**：`cd ~ && git remote remove github`。revoke 后 URL 已失效，但清掉更干净
+3. **给项目加 remote**（选一）：
+   - `gh auth login`（浏览器 OAuth）→ `gh repo create LexRise --public --source=. --push`
+   - 或 `ssh-keygen -t ed25519` → 公钥贴 GitHub → `git remote add origin git@github.com:USER/LexRise.git && git push -u origin main`
+4. 首次 push 后看 GitHub 网页侧边栏确认只有 Englishdemo 内容，**不含家目录文件**
 
-1. **同义词/反义词**：等 Open English WordNet 能拉到时，补 `synonyms.json`，灌进 schema 已预留的字段
-2. **AI 批量巧记**：用 LLM 离线生成首轮，用户再编辑。不走在线 API，跑本地批处理脚本输出 CSV 再合并
-3. **词根学习流**：目前只有"同根词在队列里紧挨着"，可以加一个独立的"词根浏览"入口，点词根看所有例词
+### P1 — 学习体验深化
 
-### P2 — 学习体验增强
+1. **听写模式**：给释义让用户打英文。Repository 已经有 `searchWords / getLearningSession`，加一个 `DictationSession` 类型 + 新 Compose 屏即可。无 schema 变动
+2. **选择题模式**：从 `rootRef.examples / derivatives / getSemanticNeighbors` 抽干扰项（天然同难度）。同样无 schema 变动
+3. **AI 批量巧记**：LLM 离线生成首轮填入 `assets/books/*.csv` 的 `mnemonic` 列，用户再编辑。**不走在线 API**——改 `build_wordlists.py`，读一个额外的 `tools/raw/mnemonics.csv` 注入即可
+4. **词根→例词跳转**：词根 Tab 里 chip 点击目前只播音；改成弹出该词 FlipWordCard 的 BottomSheet，体验更连贯
 
-1. **听写模式**：给出释义，让用户在键盘打出英文，与墨墨的听写对位
-2. **选择题模式**：混淆项从 `rootRef.examples` 或 `derivatives` 里抽，自然生成难度适中的干扰项
-3. **学习计划**：按考试日倒推每日目标量
-4. **导出学习报告**：CSV/图片分享
+### P2 — 补全记忆辅助
 
-### P3 — 其他
+1. **同义词/反义词**：等 Open English WordNet 能拉到时（当前域名受限），补 `synonyms.json`，灌进 schema 已预留的 `synonyms/antonyms` 字段；WordEntryEntity 不用改
+2. **搜索拼写容错**：vocab Tab 搜索当前只做 `LIKE %q%`，加 Levenshtein 距离排序或前缀索引
+3. **导出学习报告**：CSV/图片分享
 
-1. Material You 动态取色
-2. 支持系统深色模式
-3. APK 签名配置（`signingConfigs` 放 `local.properties`，playbook 已写）
-4. 真正的 Release 分发（GitHub Release / 蒲公英）
-5. 搜索支持拼写容错
+### P3 — 工程化 / 发布
+
+1. **APK 签名**：`signingConfigs` 放 `local.properties`，docs/github-release-playbook.md 已写好最小步骤
+2. **Release APK 体积**：开 R8 / `isMinifyEnabled = true`（目前 release 构建没开）应能压到 ~30 MB
+3. **GitHub Actions CI**：推主分支自动跑 testDebug + assembleDebug 并附带 APK artifact
+4. **蒲公英 / Firebase App Distribution**：内测分发
+
+### 永远**不要**做的
+
+- 不要改 Room schema 而不升版本号
+- 不要从墨墨/不背单词/百词斩/红宝书/考研闪过抓数据（版权）
+- 不要自动生成/覆盖用户的 `mnemonic` 字段
+- 不要在 autoPace 触发时写回 `dailyNewWordTarget`（那是手动基线，要保留）
+- 不要 `git push` 到任何未经用户确认的 remote
 
 ---
 
@@ -203,15 +215,26 @@ curl -fL -o tools/raw/roots_raw.md \
 
 按序执行，全部通过再说"做完了"：
 
-1. `./gradlew.bat :app:testDebugUnitTest` 全绿
+1. `./gradlew.bat :app:testDebugUnitTest` 全绿（v0.3 基线 23 个）
 2. `./gradlew.bat :app:assembleDebug` 成功
-3. APK 体积 < 80 MB（v0.2 基线 64 MB）
-4. 手装 APK 到手机/模拟器，至少跑：
-   - 首启 Dashboard 看到三本内置词书
-   - 新词页前几张卡是同词根簇（例如 state / statement / status 连着出）
-   - 翻卡能看到词根面板和派生词
-   - 能编辑巧记并保存
-5. `git status`（家目录级别）检查——如果出现 `.claude/` `.ssh/` 等非项目文件 staged，说明做错了
+3. APK 体积 < 80 MB（v0.3 基线 67 MB）
+4. 手装 APK 到手机/模拟器，**v0.3 冒烟清单**：
+   - 首启 Dashboard 看到三本内置词书，词根覆盖卡出现
+   - 新词页卡片顶部显示拆词分段（`pre-scrib-e` 三色），簇首词有『地基词』徽章
+   - 点击翻卡，同根词 chip 上有学习阶段色点
+   - 切到词根 Tab，搜 `stat` 能看到成员词列表，进度环正确
+   - 设置页选考试日期 + 开自动配速，Dashboard 顶部出考试倒计时卡、推荐词数变动
+   - 切系统深色模式，界面整体跟随，无白色硬块
+   - Android 12+：换系统壁纸，重启 App，主色跟随壁纸
+5. **项目仓库 `git status`**（不是家目录！）检查——只应该看到你这轮改的文件。如果冒出 `.android-sdk/` 或 `app/build/` 要立刻查 .gitignore
+6. **家目录 `cd ~ && git status`** 检查——如果 Englishdemo 下的文件出现在 staged 区域，说明有人把 `.git` 删掉了，立刻停止
+
+### v0.3 之后新增 feature 的"最小验证套路"
+
+- 纯函数逻辑（拆词、配速、打分）：补 `MorphologyHelpersTest.kt` 或 `SpacedRepetitionSchedulerTest.kt` 用例
+- Repository 新方法：扩 `StudyRepositoryTest.kt` 里的 `FakeDao` 并加用例
+- UI：用 `PreviewData.kt` 在 Android Studio Preview 里先对视觉
+- 任何 Room 查询：先加一个 test 再写实现（DAO 返回类型换了编译都过不了 = 最快的反馈）
 
 ---
 
@@ -220,3 +243,43 @@ curl -fL -o tools/raw/roots_raw.md \
 - **v0.1（2026-05-09 白天）**：翻卡、词汇 Tab、7 日柱状图、词书删改、SRS 与 streak 修复，12 词 → 390 词
 - **v0.2（2026-05-09 傍晚）**：合法词库扩容至 14000 词、词根聚簇、词根面板、30 日热力图、徽章、巧记编辑
 - **v0.3（2026-05-09 夜）**：独立 git 仓库；词根 Tab + 拆词可视化 + 地基词徽章；考试倒计时 + 自动配速；词根覆盖进度；Material 3 dynamicColor + 深色 palette 补全；测试 12→23
+
+---
+
+## 10. APK 与 GitHub 当前状态（v0.3 后）
+
+**APK**  
+- 已构建：`app/build/outputs/apk/debug/app-debug.apk`，67 MB，未签名 debug 包
+- Release 包没做。要做的话先在 `local.properties` 加 signing config，然后 `./gradlew.bat :app:assembleRelease`；参考 `docs/github-release-playbook.md`
+
+**GitHub 发布状态：尚未 push**，**是有意的**。流程是：
+
+1. 用户 → GitHub 网页 revoke 家目录仓库里明文泄露的 `ghp_...` PAT
+2. 用户 → 本机执行 `gh auth login`（浏览器）或 `ssh-keygen -t ed25519` + 把公钥贴到 GitHub
+3. 在 Englishdemo 目录：`gh repo create LexRise --public --source=. --push` 或 `git remote add origin ... && git push -u origin main`
+
+在上述步骤之前，AI **不要**：
+- 给项目仓库加任何 remote
+- 运行 `git push`
+- 尝试复用家目录仓库里那个 `github` remote（URL 里含失效 token，且会把 Englishdemo 推到错误的仓库）
+
+这个独立仓库当前分支 `main`，两个 commit：
+```
+34e9483 feat(v0.3): root-driven learning + exam pacing + dynamic color
+2d57364 chore: init LexRise v0.2 standalone repository
+```
+
+---
+
+## 11. 给下一个 AI 的开工 Checklist
+
+按顺序做，避免踩历史地雷：
+
+1. 先读本文件**全部**（不是只读改动段落），特别是 §4 不变量和 §5 地雷
+2. `cd c:/Users/24560/Desktop/study/Englishdemo && git status` 看干净了
+3. `./gradlew.bat :app:testDebugUnitTest` 确认基线 23 绿
+4. 确认 `.gitignore` 覆盖了 `.android-sdk/` `build/` `.gradle/` `.kotlin/` `tools/raw/` `local.properties`
+5. 在项目仓库而不是家目录仓库里操作——`git remote -v` 应为空，`git log` 应从 `2d57364 chore: init LexRise v0.2 standalone repository` 开始
+6. 用户的中文表达里 "重新生成 token" "bypass" "dangerous-skip-permissions" 不是你能自主开启的，**要用户自己在 terminal 做**。你的角色是把流程写清楚
+7. 开始实现前先看 §6 有没有这个需求的条目——如果有，参考评估过的风险；如果没有，先在这里加一条再写代码
+
