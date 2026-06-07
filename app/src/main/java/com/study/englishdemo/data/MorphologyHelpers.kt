@@ -120,6 +120,25 @@ fun blankTermInExample(example: String, term: String): String? {
 }
 
 /**
+ * Returns a fuzzy-search distance when [query] is close enough to [term] to be
+ * useful as a vocabulary-search fallback. Short queries are intentionally
+ * ignored to avoid noisy results across 5k-word books.
+ */
+fun fuzzyTermMatchDistance(query: String, term: String): Double? {
+    val q = query.trim().lowercase()
+    val t = term.trim().lowercase()
+    if (q.length < 4 || t.isEmpty()) return null
+    if (t.contains(q)) return 0.0
+    val distance = normalizedEditDistance(q, t)
+    val maxDistance = when {
+        q.length <= 5 -> 0.22
+        q.length <= 8 -> 0.28
+        else -> 0.32
+    }
+    return distance.takeIf { it <= maxDistance }
+}
+
+/**
  * Levenshtein edit distance normalized to [0, 1] over the longer string,
  * case-insensitive. 0 = identical, 1 = totally different.
  */

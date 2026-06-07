@@ -784,25 +784,33 @@ private fun VocabularyScreen(
             SectionTitle("词汇浏览", "搜索「${uiState.selectedBookTitle}」中的单词，按学习阶段筛选。")
         }
         item {
-            OutlinedTextField(
-                value = uiState.vocabularyQuery,
-                onValueChange = onQuery,
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                singleLine = true,
-                label = { Text("搜索单词、释义或英文解释") },
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = uiState.vocabularyQuery,
+                    onValueChange = onQuery,
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                    singleLine = true,
+                    label = { Text("搜索单词、释义或英文解释") },
+                    supportingText = { Text("支持拼写容错：clarfy 也会尝试找 clarify") },
+                )
+                VocabularySearchStatus(
+                    query = uiState.vocabularyQuery,
+                    resultCount = uiState.vocabularyResults.size,
+                    loading = uiState.vocabularyLoading,
+                )
+            }
         }
         item {
-            Row(
+            LazyRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                PhaseChip("全部", uiState.vocabularyPhaseFilter == null) { onPhase(null) }
-                PhaseChip("新词", uiState.vocabularyPhaseFilter == StudyPhase.NEW) { onPhase(StudyPhase.NEW) }
-                PhaseChip("学习中", uiState.vocabularyPhaseFilter == StudyPhase.LEARNING) { onPhase(StudyPhase.LEARNING) }
-                PhaseChip("复习", uiState.vocabularyPhaseFilter == StudyPhase.REVIEW) { onPhase(StudyPhase.REVIEW) }
-                PhaseChip("掌握", uiState.vocabularyPhaseFilter == StudyPhase.MASTERED) { onPhase(StudyPhase.MASTERED) }
+                item { PhaseChip("全部", uiState.vocabularyPhaseFilter == null) { onPhase(null) } }
+                item { PhaseChip("新词", uiState.vocabularyPhaseFilter == StudyPhase.NEW) { onPhase(StudyPhase.NEW) } }
+                item { PhaseChip("学习中", uiState.vocabularyPhaseFilter == StudyPhase.LEARNING) { onPhase(StudyPhase.LEARNING) } }
+                item { PhaseChip("复习", uiState.vocabularyPhaseFilter == StudyPhase.REVIEW) { onPhase(StudyPhase.REVIEW) } }
+                item { PhaseChip("掌握", uiState.vocabularyPhaseFilter == StudyPhase.MASTERED) { onPhase(StudyPhase.MASTERED) } }
             }
         }
         if (uiState.vocabularyLoading && uiState.vocabularyResults.isEmpty()) {
@@ -810,10 +818,34 @@ private fun VocabularyScreen(
         } else if (uiState.vocabularyResults.isEmpty()) {
             item { EmptyStateCard("没有匹配的单词，换个关键词试试。") }
         } else {
-            items(uiState.vocabularyResults) { word ->
+            items(uiState.vocabularyResults, key = { it.id }) { word ->
                 VocabularyRow(word = word, onSpeak = onSpeak)
             }
         }
+    }
+}
+
+@Composable
+private fun VocabularySearchStatus(query: String, resultCount: Int, loading: Boolean) {
+    val trimmed = query.trim()
+    val text = when {
+        loading -> "正在检索词书与学习阶段…"
+        trimmed.isEmpty() -> "可输入英文、中文释义或解释；英文词形支持轻微拼写错误。"
+        resultCount == 0 -> "未找到结果。试试更完整的单词，或改用中文释义搜索。"
+        else -> "找到 $resultCount 个结果；若没有精确命中，已按词形相似度补充候选。"
+    }
+    Surface(
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }
 
@@ -855,6 +887,18 @@ private fun VocabularyRow(word: WordEntry, onSpeak: (String) -> Unit) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
                 )
+            }
+            val chips = buildList {
+                if (word.rootKey.isNotBlank()) add("词根 ${word.rootKey}")
+                if (word.pos.isNotBlank()) add(word.pos)
+                addAll(word.tags.take(2))
+            }
+            if (chips.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    chips.forEach { label ->
+                        AssistChip(onClick = {}, label = { Text(label) })
+                    }
+                }
             }
         }
     }
@@ -2413,4 +2457,3 @@ private fun ToughWordCard(
         }
     }
 }
-

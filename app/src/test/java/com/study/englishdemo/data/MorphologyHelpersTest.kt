@@ -137,6 +137,20 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun fuzzyTermMatchDistance_acceptsLikelyTypos() {
+        val distance = fuzzyTermMatchDistance("clarfy", "clarify")
+
+        assertThat(distance).isNotNull()
+        assertThat(distance!!).isLessThan(0.2)
+    }
+
+    @Test
+    fun fuzzyTermMatchDistance_rejectsShortOrDistantQueries() {
+        assertThat(fuzzyTermMatchDistance("sta", "state")).isNull()
+        assertThat(fuzzyTermMatchDistance("moon", "maintain")).isNull()
+    }
+
+    @Test
     fun normalizedEditDistance_exactMatchIsZero() {
         assertThat(normalizedEditDistance("focus", "focus")).isEqualTo(0.0)
         assertThat(normalizedEditDistance("Focus", "focus")).isEqualTo(0.0)

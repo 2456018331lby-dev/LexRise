@@ -279,7 +279,27 @@ class StudyRepository(
 
     suspend fun searchWords(bookId: Long, keyword: String, limit: Int = 200): List<WordEntry> {
         val trimmed = keyword.trim()
-        val entries = wordEntryDao.searchInBook(bookId, trimmed, limit, 0)
+        val directEntries = wordEntryDao.searchInBook(bookId, trimmed, limit, 0)
+        val entries = if (trimmed.length >= 4 && directEntries.size < limit) {
+            val directIds = directEntries.map { it.id }.toSet()
+            val fuzzyEntries = wordEntryDao.getEntriesForBook(bookId)
+                .asSequence()
+                .filter { it.id !in directIds }
+                .mapNotNull { entry ->
+                    fuzzyTermMatchDistance(trimmed, entry.term)?.let { distance -> entry to distance }
+                }
+                .sortedWith(
+                    compareBy<Pair<WordEntryEntity, Double>> { it.second }
+                        .thenBy { it.first.frq.takeIf { value -> value > 0 } ?: Int.MAX_VALUE }
+                        .thenBy { it.first.term.lowercase() },
+                )
+                .take(limit - directEntries.size)
+                .map { it.first }
+                .toList()
+            directEntries + fuzzyEntries
+        } else {
+            directEntries
+        }
         if (entries.isEmpty()) return emptyList()
         return entries.map { entry ->
             val p = progressDao.getByWordId(entry.id)

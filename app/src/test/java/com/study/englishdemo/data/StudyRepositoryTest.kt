@@ -95,6 +95,41 @@ class StudyRepositoryTest {
     )
 
     @Test
+    fun searchWords_addsFuzzyTermMatchesForTypos() = runBlocking {
+        val wordBookDao = FakeWordBookDao()
+        val wordEntryDao = FakeWordEntryDao()
+        val progressDao = FakeWordProgressDao()
+        val reviewLogDao = FakeReviewLogDao()
+        val preview = ImportPreview(
+            title = "search",
+            description = "",
+            source = "imported",
+            examTag = "cet4",
+            words = listOf(
+                ImportedWord(term = "clarify", phonetic = "", definition = "make clear", translation = "澄清", example = "", tags = listOf("cet4"), frq = 100),
+                ImportedWord(term = "classic", phonetic = "", definition = "typical", translation = "经典", example = "", tags = listOf("cet4"), frq = 200),
+                ImportedWord(term = "focus", phonetic = "", definition = "concentrate", translation = "专注", example = "", tags = listOf("cet4"), frq = 50),
+            ),
+        )
+        val repo = StudyRepository(
+            wordBookDao = wordBookDao,
+            wordEntryDao = wordEntryDao,
+            progressDao = progressDao,
+            reviewLogDao = reviewLogDao,
+            preferencesRepository = FakePreferences(),
+            importer = FakeImporter(preview),
+            scheduler = SpacedRepetitionScheduler(clock),
+            clock = clock,
+        )
+        val book = repo.importBook("search.csv", ByteArrayInputStream("".toByteArray()))
+
+        val results = repo.searchWords(book.bookId, "clarfy", limit = 10)
+
+        assertThat(results.map { it.term }).contains("clarify")
+        assertThat(results.first().term).isEqualTo("clarify")
+    }
+
+    @Test
     fun getSemanticNeighbors_returnsSameRootSiblingsOrdered() = runBlocking {
         val wordBookDao = FakeWordBookDao()
         val wordEntryDao = FakeWordEntryDao()
@@ -433,8 +468,22 @@ private class FakeWordEntryDao : WordEntryDao {
         val idx = items.indexOfFirst { it.id == wordId }
         if (idx >= 0) items[idx] = items[idx].copy(mnemonic = text)
     }
-    override suspend fun searchInBook(bookId: Long, keyword: String, limit: Int, offset: Int) =
-        items.filter { it.bookId == bookId }
+    override suspend fun searchInBook(bookId: Long, keyword: String, limit: Int, offset: Int): List<WordEntryEntity> {
+        val normalized = keyword.trim().lowercase()
+        return items
+            .filter { entry ->
+                entry.bookId == bookId &&
+                    (
+                        normalized.isEmpty() ||
+                            entry.term.lowercase().contains(normalized) ||
+                            entry.translation.lowercase().contains(normalized) ||
+                            entry.definition.lowercase().contains(normalized)
+                        )
+            }
+            .sortedBy { it.term.lowercase() }
+            .drop(offset)
+            .take(limit)
+    }
     override suspend fun getBookRootSiblings(bookId: Long, rootKey: String, excludeId: Long, limit: Int) =
         items.filter { it.bookId == bookId && it.rootKey == rootKey && it.id != excludeId }.take(limit)
     override suspend fun getClusteredEntries(bookId: Long) =
