@@ -271,6 +271,47 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun matchingWordForms_returnsDerivativeExactMatches() {
+        val matches = matchingWordForms(
+            query = "clarified",
+            term = "clarify",
+            variants = listOf("clarified", "clarifies"),
+        )
+
+        assertThat(matches).containsExactly("clarified")
+    }
+
+    @Test
+    fun matchingWordForms_returnsNearestFormForTypos() {
+        val matches = matchingWordForms(
+            query = "clarifed",
+            term = "clarify",
+            variants = listOf("clarified", "clarifies"),
+        )
+
+        assertThat(matches.first()).isEqualTo("clarified")
+    }
+
+    @Test
+    fun matchingWordForms_ignoresVeryShortQueriesAndEmptyLimit() {
+        assertThat(
+            matchingWordForms(
+                query = "cl",
+                term = "clarify",
+                variants = listOf("clarified"),
+                limit = 0,
+            ),
+        ).isEmpty()
+        assertThat(
+            matchingWordForms(
+                query = "c",
+                term = "clarify",
+                variants = listOf("clarified"),
+            ),
+        ).isEmpty()
+    }
+
+    @Test
     fun fuzzyTermMatchDistance_rejectsShortOrDistantQueries() {
         assertThat(fuzzyTermMatchDistance("sta", "state")).isNull()
         assertThat(fuzzyTermMatchDistance("moon", "maintain")).isNull()

@@ -256,6 +256,23 @@ fun fuzzyWordFormMatchDistance(query: String, term: String, variants: List<Strin
         .minOrNull()
 }
 
+fun matchingWordForms(query: String, term: String, variants: List<String>, limit: Int = 4): List<String> {
+    val q = query.trim()
+    if (q.length < 2 || limit <= 0) return emptyList()
+    val forms = (listOf(term) + variants)
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .distinctBy { it.lowercase() }
+    val exactMatches = forms.filter { it.contains(q, ignoreCase = true) }
+    val matches = exactMatches.ifEmpty {
+        forms
+            .mapNotNull { form -> fuzzyTermMatchDistance(q, form)?.let { distance -> form to distance } }
+            .sortedWith(compareBy<Pair<String, Double>> { it.second }.thenBy { it.first.length })
+            .map { it.first }
+    }
+    return matches.take(limit)
+}
+
 fun recordPracticeAttempt(
     stats: PracticeSessionStats,
     rating: ReviewRating,

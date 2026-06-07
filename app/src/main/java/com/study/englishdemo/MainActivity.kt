@@ -113,6 +113,7 @@ import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
 import com.study.englishdemo.data.buildStudyFocusCue
 import com.study.englishdemo.data.decomposeWord
+import com.study.englishdemo.data.matchingWordForms
 import com.study.englishdemo.ui.AppUiState
 import com.study.englishdemo.ui.AppViewModel
 import com.study.englishdemo.ui.AppViewModelFactory
@@ -934,7 +935,11 @@ private fun VocabularyScreen(
             item { EmptyStateCard("没有匹配的单词，换个关键词试试。") }
         } else {
             items(uiState.vocabularyResults, key = { it.id }) { word ->
-                VocabularyRow(word = word, onSpeak = onSpeak)
+                VocabularyRow(
+                    word = word,
+                    query = uiState.vocabularyQuery,
+                    onSpeak = onSpeak,
+                )
             }
         }
     }
@@ -974,9 +979,19 @@ private fun PhaseChip(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun VocabularyRow(word: WordEntry, onSpeak: (String) -> Unit) {
-    Card(shape = RoundedCornerShape(20.dp)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+private fun VocabularyRow(word: WordEntry, query: String, onSpeak: (String) -> Unit) {
+    val matchedForms = matchingWordForms(
+        query = query,
+        term = word.term,
+        variants = word.derivatives,
+    )
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f),
+        ),
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -996,6 +1011,9 @@ private fun VocabularyRow(word: WordEntry, onSpeak: (String) -> Unit) {
                 }
             }
             Text(word.translation, style = MaterialTheme.typography.bodyLarge)
+            if (matchedForms.isNotEmpty()) {
+                VocabularyMatchRail(matchedForms)
+            }
             if (word.definition.isNotBlank()) {
                 Text(
                     word.definition,
@@ -1009,10 +1027,44 @@ private fun VocabularyRow(word: WordEntry, onSpeak: (String) -> Unit) {
                 addAll(word.tags.take(2))
             }
             if (chips.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    chips.forEach { label ->
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    items(chips, key = { it }) { label ->
                         AssistChip(onClick = {}, label = { Text(label) })
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VocabularyMatchRail(forms: List<String>) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "词形雷达",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.SemiBold,
+        )
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(forms, key = { it }) { form ->
+                Surface(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Text(
+                        "命中 $form",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium,
+                    )
                 }
             }
         }
