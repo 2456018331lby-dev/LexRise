@@ -2291,7 +2291,7 @@ private fun ClozePracticePager(
             item { EmptyStateCard("正在挑选可挖空例句…") }
         } else if (q == null) {
             item {
-                EmptyStateCard("这张卡没有命中单词原形的例句，先跳过。")
+                EmptyStateCard("这张卡没有命中原词或派生词的例句，先跳过。")
             }
             item {
                 Button(

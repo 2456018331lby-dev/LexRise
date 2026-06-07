@@ -175,25 +175,49 @@ fun buildQuizOptions(
     return (distractors + correctTerm).shuffled(rng)
 }
 
+private data class ClozeCandidate(
+    val text: String,
+    val isLemma: Boolean,
+    val order: Int,
+)
+
+private data class ClozeCandidateMatch(
+    val candidate: ClozeCandidate,
+    val match: MatchResult,
+)
+
 fun buildClozeBlank(example: String, term: String, variants: List<String> = emptyList()): ClozeBlank? {
     val cleanExample = example.trim()
-    val candidates = (listOf(term) + variants)
-        .map { it.trim() }
-        .filter { it.isNotEmpty() }
-        .distinctBy { it.lowercase() }
-        .sortedByDescending { it.length }
+    val candidates = (
+        listOf(ClozeCandidate(term, isLemma = true, order = 0)) +
+            variants.mapIndexed { index, variant ->
+                ClozeCandidate(variant, isLemma = false, order = index + 1)
+            }
+        )
+        .map { it.copy(text = it.text.trim()) }
+        .filter { it.text.isNotEmpty() }
+        .distinctBy { it.text.lowercase() }
     if (cleanExample.isEmpty() || candidates.isEmpty()) return null
-    for (candidate in candidates) {
-        val pattern = Regex(
-            "(?i)(?<![A-Za-z])${Regex.escape(candidate)}(?![A-Za-z])",
-        )
-        val match = pattern.find(cleanExample) ?: continue
-        return ClozeBlank(
-            prompt = pattern.replaceFirst(cleanExample, "____"),
-            answer = match.value,
-        )
-    }
-    return null
+
+    val bestMatch = candidates
+        .asSequence()
+        .mapNotNull { candidate ->
+            val pattern = Regex(
+                "(?i)(?<![A-Za-z])${Regex.escape(candidate.text)}(?![A-Za-z])",
+            )
+            pattern.find(cleanExample)?.let { match -> ClozeCandidateMatch(candidate, match) }
+        }
+        .minWithOrNull(
+            compareBy<ClozeCandidateMatch> { if (it.candidate.isLemma) 0 else 1 }
+                .thenBy { it.match.range.first }
+                .thenByDescending { it.candidate.text.length }
+                .thenBy { it.candidate.order },
+        ) ?: return null
+
+    return ClozeBlank(
+        prompt = cleanExample.replaceRange(bestMatch.match.range, "____"),
+        answer = bestMatch.match.value,
+    )
 }
 
 /**

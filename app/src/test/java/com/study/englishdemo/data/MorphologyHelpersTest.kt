@@ -218,6 +218,32 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildClozeBlank_prefersLemmaWhenLemmaAndDerivativeBothAppear() {
+        val blank = buildClozeBlank(
+            example = "Clarified notes should clarify the result.",
+            term = "clarify",
+            variants = listOf("clarified"),
+        )
+
+        assertThat(blank).isNotNull()
+        assertThat(blank!!.prompt).isEqualTo("Clarified notes should ____ the result.")
+        assertThat(blank.answer).isEqualTo("clarify")
+    }
+
+    @Test
+    fun buildClozeBlank_prefersEarliestDerivativeWhenLemmaIsMissing() {
+        val blank = buildClozeBlank(
+            example = "Clarifies first; then clarified again.",
+            term = "clarify",
+            variants = listOf("clarified", "clarifies"),
+        )
+
+        assertThat(blank).isNotNull()
+        assertThat(blank!!.prompt).isEqualTo("____ first; then clarified again.")
+        assertThat(blank.answer).isEqualTo("Clarifies")
+    }
+
+    @Test
     fun blankTermInExample_doesNotReplaceInsideLongerWords() {
         val prompt = blankTermInExample("The statement was clear.", "state")
 
