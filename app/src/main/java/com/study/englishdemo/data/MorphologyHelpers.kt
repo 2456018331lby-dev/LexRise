@@ -249,6 +249,13 @@ fun fuzzyTermMatchDistance(query: String, term: String): Double? {
     return distance.takeIf { it <= maxDistance }
 }
 
+fun fuzzyWordFormMatchDistance(query: String, term: String, variants: List<String>): Double? {
+    return (listOf(term) + variants)
+        .asSequence()
+        .mapNotNull { fuzzyTermMatchDistance(query, it) }
+        .minOrNull()
+}
+
 fun recordPracticeAttempt(
     stats: PracticeSessionStats,
     rating: ReviewRating,

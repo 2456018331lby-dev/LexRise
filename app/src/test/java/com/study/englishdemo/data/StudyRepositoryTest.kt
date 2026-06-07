@@ -130,6 +130,28 @@ class StudyRepositoryTest {
     }
 
     @Test
+    fun searchWords_matchesDerivativeForms() = runBlocking {
+        val repo = repoForDerivativeSearch()
+        val book = repo.importBook("derivative-search.csv", ByteArrayInputStream("".toByteArray()))
+
+        val results = repo.searchWords(book.bookId, "clarified", limit = 10)
+
+        assertThat(results.map { it.term }).contains("clarify")
+        assertThat(results.first { it.term == "clarify" }.derivatives).contains("clarified")
+    }
+
+    @Test
+    fun searchWords_addsFuzzyDerivativeMatchesForTypos() = runBlocking {
+        val repo = repoForDerivativeSearch()
+        val book = repo.importBook("derivative-search.csv", ByteArrayInputStream("".toByteArray()))
+
+        val results = repo.searchWords(book.bookId, "clarifed", limit = 10)
+
+        assertThat(results.map { it.term }).contains("clarify")
+        assertThat(results.first().term).isEqualTo("clarify")
+    }
+
+    @Test
     fun getSemanticNeighbors_returnsSameRootSiblingsOrdered() = runBlocking {
         val wordBookDao = FakeWordBookDao()
         val wordEntryDao = FakeWordEntryDao()
@@ -472,6 +494,60 @@ class StudyRepositoryTest {
             clock = clock,
         )
     }
+
+    private fun repoForDerivativeSearch(): StudyRepository {
+        val wordBookDao = FakeWordBookDao()
+        val wordEntryDao = FakeWordEntryDao()
+        val progressDao = FakeWordProgressDao()
+        val reviewLogDao = FakeReviewLogDao()
+        val preview = ImportPreview(
+            title = "derivative search",
+            description = "",
+            source = "imported",
+            examTag = "cet4",
+            words = listOf(
+                ImportedWord(
+                    term = "clarify",
+                    phonetic = "",
+                    definition = "make clear",
+                    translation = "澄清",
+                    example = "",
+                    tags = listOf("cet4"),
+                    rootKey = "clar",
+                    derivatives = listOf("clarified", "clarifies"),
+                    frq = 100,
+                ),
+                ImportedWord(
+                    term = "classic",
+                    phonetic = "",
+                    definition = "typical",
+                    translation = "经典",
+                    example = "",
+                    tags = listOf("cet4"),
+                    frq = 200,
+                ),
+                ImportedWord(
+                    term = "focus",
+                    phonetic = "",
+                    definition = "concentrate",
+                    translation = "专注",
+                    example = "",
+                    tags = listOf("cet4"),
+                    frq = 50,
+                ),
+            ),
+        )
+        return StudyRepository(
+            wordBookDao = wordBookDao,
+            wordEntryDao = wordEntryDao,
+            progressDao = progressDao,
+            reviewLogDao = reviewLogDao,
+            preferencesRepository = FakePreferences(),
+            importer = FakeImporter(preview),
+            scheduler = SpacedRepetitionScheduler(clock),
+            clock = clock,
+        )
+    }
 }
 
 private class FakeWordBookDao : WordBookDao {
@@ -530,6 +606,7 @@ private class FakeWordEntryDao : WordEntryDao {
                     (
                         normalized.isEmpty() ||
                             entry.term.lowercase().contains(normalized) ||
+                            entry.derivatives.lowercase().contains(normalized) ||
                             entry.translation.lowercase().contains(normalized) ||
                             entry.definition.lowercase().contains(normalized)
                         )

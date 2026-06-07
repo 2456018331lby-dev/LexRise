@@ -59,6 +59,7 @@ interface WordEntryDao {
         WHERE bookId = :bookId
           AND (:keyword = ''
                OR term LIKE '%' || :keyword || '%' COLLATE NOCASE
+               OR derivatives LIKE '%' || :keyword || '%' COLLATE NOCASE
                OR translation LIKE '%' || :keyword || '%' COLLATE NOCASE
                OR definition LIKE '%' || :keyword || '%' COLLATE NOCASE)
         ORDER BY term COLLATE NOCASE

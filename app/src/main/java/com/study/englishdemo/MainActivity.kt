@@ -906,8 +906,8 @@ private fun VocabularyScreen(
                     modifier = Modifier.fillMaxWidth(),
                     leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
                     singleLine = true,
-                    label = { Text("搜索单词、释义或英文解释") },
-                    supportingText = { Text("支持拼写容错：clarfy 也会尝试找 clarify") },
+                    label = { Text("搜索单词、派生词、释义或英文解释") },
+                    supportingText = { Text("支持词形和拼写容错：clarified / clarifed 都会尝试找 clarify") },
                 )
                 VocabularySearchStatus(
                     query = uiState.vocabularyQuery,
@@ -945,9 +945,9 @@ private fun VocabularySearchStatus(query: String, resultCount: Int, loading: Boo
     val trimmed = query.trim()
     val text = when {
         loading -> "正在检索词书与学习阶段…"
-        trimmed.isEmpty() -> "可输入英文、中文释义或解释；英文词形支持轻微拼写错误。"
-        resultCount == 0 -> "未找到结果。试试更完整的单词，或改用中文释义搜索。"
-        else -> "找到 $resultCount 个结果；若没有精确命中，已按词形相似度补充候选。"
+        trimmed.isEmpty() -> "可输入原词、派生词、中文释义或解释；英文词形支持轻微拼写错误。"
+        resultCount == 0 -> "未找到结果。试试原词、派生词或中文释义搜索。"
+        else -> "找到 $resultCount 个结果；派生词命中和词形相似候选已合并展示。"
     }
     Surface(
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),

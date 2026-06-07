@@ -259,6 +259,18 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun fuzzyWordFormMatchDistance_acceptsDerivativeTypos() {
+        val distance = fuzzyWordFormMatchDistance(
+            query = "clarifed",
+            term = "clarify",
+            variants = listOf("clarified", "clarifies"),
+        )
+
+        assertThat(distance).isNotNull()
+        assertThat(distance!!).isLessThan(0.2)
+    }
+
+    @Test
     fun fuzzyTermMatchDistance_rejectsShortOrDistantQueries() {
         assertThat(fuzzyTermMatchDistance("sta", "state")).isNull()
         assertThat(fuzzyTermMatchDistance("moon", "maintain")).isNull()

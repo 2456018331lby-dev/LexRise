@@ -286,7 +286,11 @@ class StudyRepository(
                 .asSequence()
                 .filter { it.id !in directIds }
                 .mapNotNull { entry ->
-                    fuzzyTermMatchDistance(trimmed, entry.term)?.let { distance -> entry to distance }
+                    fuzzyWordFormMatchDistance(
+                        query = trimmed,
+                        term = entry.term,
+                        variants = entry.derivatives.split("|").filter { it.isNotBlank() },
+                    )?.let { distance -> entry to distance }
                 }
                 .sortedWith(
                     compareBy<Pair<WordEntryEntity, Double>> { it.second }
