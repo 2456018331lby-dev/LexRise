@@ -175,21 +175,36 @@ fun buildQuizOptions(
     return (distractors + correctTerm).shuffled(rng)
 }
 
+fun buildClozeBlank(example: String, term: String, variants: List<String> = emptyList()): ClozeBlank? {
+    val cleanExample = example.trim()
+    val candidates = (listOf(term) + variants)
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .distinctBy { it.lowercase() }
+        .sortedByDescending { it.length }
+    if (cleanExample.isEmpty() || candidates.isEmpty()) return null
+    for (candidate in candidates) {
+        val pattern = Regex(
+            "(?i)(?<![A-Za-z])${Regex.escape(candidate)}(?![A-Za-z])",
+        )
+        val match = pattern.find(cleanExample) ?: continue
+        return ClozeBlank(
+            prompt = pattern.replaceFirst(cleanExample, "____"),
+            answer = match.value,
+        )
+    }
+    return null
+}
+
 /**
  * Replaces the target term in an example sentence with a visible blank for
  * cloze practice. Matching is case-insensitive and avoids partial matches
  * inside longer alphabetic words.
  */
-fun blankTermInExample(example: String, term: String): String? {
-    val cleanExample = example.trim()
-    val cleanTerm = term.trim()
-    if (cleanExample.isEmpty() || cleanTerm.isEmpty()) return null
-    val pattern = Regex(
-        "(?i)(?<![A-Za-z])${Regex.escape(cleanTerm)}(?![A-Za-z])",
-    )
-    if (!pattern.containsMatchIn(cleanExample)) return null
-    return pattern.replaceFirst(cleanExample, "____")
-}
+fun blankTermInExample(example: String, term: String): String? = buildClozeBlank(
+    example = example,
+    term = term,
+)?.prompt
 
 /**
  * Returns a fuzzy-search distance when [query] is close enough to [term] to be

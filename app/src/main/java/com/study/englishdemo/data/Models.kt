@@ -282,6 +282,11 @@ data class ClozeQuestion(
     val correct: String,
 )
 
+data class ClozeBlank(
+    val prompt: String,
+    val answer: String,
+)
+
 data class ToughWord(
     val word: WordEntry,
     val againCount: Int,

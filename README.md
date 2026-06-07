@@ -1,8 +1,16 @@
-# Englishdemo / LexRise v0.9
+# Englishdemo / LexRise v0.10
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
 
-## v0.9 亮点
+## v0.10 亮点
+
+- **完形模式支持派生词挖空**
+  - 例句没有原形但包含 `clarified`、`clarifies` 这类 derivatives 时，也能生成完形题
+  - 正确答案保留例句里的实际词形，语法更自然：`The note ____ the final goal.` → `clarified`
+  - SRS 仍回流到原词条，不新增数据库字段
+  - 让内置词库里更多真实例句可用于上下文训练
+
+## v0.9 基线亮点
 
 - **首页焦点一键行动**
   - “今日学习焦点”卡新增行动按钮，不再只是建议文案
@@ -170,6 +178,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.10（2026-06-07）
+- 完形/例句挖空支持原词 derivatives，例句只出现派生词时也能生成题
+- 新增 `ClozeBlank` / `buildClozeBlank`，保留匹配到的实际词形作为正确答案
+- `buildClozeQuestion` 改用派生词候选，同时 SRS 仍记录到原词条
+- 应用版本元数据同步到 0.10.0
+- 测试 43 → 45
 
 ### v0.9（2026-06-07）
 - Dashboard “今日学习焦点”新增行动按钮，按焦点类型跳转到复习、新词或词根 Tab

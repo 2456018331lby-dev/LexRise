@@ -92,12 +92,13 @@ python tools/build_wordlists.py
 
 ### 能不能避开？能避开就避开
 
-很多"新功能"其实不需要加列。本项目 v0.3-v0.8 的所有新能力（簇首、词根覆盖、难词专攻、选择题干扰池、完形题、搜索拼写容错、本轮练习统计、首页学习焦点）都走**派生查询、纯函数派生或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
+很多"新功能"其实不需要加列。本项目 v0.3-v0.10 的所有新能力（簇首、词根覆盖、难词专攻、选择题干扰池、完形题、派生词挖空、搜索拼写容错、本轮练习统计、首页学习焦点）都走**派生查询、纯函数派生或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
 
 - 想标记"这个词是簇首"？→ 已经有 `getAnchorWordIds(bookId)` 动态算，不加 `isAnchor` 列
 - 想统计"哪个词翻车最多"？→ `getToughWordsForBook` 从 `review_logs` GROUP BY 出来
 - 想知道"这本书词根覆盖率"？→ `getBookRootSnapshot` 实时聚合
 - 想加新练习题型？→ 优先用 `PracticeMode` + Repository 构题 + 纯函数，评分仍回 `reviewWord`
+- 想让完形题支持派生词？→ `buildClozeBlank` 从已有 `derivatives` 字段派生候选，不加表
 - 想统计"这轮 Review 做得怎么样"？→ `PracticeSessionStats` 是 UI session 状态，`recordPracticeAttempt` 纯函数计数，不写 Room
 - 想提示"今天先做什么"并跳到对应页面？→ `buildStudyFocusCue` 从 session / rootSnapshot / pace 派生建议和按钮文案；`MainActivity` 只做本地 Tab 切换，不写设置、不写 Room
 
@@ -283,7 +284,7 @@ git ls-files .android-sdk/ app/build/   # 应为空
 | 改考试计划/自动配速 | `data/MorphologyHelpers.kt#computePaceRecommendation` + `MorphologyHelpersTest` |
 | 改首页学习焦点/行动按钮 | `data/MorphologyHelpers.kt#buildStudyFocusCue` + `data/Models.kt#StudyFocusCue` + `MainActivity.kt#StudyFocusCueCard` + `MorphologyHelpersTest` |
 | 改选择题干扰项逻辑 | `data/MorphologyHelpers.kt#buildQuizOptions` + `MorphologyHelpersTest` |
-| 改完形/例句挖空 | `data/MorphologyHelpers.kt#blankTermInExample` + `StudyRepository.kt#buildClozeQuestion` + 对应 Test |
+| 改完形/例句挖空 | `data/MorphologyHelpers.kt#buildClozeBlank/blankTermInExample` + `StudyRepository.kt#buildClozeQuestion` + 对应 Test |
 | 改词汇搜索/拼写容错 | `data/MorphologyHelpers.kt#fuzzyTermMatchDistance` + `StudyRepository.kt#searchWords` + 对应 Test |
 | 改本轮练习统计 | `data/Models.kt#PracticeSessionStats` + `data/MorphologyHelpers.kt#recordPracticeAttempt` + `ui/AppViewModel.kt#reviewPracticeWord` + `MainActivity.kt#PracticeSessionStatsCard` |
 | 改拼写判分 | `data/MorphologyHelpers.kt#normalizedEditDistance` + `ratingFromEditDistance` |

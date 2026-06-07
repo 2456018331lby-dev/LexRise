@@ -205,6 +205,19 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildClozeBlank_acceptsDerivativeAndPreservesMatchedAnswer() {
+        val blank = buildClozeBlank(
+            example = "The note clarified the final goal.",
+            term = "clarify",
+            variants = listOf("clarified", "clarifies"),
+        )
+
+        assertThat(blank).isNotNull()
+        assertThat(blank!!.prompt).isEqualTo("The note ____ the final goal.")
+        assertThat(blank.answer).isEqualTo("clarified")
+    }
+
+    @Test
     fun blankTermInExample_doesNotReplaceInsideLongerWords() {
         val prompt = blankTermInExample("The statement was clear.", "state")
 

@@ -3,19 +3,19 @@
 这份文档专门给下一个 AI（或人）接手这个项目时读。
 README 面向用户，这份面向开发者/AI——信息密度优先，直接给"当前到哪了、地雷在哪、下一步候选是什么"。
 
-**最近一次更新**：2026-06-07（v0.9 完工后）
+**最近一次更新**：2026-06-07（v0.10 完工后）
 
 ---
 
 ## 1. 项目一句话描述
 
-`c:/Users/24560/Desktop/study/Englishdemo` 是一个本地离线的 Android 背单词 App（Kotlin + Compose + Material3 dynamicColor + Room v2 + WorkManager），面向 CET4/CET6/考研。当前能跑、43 个单测全绿，debug APK 可装。
+`c:/Users/24560/Desktop/study/Englishdemo` 是一个本地离线的 Android 背单词 App（Kotlin + Compose + Material3 dynamicColor + Room v2 + WorkManager），面向 CET4/CET6/考研。当前能跑、45 个单测全绿，debug APK 可装。
 
 **独立 git 仓库**（v0.3 起）：`Englishdemo/.git/`，分支 `main`，家目录级别仓库被完全隔离。
 
 ---
 
-## 2. 当前版本：v0.9（已完成）
+## 2. 当前版本：v0.10（已完成）
 
 **词库规模**（全部来自合法开源源头，首启自动导入）：
 
@@ -31,7 +31,7 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 - **复习模式（v0.5）**：翻卡 / 选择题 / 完形 / 拼写 / 听写 五种统一走 SRS
   - 翻卡：默认盖住释义，点击才翻；**拆词条和词根意思常驻显示**（v0.4 bug fix，不再要翻卡二次揭示）
   - 选择题：`buildQuizQuestion` 从同根词优先抽干扰项；答对 → GOOD，答错 → AGAIN
-  - 完形：`buildClozeQuestion` 从例句中挖掉目标词，复用同根优先干扰项；答对 → GOOD，答错 → AGAIN
+  - 完形：`buildClozeQuestion` 从例句中挖掉目标词或 derivatives（v0.10），复用同根优先干扰项；答对 → GOOD，答错 → AGAIN
   - 拼写/听写：Levenshtein 距离 `normalizedEditDistance` → `ratingFromEditDistance` 四档映射（0 → EASY，≤0.15 → GOOD，≤0.35 → HARD，余 → AGAIN）
 - **难词专攻 Tab**（v0.4 新）：`getToughWords` 聚合 `review_logs` 中 `rating=AGAIN` 计数 top N；支持原地"会了/不会"快速评分
 - **簇首词**（同根中 frq 最低的那个）顶上『地基词』徽章
@@ -47,12 +47,12 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 
 - 内置词书导入和用户词书合并统一走 `importMutex`，防止首启/重复点击导入时插入重复词书
 - 词条进度初始化从逐条 `insert` 改为 `insertAll`
-- `app/build.gradle.kts` 已同步 `versionCode=9` / `versionName="0.9.0"`
+- `app/build.gradle.kts` 已同步 `versionCode=10` / `versionName="0.10.0"`
 
 **已做的测试 / 构建验证**：
 
-- `./gradlew.bat :app:testDebugUnitTest` — **43 个 test 全绿**
-- `./gradlew.bat :app:assembleDebug` — 成功，debug APK 63.89 MB
+- `./gradlew.bat :app:testDebugUnitTest` — **45 个 test 全绿**
+- `./gradlew.bat :app:assembleDebug` — 成功，debug APK 63.90 MB
 
 ---
 
@@ -62,12 +62,12 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 
 | 文件 | 职责 |
 |------|------|
-| `Models.kt` | Room 实体 + 领域模型。v0.9 给 `StudyFocusCue` 增 `actionLabel`；v0.8 增：`StudyFocusKind`、`StudyFocusCue`；v0.7 增：`PracticeSessionStats`；v0.5 增：`PracticeMode.CLOZE`、`ClozeQuestion`；v0.4 增：`PracticeMode`、`QuizQuestion`、`ToughWord`；v0.3 增：`SettingsState.examDate / autoPaceEnabled`、`RootGroup`、`BookRootSnapshot`、`PaceRecommendation`、`MorphemeSegment` |
+| `Models.kt` | Room 实体 + 领域模型。v0.10 增：`ClozeBlank`；v0.9 给 `StudyFocusCue` 增 `actionLabel`；v0.8 增：`StudyFocusKind`、`StudyFocusCue`；v0.7 增：`PracticeSessionStats`；v0.5 增：`PracticeMode.CLOZE`、`ClozeQuestion`；v0.4 增：`PracticeMode`、`QuizQuestion`、`ToughWord`；v0.3 增：`SettingsState.examDate / autoPaceEnabled`、`RootGroup`、`BookRootSnapshot`、`PaceRecommendation`、`MorphemeSegment` |
 | `Dao.kt` | 四个 DAO。v0.5 增：`WordProgressDao.insertAll`；v0.4 增：`getDistractorPool`（词根优先 + RANDOM 兜底）、`getToughWordsForBook`（AGAIN 次数聚合）、`ToughWordRow` 投影；v0.3 增：`getClusteredEntries / countClusteredForBook / getByWordIds / countLearnedForBook` |
 | `AppDatabase.kt` | Room DB，version=2，`fallbackToDestructiveMigration()` |
 | `SpacedRepetitionScheduler.kt` | SRS 算法（纯函数，已测） |
-| `MorphologyHelpers.kt` | 纯函数。v0.8 增：`buildStudyFocusCue`；v0.7 增：`recordPracticeAttempt`；v0.6 增：`fuzzyTermMatchDistance`；v0.5 增：`blankTermInExample`；v0.4 增：`buildQuizOptions`（干扰项生成）、`normalizedEditDistance`（Levenshtein / 长度）、`ratingFromEditDistance`（距离 → 四档）；v0.3 有：`decomposeWord`、`computePaceRecommendation` |
-| `StudyRepository.kt` | 业务层。v0.6 增：`searchWords` 直接命中 + fuzzy fallback；v0.5 增：`importMutex`、批量初始化进度、`buildClozeQuestion(wordId, bookId)`；v0.4 增：`buildQuizQuestion(wordId, bookId)`、`getToughWords(bookId, limit)`；v0.3 增：`getRootGroups / getBookRootSnapshot / getAnchorWordIds / getPaceRecommendation / updateExamPlan` |
+| `MorphologyHelpers.kt` | 纯函数。v0.10 增：`buildClozeBlank`；v0.8 增：`buildStudyFocusCue`；v0.7 增：`recordPracticeAttempt`；v0.6 增：`fuzzyTermMatchDistance`；v0.5 增：`blankTermInExample`；v0.4 增：`buildQuizOptions`（干扰项生成）、`normalizedEditDistance`（Levenshtein / 长度）、`ratingFromEditDistance`（距离 → 四档）；v0.3 有：`decomposeWord`、`computePaceRecommendation` |
+| `StudyRepository.kt` | 业务层。v0.10 `buildClozeQuestion` 支持 derivatives 挖空；v0.6 增：`searchWords` 直接命中 + fuzzy fallback；v0.5 增：`importMutex`、批量初始化进度、`buildClozeQuestion(wordId, bookId)`；v0.4 增：`buildQuizQuestion(wordId, bookId)`、`getToughWords(bookId, limit)`；v0.3 增：`getRootGroups / getBookRootSnapshot / getAnchorWordIds / getPaceRecommendation / updateExamPlan` |
 | `WordBookParser.kt` / `WordBookImporter.kt` | CSV/TXT 解析；新 10 列 + 旧 6 列兼容 |
 | `UserPreferencesRepository.kt` | DataStore 设置 |
 | `RootReferenceLoader.kt` | 懒加载 `assets/reference/roots.json`，带 `Mutex` |
@@ -108,10 +108,10 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 | `SpacedRepetitionSchedulerTest.kt` | 4 | SRS 四档含 HARD/GOOD 严格推进 |
 | `WordBookParserTest.kt` | 3 | CSV/TXT 解析 |
 | `ReviewReminderSchedulerTest.kt` | 2 | 提醒时间计算 |
-| `StudyRepositoryTest.kt` | 11 | recentReviewCounts / 合并去重 / **拼写容错搜索** / 同根近邻 / 词根聚合 / 簇首 / 配速 / **选择题构建** / **完形题构建** / **内置导入幂等** / **难词 TopN** |
-| `MorphologyHelpersTest.kt` | 23 | decomposeWord / computePaceRecommendation / **buildStudyFocusCue** / **buildQuizOptions** / **blankTermInExample** / **fuzzyTermMatchDistance** / **recordPracticeAttempt** / **normalizedEditDistance** / **ratingFromEditDistance** |
+| `StudyRepositoryTest.kt` | 12 | recentReviewCounts / 合并去重 / **拼写容错搜索** / 同根近邻 / 词根聚合 / 簇首 / 配速 / **选择题构建** / **完形题构建（含 derivatives）** / **内置导入幂等** / **难词 TopN** |
+| `MorphologyHelpersTest.kt` | 24 | decomposeWord / computePaceRecommendation / **buildStudyFocusCue** / **buildClozeBlank** / **buildQuizOptions** / **blankTermInExample** / **fuzzyTermMatchDistance** / **recordPracticeAttempt** / **normalizedEditDistance** / **ratingFromEditDistance** |
 
-**总计 43 个单测**。
+**总计 45 个单测**。
 
 ---
 
@@ -126,10 +126,10 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 7. **自动配速是"覆盖"不是"替换"基线**
 8. **decomposeWord 永不抛异常**，UI 在 `segments.size > 1` 时才渲染
 9. **所有练习模式的评分必须经 reviewWord**：选择题/拼写/听写 UI 最终调 `onRate(wordId, rating)`，不绕过 SRS。打分不要新开表，`review_logs` 是"难词专攻"的唯一数据源
-10. **完形模式也必须经 reviewWord**：`ClozePracticePager` 答对 GOOD、答错 AGAIN；不要为完形新开表
+10. **完形模式也必须经 reviewWord**：`ClozePracticePager` 答对 GOOD、答错 AGAIN；不要为完形新开表。v0.10 支持 derivatives 挖空，但 SRS 仍记录到原词条
 11. **Review 统计只统计 Review Tab**：`reviewPracticeWord` 包装 `reviewWord` 并更新 `PracticeSessionStats`；Learn/Tough 仍走普通 `reviewWord`，不要混入本轮练习统计
 12. **首页学习焦点是派生建议**：`buildStudyFocusCue` 只读 `LearningSession / BookRootSnapshot / PaceRecommendation`，不要写回 `dailyNewWordTarget`，也不要为建议新增 Room 表；v0.9 行动按钮只切换本地 Tab
-13. **buildStudyFocusCue / buildQuizOptions / blankTermInExample / fuzzyTermMatchDistance / recordPracticeAttempt / normalizedEditDistance 是纯函数**：不要换成带 Context 的实现。首页建议与按钮文案 / SRS / 干扰项 / 完形挖空 / 拼写容错 / session 统计 / 拼写判定都应该能在 `:app:testDebugUnitTest`（non-instrumented）里跑
+13. **buildStudyFocusCue / buildQuizOptions / buildClozeBlank / blankTermInExample / fuzzyTermMatchDistance / recordPracticeAttempt / normalizedEditDistance 是纯函数**：不要换成带 Context 的实现。首页建议与按钮文案 / SRS / 干扰项 / 完形挖空 / 拼写容错 / session 统计 / 拼写判定都应该能在 `:app:testDebugUnitTest`（non-instrumented）里跑
 14. **导入互斥不要移除**：`ensureBundledBookImported`、`importBook`、`importPreview` 共享 `importMutex`，防止并发首启或重复点击导入造成重复词书/重复进度
 
 ---
@@ -168,7 +168,7 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 
 ## 6. 下一步候选（按优先级）
 
-v0.9 后，以下是还没开工或值得继续深化的方向。按优先级从高到低。
+v0.10 后，以下是还没开工或值得继续深化的方向。按优先级从高到低。
 
 ### P0 — GitHub 发布（用户单边操作 + AI 辅助）
 
@@ -184,7 +184,7 @@ v0.9 后，以下是还没开工或值得继续深化的方向。按优先级从
 ### P1 — 学习体验深化
 
 1. **AI 批量巧记**：LLM 离线生成首轮填入 `assets/books/*.csv` 的 `mnemonic` 列，用户再编辑。**不走在线 API**——改 `build_wordlists.py`，读一个额外的 `tools/raw/mnemonics.csv` 注入即可
-2. **完形模式增强**：当前只挖命中原形的例句；后续可支持派生词/大小写保形/例句质量评分
+2. **完形模式继续增强**：v0.10 已支持 derivatives；后续可支持例句质量评分、多个候选句排序
 3. **词根详情卡深化**：v0.5 已有 BottomSheet 速览；后续可把底部卡扩展为完整 FlipWordCard 或支持“加入今日复习”
 
 已完成（v0.5）：
@@ -206,6 +206,9 @@ v0.9 后，以下是还没开工或值得继续深化的方向。按优先级从
 
 已完成（v0.9）：
 - Dashboard 今日学习焦点行动按钮
+
+已完成（v0.10）：
+- 完形模式支持 derivatives 挖空
 
 ### P3 — 工程化 / 发布
 
@@ -249,10 +252,10 @@ curl -fL -o tools/raw/roots_raw.md \
 
 按序执行，全部通过再说"做完了"：
 
-1. `./gradlew.bat :app:testDebugUnitTest` 全绿（当前 43 个）
+1. `./gradlew.bat :app:testDebugUnitTest` 全绿（当前 45 个）
 2. `./gradlew.bat :app:assembleDebug` 成功
 3. APK 体积 < 80 MB（v0.3 基线 67 MB）
-4. 手装 APK 到手机/模拟器，**v0.9 冒烟清单**：
+4. 手装 APK 到手机/模拟器，**v0.10 冒烟清单**：
    - 首启 Dashboard 看到三本内置词书，词根覆盖卡出现
    - 新词页卡片拆词条显示 `pre-scrib-e` 三色 + 紧跟一行"scrib = 写"（无需翻卡点击）
    - 翻卡后不再出现重复的词根意思段，节奏紧凑
@@ -260,7 +263,7 @@ curl -fL -o tools/raw/roots_raw.md \
    - Dashboard “今日学习焦点”会根据复习债、自动配速或词根覆盖显示不同建议，按钮能跳到对应 Tab
    - 复习 Tab 顶部“本轮练习仪表”会随作答增加完成/稳答/再练，并且“重置”能清零
    - 选择题的 3 个干扰项包含同根词（若可用）
-   - 完形题显示例句挖空，答题后展示原句；无可挖空例句时出现跳过按钮
+   - 完形题显示例句挖空，答题后展示原句；只有派生词命中的例句也能生成题；无可挖空例句时出现跳过按钮
    - 拼写时一字母错评 HARD，完全写错评 AGAIN
    - 听写模式进页自动播词，"重播"按钮能再播一次
    - 难词 Tab 把刚才选错的词按次数倒序排列
@@ -270,10 +273,10 @@ curl -fL -o tools/raw/roots_raw.md \
 5. **项目仓库 `git status`**（不是家目录！）检查——只应该看到你这轮改的文件。如果冒出 `.android-sdk/` 或 `app/build/` 要立刻查 .gitignore
 6. **家目录 `cd ~ && git status`** 检查——如果 Englishdemo 下的文件出现在 staged 区域，说明有人把 `.git` 删掉了，立刻停止
 
-### v0.9 之后新增 feature 的"最小验证套路"
+### v0.10 之后新增 feature 的"最小验证套路"
 
 - **新复习模式**：在 `PracticeMode` 枚举加一项，在 `ReviewScreen` 的 when 加分支；所有评分依然回 `onRate(wordId, rating)`
-- 纯函数逻辑（拆词、配速、首页建议/按钮文案、打分、距离）：补 `MorphologyHelpersTest.kt`
+- 纯函数逻辑（拆词、配速、首页建议/按钮文案、完形挖空、打分、距离）：补 `MorphologyHelpersTest.kt`
 - Repository 新方法：扩 `StudyRepositoryTest.kt` 里的 `FakeDao`（现在支持 `getDistractorPool` / `getToughWordsForBook`）并加用例
 - UI：用 `PreviewData.kt` 在 Android Studio Preview 里先对视觉
 - 任何 Room 查询：先加一个 test 再写实现
@@ -291,13 +294,14 @@ curl -fL -o tools/raw/roots_raw.md \
 - **v0.7（2026-06-07）**：Review Tab 新增本轮练习统计；五种 Review 模式计入同一 session，Learn/Tough 不混入；支持重置；版本元数据同步 0.7.0；测试 37→38
 - **v0.8（2026-06-07）**：Dashboard 新增今日学习焦点；按复习债/自动配速/词根覆盖/新词剩余/完成态派生建议；版本元数据同步 0.8.0；测试 38→42
 - **v0.9（2026-06-07）**：Dashboard 今日学习焦点新增行动按钮；按钮文案由 `buildStudyFocusCue` 派生；点击直达复习/新词/词根；版本元数据同步 0.9.0；测试 42→43
+- **v0.10（2026-06-07）**：完形模式支持 derivatives 挖空；正确答案保留例句实际词形；SRS 仍回原词；版本元数据同步 0.10.0；测试 43→45
 
 ---
 
-## 10. APK 与 GitHub 当前状态（v0.9 后）
+## 10. APK 与 GitHub 当前状态（v0.10 后）
 
 **APK**  
-- debug APK 产物：`app/build/outputs/apk/debug/app-debug.apk`，63.89 MB，未签名 debug 包
+- debug APK 产物：`app/build/outputs/apk/debug/app-debug.apk`，63.90 MB，未签名 debug 包
 - Release 包没做。要做的话先在 `local.properties` 加 signing config，然后 `./gradlew.bat :app:assembleRelease`；参考 `docs/github-release-playbook.md`
 
 **GitHub 发布状态：尚未 push**，**是有意的**。流程是：
@@ -313,6 +317,7 @@ curl -fL -o tools/raw/roots_raw.md \
 
 这个独立仓库当前分支 `main`，历史提交包括：
 ```
+e88b826 Make dashboard focus guidance directly actionable
 5022006 Guide daily study with derived focus cues
 885de4d Make review practice progress visible in-session
 a5eefff Make vocabulary search resilient to typos
@@ -332,7 +337,7 @@ c37c48f docs: add MAINTENANCE.md for day-to-day upkeep
 
 1. 先读本文件**全部**（不是只读改动段落），特别是 §4 不变量和 §5 地雷
 2. `cd c:/Users/24560/Desktop/study/Englishdemo && git status` 看干净了
-3. `./gradlew.bat :app:testDebugUnitTest` 确认当前 43 个单测全绿
+3. `./gradlew.bat :app:testDebugUnitTest` 确认当前 45 个单测全绿
 4. 确认 `.gitignore` 覆盖了 `.android-sdk/` `build/` `.gradle/` `.kotlin/` `tools/raw/` `local.properties`
 5. 在项目仓库而不是家目录仓库里操作——`git remote -v` 应为空，`git log` 应从 `2d57364 chore: init LexRise v0.2 standalone repository` 开始
 6. 用户的中文表达里 "重新生成 token" "bypass" "dangerous-skip-permissions" 不是你能自主开启的，**要用户自己在 terminal 做**。你的角色是把流程写清楚

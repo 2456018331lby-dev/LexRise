@@ -473,7 +473,11 @@ class StudyRepository(
 
     suspend fun buildClozeQuestion(wordId: Long, bookId: Long): ClozeQuestion? {
         val entry = wordEntryDao.getEntriesByIds(listOf(wordId)).firstOrNull() ?: return null
-        val prompt = blankTermInExample(entry.example, entry.term) ?: return null
+        val blank = buildClozeBlank(
+            example = entry.example,
+            term = entry.term,
+            variants = entry.derivatives.split("|"),
+        ) ?: return null
         val pool = wordEntryDao.getDistractorPool(
             bookId = bookId,
             excludeId = entry.id,
@@ -482,7 +486,7 @@ class StudyRepository(
         ).map { it.toDomain(null) }
         if (pool.size < 3) return null
         val options = buildQuizOptions(
-            correctTerm = entry.term,
+            correctTerm = blank.answer,
             correctRootKey = entry.rootKey,
             pool = pool,
         )
@@ -500,9 +504,9 @@ class StudyRepository(
         }
         return ClozeQuestion(
             word = entry.toDomain(progress),
-            prompt = prompt,
+            prompt = blank.prompt,
             options = options,
-            correct = entry.term,
+            correct = blank.answer,
         )
     }
 
