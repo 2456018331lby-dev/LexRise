@@ -123,6 +123,20 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun blankTermInExample_replacesWholeTermIgnoringCase() {
+        val prompt = blankTermInExample("Please Clarify the final goal.", "clarify")
+
+        assertThat(prompt).isEqualTo("Please ____ the final goal.")
+    }
+
+    @Test
+    fun blankTermInExample_doesNotReplaceInsideLongerWords() {
+        val prompt = blankTermInExample("The statement was clear.", "state")
+
+        assertThat(prompt).isNull()
+    }
+
+    @Test
     fun normalizedEditDistance_exactMatchIsZero() {
         assertThat(normalizedEditDistance("focus", "focus")).isEqualTo(0.0)
         assertThat(normalizedEditDistance("Focus", "focus")).isEqualTo(0.0)

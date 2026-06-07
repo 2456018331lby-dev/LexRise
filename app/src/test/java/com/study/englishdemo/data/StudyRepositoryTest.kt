@@ -3,6 +3,7 @@ package com.study.englishdemo.data
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
@@ -266,6 +267,51 @@ class StudyRepositoryTest {
     }
 
     @Test
+    fun buildClozeQuestion_blanksExampleAndIncludesCorrectTerm() = runBlocking {
+        val repo = miniRepoForQuiz()
+        val book = repo.importBook("cloze.csv", ByteArrayInputStream("".toByteArray()))
+        val state = repo.searchWords(book.bookId, "state").first { it.term == "state" }
+
+        val question = repo.buildClozeQuestion(state.id, book.bookId)
+
+        assertThat(question).isNotNull()
+        assertThat(question!!.prompt).isEqualTo("The ____ of the project is stable.")
+        assertThat(question.correct).isEqualTo("state")
+        assertThat(question.options).contains("state")
+        assertThat(question.options).hasSize(4)
+    }
+
+    @Test
+    fun ensureBundledBookImported_isIdempotent() = runBlocking {
+        val wordBookDao = FakeWordBookDao()
+        val wordEntryDao = FakeWordEntryDao()
+        val progressDao = FakeWordProgressDao()
+        val reviewLogDao = FakeReviewLogDao()
+        val repo = StudyRepository(
+            wordBookDao = wordBookDao,
+            wordEntryDao = wordEntryDao,
+            progressDao = progressDao,
+            reviewLogDao = reviewLogDao,
+            preferencesRepository = FakePreferences(),
+            importer = FakeImporter(emptyPreview()),
+            scheduler = SpacedRepetitionScheduler(clock),
+            clock = clock,
+        )
+
+        val firstId = repo.ensureBundledBookImported()
+        val secondId = repo.ensureBundledBookImported()
+        val books = wordBookDao.observeBooks().first()
+
+        assertThat(secondId).isEqualTo(firstId)
+        assertThat(books.map { it.title }).containsExactly(
+            "四级高频 · 词根序",
+            "六级进阶 · 词根序",
+            "考研英语 · 大纲词",
+        )
+        Unit
+    }
+
+    @Test
     fun getToughWords_ordersByAgainCountDesc() = runBlocking {
         val wordBookDao = FakeWordBookDao()
         val wordEntryDao = FakeWordEntryDao()
@@ -319,11 +365,11 @@ class StudyRepositoryTest {
             source = "imported",
             examTag = "cet4",
             words = listOf(
-                ImportedWord(term = "state", phonetic = "", definition = "", translation = "陈述", example = "", tags = listOf("cet4"), rootKey = "stat"),
-                ImportedWord(term = "statement", phonetic = "", definition = "", translation = "声明", example = "", tags = listOf("cet4"), rootKey = "stat"),
-                ImportedWord(term = "status", phonetic = "", definition = "", translation = "状态", example = "", tags = listOf("cet4"), rootKey = "stat"),
-                ImportedWord(term = "include", phonetic = "", definition = "", translation = "包括", example = "", tags = listOf("cet4"), rootKey = "clud"),
-                ImportedWord(term = "floor", phonetic = "", definition = "", translation = "地板", example = "", tags = listOf("cet4")),
+                ImportedWord(term = "state", phonetic = "", definition = "condition", translation = "状态", example = "The state of the project is stable.", tags = listOf("cet4"), rootKey = "stat"),
+                ImportedWord(term = "statement", phonetic = "", definition = "", translation = "声明", example = "The statement was clear.", tags = listOf("cet4"), rootKey = "stat"),
+                ImportedWord(term = "status", phonetic = "", definition = "", translation = "状态", example = "Status matters.", tags = listOf("cet4"), rootKey = "stat"),
+                ImportedWord(term = "include", phonetic = "", definition = "", translation = "包括", example = "Include the final answer.", tags = listOf("cet4"), rootKey = "clud"),
+                ImportedWord(term = "floor", phonetic = "", definition = "", translation = "地板", example = "The floor is clean.", tags = listOf("cet4")),
             ),
         )
         return StudyRepository(
@@ -411,6 +457,12 @@ private class FakeWordProgressDao : WordProgressDao {
         items += saved
         return saved.id
     }
+    override suspend fun insertAll(progress: List<WordProgressEntity>): List<Long> =
+        progress.map { item ->
+            val saved = item.copy(id = nextId++)
+            items += saved
+            saved.id
+        }
     override suspend fun update(progress: WordProgressEntity) {
         val idx = items.indexOfFirst { it.id == progress.id }
         if (idx >= 0) items[idx] = progress
@@ -482,4 +534,3 @@ private class FakeImporter(private val preview: ImportPreview) : BookImporter {
     override suspend fun importBundledBook(assetPath: String): ImportPreview = preview
     override suspend fun import(stream: java.io.InputStream, filename: String, fallbackTitle: String): ImportPreview = preview
 }
-

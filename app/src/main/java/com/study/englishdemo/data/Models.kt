@@ -242,10 +242,18 @@ data class MorphemeSegment(
     val kind: Morpheme,
 )
 
-enum class PracticeMode { FLIP, CHOICE, SPELL, DICTATION }
+enum class PracticeMode { FLIP, CHOICE, CLOZE, SPELL, DICTATION }
 
 data class QuizQuestion(
     val word: WordEntry,
+    /** Options are term strings; the correct one is guaranteed to be included. */
+    val options: List<String>,
+    val correct: String,
+)
+
+data class ClozeQuestion(
+    val word: WordEntry,
+    val prompt: String,
     /** Options are term strings; the correct one is guaranteed to be included. */
     val options: List<String>,
     val correct: String,

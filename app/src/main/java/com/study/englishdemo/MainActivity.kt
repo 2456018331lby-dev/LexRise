@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -66,6 +67,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
@@ -82,6 +84,7 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -143,6 +146,7 @@ class MainActivity : ComponentActivity() {
                     onMnemonic = viewModel::updateMnemonic,
                     onModeChange = viewModel::setPracticeMode,
                     buildQuiz = viewModel::buildQuiz,
+                    buildCloze = viewModel::buildCloze,
                     gradeSpelling = viewModel::gradeSpelling,
                     onRefreshTough = viewModel::loadToughWords,
                 )
@@ -172,6 +176,7 @@ private fun LexRiseApp(
     onMnemonic: (Long, String) -> Unit,
     onModeChange: (com.study.englishdemo.data.PracticeMode) -> Unit,
     buildQuiz: suspend (Long) -> com.study.englishdemo.data.QuizQuestion?,
+    buildCloze: suspend (Long) -> com.study.englishdemo.data.ClozeQuestion?,
     gradeSpelling: (String, String) -> ReviewRating,
     onRefreshTough: () -> Unit,
 ) {
@@ -286,6 +291,7 @@ private fun LexRiseApp(
                         onMnemonic = onMnemonic,
                         onModeChange = onModeChange,
                         buildQuiz = buildQuiz,
+                        buildCloze = buildCloze,
                         gradeSpelling = gradeSpelling,
                     )
                     HomeTab.ROOTS -> RootsScreen(uiState, onSpeak, onRootsQuery)
@@ -701,6 +707,7 @@ private fun ReviewScreen(
     onMnemonic: (Long, String) -> Unit,
     onModeChange: (com.study.englishdemo.data.PracticeMode) -> Unit,
     buildQuiz: suspend (Long) -> com.study.englishdemo.data.QuizQuestion?,
+    buildCloze: suspend (Long) -> com.study.englishdemo.data.ClozeQuestion?,
     gradeSpelling: (String, String) -> ReviewRating,
 ) {
     val words = uiState.session?.dueReviewWords.orEmpty()
@@ -734,6 +741,12 @@ private fun ReviewScreen(
             com.study.englishdemo.data.PracticeMode.CHOICE -> QuizPracticePager(
                 words = words,
                 buildQuiz = buildQuiz,
+                onRate = onRate,
+                onSpeak = onSpeak,
+            )
+            com.study.englishdemo.data.PracticeMode.CLOZE -> ClozePracticePager(
+                words = words,
+                buildCloze = buildCloze,
                 onRate = onRate,
                 onSpeak = onSpeak,
             )
@@ -874,16 +887,16 @@ private fun SettingsScreen(
     onReminderSettingsSave: (Boolean, Int, Int) -> Unit,
 ) {
     var sliderValue by remember(uiState.settings.dailyNewWordTarget) {
-        mutableStateOf(uiState.settings.dailyNewWordTarget.toFloat())
+        mutableFloatStateOf(uiState.settings.dailyNewWordTarget.toFloat())
     }
     var reminderEnabled by remember(uiState.settings.reviewReminderEnabled) {
         mutableStateOf(uiState.settings.reviewReminderEnabled)
     }
     var reminderHour by remember(uiState.settings.reminderHour) {
-        mutableStateOf(uiState.settings.reminderHour.toFloat())
+        mutableFloatStateOf(uiState.settings.reminderHour.toFloat())
     }
     var reminderMinute by remember(uiState.settings.reminderMinute) {
-        mutableStateOf(uiState.settings.reminderMinute.toFloat())
+        mutableFloatStateOf(uiState.settings.reminderMinute.toFloat())
     }
     val session = requireNotNull(uiState.session)
     LazyColumn(
@@ -1044,6 +1057,15 @@ private fun FlipWordCard(
     var revealed by remember(word.id) { mutableStateOf(false) }
     var mnemonicEditorOpen by remember(word.id) { mutableStateOf(false) }
     var mnemonicDraft by remember(word.id, word.mnemonic) { mutableStateOf(word.mnemonic) }
+    var selectedSibling by remember(word.id) { mutableStateOf<WordEntry?>(null) }
+    selectedSibling?.let { selected ->
+        RootWordPreviewSheet(
+            word = selected,
+            rootMeanings = rootRef?.meanings.orEmpty(),
+            onSpeak = onSpeak,
+            onDismiss = { selectedSibling = null },
+        )
+    }
     Card(
         shape = RoundedCornerShape(28.dp),
         modifier = Modifier
@@ -1117,7 +1139,7 @@ private fun FlipWordCard(
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             siblings.take(4).forEach { sib ->
-                                SiblingChip(sib = sib, onSpeak = onSpeak)
+                                SiblingChip(sib = sib, onClick = { selectedSibling = it })
                             }
                         }
                     }
@@ -1316,7 +1338,7 @@ private fun MorphemeRow(
 }
 
 @Composable
-private fun SiblingChip(sib: WordEntry, onSpeak: (String) -> Unit) {
+private fun SiblingChip(sib: WordEntry, onClick: (WordEntry) -> Unit) {
     val phase = sib.progress?.phase
     val (dotColor, _) = when (phase) {
         StudyPhase.MASTERED -> Color(0xFF6E8B3D) to "掌握"
@@ -1325,7 +1347,7 @@ private fun SiblingChip(sib: WordEntry, onSpeak: (String) -> Unit) {
         else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f) to "新词"
     }
     AssistChip(
-        onClick = { onSpeak(sib.term) },
+        onClick = { onClick(sib) },
         label = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1340,6 +1362,80 @@ private fun SiblingChip(sib: WordEntry, onSpeak: (String) -> Unit) {
             }
         },
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RootWordPreviewSheet(
+    word: WordEntry,
+    rootMeanings: List<String>,
+    onSpeak: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
+                    Text(word.term, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        word.phonetic.ifBlank { "同根词速览" },
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    PhaseTag(word.progress?.phase)
+                    IconButton(onClick = { onSpeak(word.term) }) {
+                        Icon(Icons.Rounded.GraphicEq, contentDescription = "播放发音")
+                    }
+                }
+            }
+            if (word.rootKey.isNotBlank()) {
+                val rootRef = com.study.englishdemo.data.RootReference(
+                    key = word.rootKey,
+                    meanings = rootMeanings,
+                    examples = emptyList(),
+                )
+                MorphemeRow(term = word.term, rootKey = word.rootKey, rootRef = rootRef)
+            }
+            Text(word.translation.ifBlank { "暂无中文释义" }, style = MaterialTheme.typography.titleMedium)
+            if (word.definition.isNotBlank()) {
+                Text(
+                    word.definition,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f),
+                )
+            }
+            if (word.example.isNotBlank()) {
+                Text(
+                    "例句：${word.example}",
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            RoundedCornerShape(18.dp),
+                        )
+                        .padding(14.dp),
+                )
+            }
+            if (word.derivatives.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    word.derivatives.take(6).forEach { d ->
+                        AssistChip(onClick = {}, label = { Text(d) })
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -1593,6 +1689,15 @@ private fun RootsScreen(
 @Composable
 private fun RootGroupCard(group: RootGroup, onSpeak: (String) -> Unit) {
     var expanded by remember(group.rootKey) { mutableStateOf(false) }
+    var selectedWord by remember(group.rootKey) { mutableStateOf<WordEntry?>(null) }
+    selectedWord?.let { selected ->
+        RootWordPreviewSheet(
+            word = selected,
+            rootMeanings = group.meanings,
+            onSpeak = onSpeak,
+            onDismiss = { selectedWord = null },
+        )
+    }
     val ratio = if (group.totalWords == 0) 0f else group.learnedWords.toFloat() / group.totalWords
     val animatedRatio by animateFloatAsState(ratio, tween(360), label = "rootGroupRatio")
     Card(
@@ -1645,7 +1750,7 @@ private fun RootGroupCard(group: RootGroup, onSpeak: (String) -> Unit) {
                     preview.chunked(2).forEach { rowWords ->
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             rowWords.forEach { w ->
-                                SiblingChip(sib = w, onSpeak = onSpeak)
+                                SiblingChip(sib = w, onClick = { selectedWord = it })
                             }
                         }
                     }
@@ -1666,38 +1771,50 @@ private fun PracticeModeBar(
     onChange: (com.study.englishdemo.data.PracticeMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    LazyRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        PracticeChip(
-            label = "翻卡",
-            icon = Icons.Rounded.AutoStories,
-            selected = current == com.study.englishdemo.data.PracticeMode.FLIP,
-            onClick = { onChange(com.study.englishdemo.data.PracticeMode.FLIP) },
-            modifier = Modifier.weight(1f),
-        )
-        PracticeChip(
-            label = "选择",
-            icon = Icons.Rounded.Quiz,
-            selected = current == com.study.englishdemo.data.PracticeMode.CHOICE,
-            onClick = { onChange(com.study.englishdemo.data.PracticeMode.CHOICE) },
-            modifier = Modifier.weight(1f),
-        )
-        PracticeChip(
-            label = "拼写",
-            icon = Icons.Rounded.Keyboard,
-            selected = current == com.study.englishdemo.data.PracticeMode.SPELL,
-            onClick = { onChange(com.study.englishdemo.data.PracticeMode.SPELL) },
-            modifier = Modifier.weight(1f),
-        )
-        PracticeChip(
-            label = "听写",
-            icon = Icons.Rounded.Hearing,
-            selected = current == com.study.englishdemo.data.PracticeMode.DICTATION,
-            onClick = { onChange(com.study.englishdemo.data.PracticeMode.DICTATION) },
-            modifier = Modifier.weight(1f),
-        )
+        item {
+            PracticeChip(
+                label = "翻卡",
+                icon = Icons.Rounded.AutoStories,
+                selected = current == com.study.englishdemo.data.PracticeMode.FLIP,
+                onClick = { onChange(com.study.englishdemo.data.PracticeMode.FLIP) },
+            )
+        }
+        item {
+            PracticeChip(
+                label = "选择",
+                icon = Icons.Rounded.Quiz,
+                selected = current == com.study.englishdemo.data.PracticeMode.CHOICE,
+                onClick = { onChange(com.study.englishdemo.data.PracticeMode.CHOICE) },
+            )
+        }
+        item {
+            PracticeChip(
+                label = "完形",
+                icon = Icons.Rounded.Edit,
+                selected = current == com.study.englishdemo.data.PracticeMode.CLOZE,
+                onClick = { onChange(com.study.englishdemo.data.PracticeMode.CLOZE) },
+            )
+        }
+        item {
+            PracticeChip(
+                label = "拼写",
+                icon = Icons.Rounded.Keyboard,
+                selected = current == com.study.englishdemo.data.PracticeMode.SPELL,
+                onClick = { onChange(com.study.englishdemo.data.PracticeMode.SPELL) },
+            )
+        }
+        item {
+            PracticeChip(
+                label = "听写",
+                icon = Icons.Rounded.Hearing,
+                selected = current == com.study.englishdemo.data.PracticeMode.DICTATION,
+                onClick = { onChange(com.study.englishdemo.data.PracticeMode.DICTATION) },
+            )
+        }
     }
 }
 
@@ -1721,7 +1838,9 @@ private fun PracticeChip(
         shape = RoundedCornerShape(14.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1747,10 +1866,13 @@ private fun QuizPracticePager(
     var index by remember(words.firstOrNull()?.id) { mutableIntStateOf(0) }
     val word = words.getOrNull(index) ?: words.firstOrNull() ?: return
     var question by remember(word.id) { mutableStateOf<com.study.englishdemo.data.QuizQuestion?>(null) }
+    var loading by remember(word.id) { mutableStateOf(true) }
     var selected by remember(word.id) { mutableStateOf<String?>(null) }
     var resolved by remember(word.id) { mutableStateOf(false) }
     LaunchedEffect(word.id) {
+        loading = true
         question = buildQuiz(word.id)
+        loading = false
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -1783,8 +1905,18 @@ private fun QuizPracticePager(
             }
         }
         val q = question
-        if (q == null) {
+        if (loading) {
             item { EmptyStateCard("正在生成选项…") }
+        } else if (q == null) {
+            item {
+                EmptyStateCard("这张卡暂时凑不齐 3 个干扰项，先跳过。")
+            }
+            item {
+                Button(
+                    onClick = { if (index < words.size - 1) index++ else index = 0 },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(if (index < words.size - 1) "跳到下一题" else "回到开头") }
+            }
         } else {
             items(q.options) { option ->
                 QuizOptionButton(
@@ -1820,6 +1952,133 @@ private fun QuizPracticePager(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
                         )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { onSpeak(word.term) }) { Text("听发音") }
+                            Button(
+                                onClick = {
+                                    selected = null
+                                    resolved = false
+                                    if (index < words.size - 1) index++ else index = 0
+                                },
+                            ) { Text(if (index < words.size - 1) "下一题" else "再来一轮") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClozePracticePager(
+    words: List<WordEntry>,
+    buildCloze: suspend (Long) -> com.study.englishdemo.data.ClozeQuestion?,
+    onRate: (Long, ReviewRating) -> Unit,
+    onSpeak: (String) -> Unit,
+) {
+    var index by remember(words.firstOrNull()?.id) { mutableIntStateOf(0) }
+    val word = words.getOrNull(index) ?: words.firstOrNull() ?: return
+    var question by remember(word.id) { mutableStateOf<com.study.englishdemo.data.ClozeQuestion?>(null) }
+    var loading by remember(word.id) { mutableStateOf(true) }
+    var selected by remember(word.id) { mutableStateOf<String?>(null) }
+    var resolved by remember(word.id) { mutableStateOf(false) }
+    LaunchedEffect(word.id) {
+        loading = true
+        question = buildCloze(word.id)
+        loading = false
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        item {
+            Text(
+                "${index + 1} / ${words.size}  读例句，补回被挖空的单词",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+        }
+        val q = question
+        if (loading) {
+            item { EmptyStateCard("正在挑选可挖空例句…") }
+        } else if (q == null) {
+            item {
+                EmptyStateCard("这张卡没有命中单词原形的例句，先跳过。")
+            }
+            item {
+                Button(
+                    onClick = { if (index < words.size - 1) index++ else index = 0 },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(if (index < words.size - 1) "跳到下一题" else "回到开头") }
+            }
+        } else {
+            item {
+                Card(shape = RoundedCornerShape(26.dp)) {
+                    Column(modifier = Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            q.prompt,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            word.translation,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                        )
+                        if (word.rootKey.isNotBlank()) {
+                            Text(
+                                "词根线索：${word.rootKey}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                }
+            }
+            items(q.options) { option ->
+                QuizOptionButton(
+                    text = option,
+                    state = when {
+                        !resolved -> QuizOptionState.IDLE
+                        option == q.correct -> QuizOptionState.CORRECT
+                        option == selected -> QuizOptionState.WRONG
+                        else -> QuizOptionState.DIMMED
+                    },
+                    onClick = {
+                        if (!resolved) {
+                            selected = option
+                            resolved = true
+                            val rating = if (option == q.correct) ReviewRating.GOOD else ReviewRating.AGAIN
+                            onRate(word.id, rating)
+                        }
+                    },
+                )
+            }
+            if (resolved) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            if (selected == q.correct) "上下文判断正确" else "正确答案：${q.correct}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (selected == q.correct) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            "原句：${word.example}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                        )
+                        if (word.definition.isNotBlank()) {
+                            Text(
+                                word.definition,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                            )
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(onClick = { onSpeak(word.term) }) { Text("听发音") }
                             Button(
@@ -2154,16 +2413,4 @@ private fun ToughWordCard(
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
 

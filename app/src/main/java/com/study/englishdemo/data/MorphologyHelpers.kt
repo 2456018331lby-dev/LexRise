@@ -104,6 +104,22 @@ fun buildQuizOptions(
 }
 
 /**
+ * Replaces the target term in an example sentence with a visible blank for
+ * cloze practice. Matching is case-insensitive and avoids partial matches
+ * inside longer alphabetic words.
+ */
+fun blankTermInExample(example: String, term: String): String? {
+    val cleanExample = example.trim()
+    val cleanTerm = term.trim()
+    if (cleanExample.isEmpty() || cleanTerm.isEmpty()) return null
+    val pattern = Regex(
+        "(?i)(?<![A-Za-z])${Regex.escape(cleanTerm)}(?![A-Za-z])",
+    )
+    if (!pattern.containsMatchIn(cleanExample)) return null
+    return pattern.replaceFirst(cleanExample, "____")
+}
+
+/**
  * Levenshtein edit distance normalized to [0, 1] over the longer string,
  * case-insensitive. 0 = identical, 1 = totally different.
  */

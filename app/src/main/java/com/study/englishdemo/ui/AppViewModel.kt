@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.study.englishdemo.AppContainer
 import com.study.englishdemo.data.BookRootSnapshot
+import com.study.englishdemo.data.ClozeQuestion
 import com.study.englishdemo.data.DailyReviewCount
 import com.study.englishdemo.data.LearningSession
 import com.study.englishdemo.data.PaceRecommendation
@@ -267,6 +268,11 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     suspend fun buildQuiz(wordId: Long): QuizQuestion? {
         val bookId = _uiState.value.selectedBookId ?: return null
         return container.repository.buildQuizQuestion(wordId, bookId)
+    }
+
+    suspend fun buildCloze(wordId: Long): ClozeQuestion? {
+        val bookId = _uiState.value.selectedBookId ?: return null
+        return container.repository.buildClozeQuestion(wordId, bookId)
     }
 
     fun gradeSpelling(answer: String, correct: String): ReviewRating {

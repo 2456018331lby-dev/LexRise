@@ -105,6 +105,9 @@ interface WordProgressDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(progress: WordProgressEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(progress: List<WordProgressEntity>): List<Long>
+
     @Update
     suspend fun update(progress: WordProgressEntity)
 

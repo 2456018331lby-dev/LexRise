@@ -92,11 +92,12 @@ python tools/build_wordlists.py
 
 ### 能不能避开？能避开就避开
 
-很多"新功能"其实不需要加列。本项目 v0.3/v0.4 的所有新能力（簇首、词根覆盖、难词专攻、选择题干扰池）都走**派生查询**——DAO 里新加 `@Query` 而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
+很多"新功能"其实不需要加列。本项目 v0.3-v0.5 的所有新能力（簇首、词根覆盖、难词专攻、选择题干扰池、完形题）都走**派生查询或纯函数派生**——DAO 里新加 `@Query` 或在 Repository 里拼题，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
 
 - 想标记"这个词是簇首"？→ 已经有 `getAnchorWordIds(bookId)` 动态算，不加 `isAnchor` 列
 - 想统计"哪个词翻车最多"？→ `getToughWordsForBook` 从 `review_logs` GROUP BY 出来
 - 想知道"这本书词根覆盖率"？→ `getBookRootSnapshot` 实时聚合
+- 想加新练习题型？→ 优先用 `PracticeMode` + Repository 构题 + 纯函数，评分仍回 `reviewWord`
 
 ### 如果确实要升级 schema
 
@@ -274,10 +275,12 @@ git ls-files .android-sdk/ app/build/   # 应为空
 | 改 UI 文案/颜色 | `MainActivity.kt`（Compose 全部在这里）+ `ui/Theme.kt`（色盘） |
 | 改学习算法（SRS） | `data/SpacedRepetitionScheduler.kt` + 对应 Test |
 | 改导入格式 | `data/WordBookParser.kt` + `WordBookParserTest` |
+| 改导入幂等/合并逻辑 | `data/StudyRepository.kt#importMutex/importBook/ensureBundledBookImported` + `StudyRepositoryTest` |
 | 改每日复习提醒 | `reminder/ReviewReminderScheduler.kt` + `ReviewReminderSchedulerTest` |
 | 改发音 | `speech/WordSpeaker.kt`（当前是 Android TTS，改成音频文件要加 raw 资源） |
 | 改考试计划/自动配速 | `data/MorphologyHelpers.kt#computePaceRecommendation` + `MorphologyHelpersTest` |
 | 改选择题干扰项逻辑 | `data/MorphologyHelpers.kt#buildQuizOptions` + `MorphologyHelpersTest` |
+| 改完形/例句挖空 | `data/MorphologyHelpers.kt#blankTermInExample` + `StudyRepository.kt#buildClozeQuestion` + 对应 Test |
 | 改拼写判分 | `data/MorphologyHelpers.kt#normalizedEditDistance` + `ratingFromEditDistance` |
 | 加新复习模式 | `data/Models.kt#PracticeMode` 枚举 + `MainActivity.kt#ReviewScreen` when 分支 |
 | 加新底栏 Tab | `MainActivity.kt#HomeTab` 枚举 + NavigationBar item + when 分支 |

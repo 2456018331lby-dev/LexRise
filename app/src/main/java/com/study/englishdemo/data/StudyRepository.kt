@@ -3,6 +3,8 @@ package com.study.englishdemo.data
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
@@ -36,6 +38,8 @@ class StudyRepository(
     private val scheduler: SpacedRepetitionScheduler = SpacedRepetitionScheduler(),
     private val clock: Clock = Clock.systemDefaultZone(),
 ) {
+    private val importMutex = Mutex()
+
     fun observeBooks(): Flow<List<WordBook>> = wordBookDao.observeBooks().map { list ->
         list.map {
             WordBook(
@@ -49,9 +53,8 @@ class StudyRepository(
         }
     }
 
-    suspend fun ensureBundledBookImported(): Long {
-        val existing = observeBooks().first()
-        val cet4Id = existing.firstOrNull { it.title == "四级高频 · 词根序" }?.id
+    suspend fun ensureBundledBookImported(): Long = importMutex.withLock {
+        val cet4Id = wordBookDao.findByTitle("四级高频 · 词根序")?.id
             ?: run {
                 val preview = importer.importBundledBook("books/cet4_core.csv").copy(
                     title = "四级高频 · 词根序",
@@ -59,30 +62,34 @@ class StudyRepository(
                     source = "builtin",
                     examTag = "cet4",
                 )
-                importPreview(preview)
+                importPreviewUnlocked(preview)
             }
-        if (existing.none { it.title == "六级进阶 · 词根序" }) {
+        if (wordBookDao.findByTitle("六级进阶 · 词根序") == null) {
             val preview = importer.importBundledBook("books/cet6_core.csv").copy(
                 title = "六级进阶 · 词根序",
                 description = "CET6 大纲约 5400 词，包含学术用词，词根优先。",
                 source = "builtin",
                 examTag = "cet6",
             )
-            importPreview(preview)
+            importPreviewUnlocked(preview)
         }
-        if (existing.none { it.title == "考研英语 · 大纲词" }) {
+        if (wordBookDao.findByTitle("考研英语 · 大纲词") == null) {
             val preview = importer.importBundledBook("books/ky_core.csv").copy(
                 title = "考研英语 · 大纲词",
                 description = "考研英语一大纲约 4800 词，按词根聚簇 + 频率排序。",
                 source = "builtin",
                 examTag = "ky",
             )
-            importPreview(preview)
+            importPreviewUnlocked(preview)
         }
-        return cet4Id
+        cet4Id
     }
 
-    suspend fun importPreview(preview: ImportPreview): Long {
+    suspend fun importPreview(preview: ImportPreview): Long = importMutex.withLock {
+        importPreviewUnlocked(preview)
+    }
+
+    private suspend fun importPreviewUnlocked(preview: ImportPreview): Long {
         val bookId = wordBookDao.insert(
             WordBookEntity(
                 title = preview.title,
@@ -116,8 +123,8 @@ class StudyRepository(
             },
         )
 
-        entryIds.forEach { wordId ->
-            progressDao.insert(scheduler.initialProgress(wordId))
+        if (entryIds.isNotEmpty()) {
+            progressDao.insertAll(entryIds.map { wordId -> scheduler.initialProgress(wordId) })
         }
 
         return bookId
@@ -125,11 +132,13 @@ class StudyRepository(
 
     suspend fun importBook(filename: String, stream: java.io.InputStream): ImportedBookResult {
         val preview = importer.import(stream, filename, filename.substringBeforeLast("."))
-        val existing = wordBookDao.findByTitle(preview.title)
-        val bookId = if (existing != null && existing.source != "builtin") {
-            mergeIntoBook(existing, preview)
-        } else {
-            importPreview(preview)
+        val bookId = importMutex.withLock {
+            val existing = wordBookDao.findByTitle(preview.title)
+            if (existing != null && existing.source != "builtin") {
+                mergeIntoBook(existing, preview)
+            } else {
+                importPreviewUnlocked(preview)
+            }
         }
         return ImportedBookResult(bookId = bookId, preview = preview)
     }
@@ -161,8 +170,8 @@ class StudyRepository(
                 )
             },
         )
-        entryIds.forEach { wordId ->
-            progressDao.insert(scheduler.initialProgress(wordId))
+        if (entryIds.isNotEmpty()) {
+            progressDao.insertAll(entryIds.map { wordId -> scheduler.initialProgress(wordId) })
         }
         wordEntryDao.countForBook(existing.id).let { total ->
             wordBookDao.updateTotalWords(existing.id, total)
@@ -437,6 +446,41 @@ class StudyRepository(
         }
         return QuizQuestion(
             word = entry.toDomain(progress),
+            options = options,
+            correct = entry.term,
+        )
+    }
+
+    suspend fun buildClozeQuestion(wordId: Long, bookId: Long): ClozeQuestion? {
+        val entry = wordEntryDao.getEntriesByIds(listOf(wordId)).firstOrNull() ?: return null
+        val prompt = blankTermInExample(entry.example, entry.term) ?: return null
+        val pool = wordEntryDao.getDistractorPool(
+            bookId = bookId,
+            excludeId = entry.id,
+            rootKey = entry.rootKey,
+            limit = 24,
+        ).map { it.toDomain(null) }
+        if (pool.size < 3) return null
+        val options = buildQuizOptions(
+            correctTerm = entry.term,
+            correctRootKey = entry.rootKey,
+            pool = pool,
+        )
+        val progress = progressDao.getByWordId(entry.id)?.let {
+            WordProgress(
+                phase = it.phase,
+                familiarity = it.familiarity,
+                streak = it.streak,
+                lapses = it.lapses,
+                easeFactor = it.easeFactor,
+                intervalDays = it.intervalDays,
+                lastReviewedAt = it.lastReviewedAt,
+                nextReviewAt = it.nextReviewAt,
+            )
+        }
+        return ClozeQuestion(
+            word = entry.toDomain(progress),
+            prompt = prompt,
             options = options,
             correct = entry.term,
         )
