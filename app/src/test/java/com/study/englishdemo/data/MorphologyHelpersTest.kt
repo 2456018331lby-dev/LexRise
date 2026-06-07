@@ -103,6 +103,7 @@ class MorphologyHelpersTest {
 
         assertThat(cue.kind).isEqualTo(StudyFocusKind.REVIEW)
         assertThat(cue.primaryValue).isEqualTo("18")
+        assertThat(cue.actionLabel).isEqualTo("去复习")
         assertThat(cue.progress).isEqualTo(0.3f)
     }
 
@@ -117,6 +118,7 @@ class MorphologyHelpersTest {
         assertThat(cue.kind).isEqualTo(StudyFocusKind.PACE)
         assertThat(cue.primaryValue).isEqualTo("28")
         assertThat(cue.secondaryValue).isEqualTo("400")
+        assertThat(cue.actionLabel).isEqualTo("按配速学新词")
     }
 
     @Test
@@ -129,7 +131,21 @@ class MorphologyHelpersTest {
 
         assertThat(cue.kind).isEqualTo(StudyFocusKind.ROOTS)
         assertThat(cue.primaryValue).isEqualTo("12/80")
+        assertThat(cue.actionLabel).isEqualTo("看词根图谱")
         assertThat(cue.progress).isWithin(0.001f).of(0.15f)
+    }
+
+    @Test
+    fun buildStudyFocusCue_pointsToNewWordsWhenPaceAndRootsAreFine() {
+        val cue = buildStudyFocusCue(
+            session = fakeSession(reviewDueCount = 0, newWordTarget = 20, newWordsRemaining = 70),
+            rootSnapshot = BookRootSnapshot(totalRoots = 80, touchedRoots = 40, totalClustered = 300, learnedClustered = 140),
+            pace = fakePace(target = 20, remainingWords = 70, isAuto = false),
+        )
+
+        assertThat(cue.kind).isEqualTo(StudyFocusKind.NEW_WORDS)
+        assertThat(cue.primaryValue).isEqualTo("20")
+        assertThat(cue.actionLabel).isEqualTo("去学新词")
     }
 
     @Test
@@ -148,6 +164,7 @@ class MorphologyHelpersTest {
 
         assertThat(cue.kind).isEqualTo(StudyFocusKind.MOMENTUM)
         assertThat(cue.primaryValue).isEqualTo("9")
+        assertThat(cue.actionLabel).isEqualTo("巩固一轮")
         assertThat(cue.progress).isEqualTo(1f)
     }
 

@@ -99,7 +99,7 @@ python tools/build_wordlists.py
 - 想知道"这本书词根覆盖率"？→ `getBookRootSnapshot` 实时聚合
 - 想加新练习题型？→ 优先用 `PracticeMode` + Repository 构题 + 纯函数，评分仍回 `reviewWord`
 - 想统计"这轮 Review 做得怎么样"？→ `PracticeSessionStats` 是 UI session 状态，`recordPracticeAttempt` 纯函数计数，不写 Room
-- 想提示"今天先做什么"？→ `buildStudyFocusCue` 从 session / rootSnapshot / pace 派生建议，不写设置、不写 Room
+- 想提示"今天先做什么"并跳到对应页面？→ `buildStudyFocusCue` 从 session / rootSnapshot / pace 派生建议和按钮文案；`MainActivity` 只做本地 Tab 切换，不写设置、不写 Room
 
 ### 如果确实要升级 schema
 
@@ -281,7 +281,7 @@ git ls-files .android-sdk/ app/build/   # 应为空
 | 改每日复习提醒 | `reminder/ReviewReminderScheduler.kt` + `ReviewReminderSchedulerTest` |
 | 改发音 | `speech/WordSpeaker.kt`（当前是 Android TTS，改成音频文件要加 raw 资源） |
 | 改考试计划/自动配速 | `data/MorphologyHelpers.kt#computePaceRecommendation` + `MorphologyHelpersTest` |
-| 改首页学习焦点 | `data/MorphologyHelpers.kt#buildStudyFocusCue` + `data/Models.kt#StudyFocusCue` + `MainActivity.kt#StudyFocusCueCard` + `MorphologyHelpersTest` |
+| 改首页学习焦点/行动按钮 | `data/MorphologyHelpers.kt#buildStudyFocusCue` + `data/Models.kt#StudyFocusCue` + `MainActivity.kt#StudyFocusCueCard` + `MorphologyHelpersTest` |
 | 改选择题干扰项逻辑 | `data/MorphologyHelpers.kt#buildQuizOptions` + `MorphologyHelpersTest` |
 | 改完形/例句挖空 | `data/MorphologyHelpers.kt#blankTermInExample` + `StudyRepository.kt#buildClozeQuestion` + 对应 Test |
 | 改词汇搜索/拼写容错 | `data/MorphologyHelpers.kt#fuzzyTermMatchDistance` + `StudyRepository.kt#searchWords` + 对应 Test |

@@ -94,6 +94,7 @@ fun buildStudyFocusCue(
             primaryValue = overview.reviewDueCount.toString(),
             secondaryLabel = "今日已学",
             secondaryValue = overview.studiedToday.toString(),
+            actionLabel = "去复习",
             progress = dailyProgress,
         )
         pace.isAuto && pace.remainingDays != null && pace.remainingWords > 0 &&
@@ -105,6 +106,7 @@ fun buildStudyFocusCue(
                 primaryValue = pace.target.toString(),
                 secondaryLabel = "剩余词",
                 secondaryValue = pace.remainingWords.toString(),
+                actionLabel = "按配速学新词",
                 progress = dailyProgress,
             )
         rootSnapshot.totalRoots > 0 && rootProgress < 0.35f -> StudyFocusCue(
@@ -115,6 +117,7 @@ fun buildStudyFocusCue(
             primaryValue = "${rootSnapshot.touchedRoots}/${rootSnapshot.totalRoots}",
             secondaryLabel = "聚簇词",
             secondaryValue = "${rootSnapshot.learnedClustered}/${rootSnapshot.totalClustered}",
+            actionLabel = "看词根图谱",
             progress = rootProgress,
         )
         overview.newWordsRemaining > 0 -> StudyFocusCue(
@@ -125,6 +128,7 @@ fun buildStudyFocusCue(
             primaryValue = overview.newWordTarget.coerceAtMost(overview.newWordsRemaining).toString(),
             secondaryLabel = "剩余新词",
             secondaryValue = overview.newWordsRemaining.toString(),
+            actionLabel = "去学新词",
             progress = dailyProgress,
         )
         else -> StudyFocusCue(
@@ -135,6 +139,7 @@ fun buildStudyFocusCue(
             primaryValue = overview.streakDays.toString(),
             secondaryLabel = "今日已学",
             secondaryValue = overview.studiedToday.toString(),
+            actionLabel = "巩固一轮",
             progress = dailyProgress,
         )
     }

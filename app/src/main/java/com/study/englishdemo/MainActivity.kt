@@ -290,7 +290,21 @@ private fun LexRiseApp(
                 color = MaterialTheme.colorScheme.background,
             ) {
                 when (currentTab) {
-                    HomeTab.DASHBOARD -> DashboardScreen(uiState, onSelectBook, onDeleteBook, onRenameBook)
+                    HomeTab.DASHBOARD -> DashboardScreen(
+                        uiState = uiState,
+                        onSelectBook = onSelectBook,
+                        onDeleteBook = onDeleteBook,
+                        onRenameBook = onRenameBook,
+                        onFocusAction = { cue ->
+                            currentTab = when (cue.kind) {
+                                StudyFocusKind.REVIEW -> HomeTab.REVIEW
+                                StudyFocusKind.PACE -> HomeTab.LEARN
+                                StudyFocusKind.ROOTS -> HomeTab.ROOTS
+                                StudyFocusKind.NEW_WORDS -> HomeTab.LEARN
+                                StudyFocusKind.MOMENTUM -> HomeTab.REVIEW
+                            }
+                        },
+                    )
                     HomeTab.LEARN -> LearnScreen(uiState, onRate, onSpeak, onMnemonic)
                     HomeTab.REVIEW -> ReviewScreen(
                         uiState = uiState,
@@ -336,6 +350,7 @@ private fun DashboardScreen(
     onSelectBook: (Long) -> Unit,
     onDeleteBook: (Long) -> Unit,
     onRenameBook: (Long, String) -> Unit,
+    onFocusAction: (StudyFocusCue) -> Unit,
 ) {
     val session = requireNotNull(uiState.session)
     val focusCue = remember(session, uiState.rootSnapshot, uiState.pace) {
@@ -385,7 +400,7 @@ private fun DashboardScreen(
                 MetricCard("完成率", "${(session.overview.completionRatio * 100).toInt()}%", Modifier.weight(1f))
             }
         }
-        item { StudyFocusCueCard(focusCue) }
+        item { StudyFocusCueCard(focusCue, onAction = { onFocusAction(focusCue) }) }
         if (uiState.settings.examDate != null || uiState.pace.isAuto) {
             item { ExamCountdownCard(uiState) }
         }
@@ -1375,7 +1390,7 @@ private fun MetricCard(label: String, value: String, modifier: Modifier = Modifi
 }
 
 @Composable
-private fun StudyFocusCueCard(cue: StudyFocusCue) {
+private fun StudyFocusCueCard(cue: StudyFocusCue, onAction: () -> Unit) {
     val accent = when (cue.kind) {
         StudyFocusKind.REVIEW -> MaterialTheme.colorScheme.primary
         StudyFocusKind.PACE -> MaterialTheme.colorScheme.tertiary
@@ -1462,9 +1477,19 @@ private fun StudyFocusCueCard(cue: StudyFocusCue) {
                     color = accent,
                     trackColor = accent.copy(alpha = 0.12f),
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     FocusMetricPill(cue.primaryLabel, cue.primaryValue, accent, Modifier.weight(1f))
                     FocusMetricPill(cue.secondaryLabel, cue.secondaryValue, accent, Modifier.weight(1f))
+                }
+                Button(
+                    onClick = onAction,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(cue.actionLabel)
                 }
             }
         }

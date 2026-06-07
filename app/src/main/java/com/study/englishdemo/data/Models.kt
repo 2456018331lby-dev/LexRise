@@ -245,6 +245,7 @@ data class StudyFocusCue(
     val primaryValue: String,
     val secondaryLabel: String,
     val secondaryValue: String,
+    val actionLabel: String,
     val progress: Float,
 )
 
