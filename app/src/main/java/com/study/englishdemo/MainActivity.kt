@@ -106,9 +106,12 @@ import com.study.englishdemo.data.Morpheme
 import com.study.englishdemo.data.PracticeSessionStats
 import com.study.englishdemo.data.ReviewRating
 import com.study.englishdemo.data.RootGroup
+import com.study.englishdemo.data.StudyFocusCue
+import com.study.englishdemo.data.StudyFocusKind
 import com.study.englishdemo.data.StudyPhase
 import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
+import com.study.englishdemo.data.buildStudyFocusCue
 import com.study.englishdemo.data.decomposeWord
 import com.study.englishdemo.ui.AppUiState
 import com.study.englishdemo.ui.AppViewModel
@@ -335,6 +338,9 @@ private fun DashboardScreen(
     onRenameBook: (Long, String) -> Unit,
 ) {
     val session = requireNotNull(uiState.session)
+    val focusCue = remember(session, uiState.rootSnapshot, uiState.pace) {
+        buildStudyFocusCue(session, uiState.rootSnapshot, uiState.pace)
+    }
     var pendingDelete by remember { mutableStateOf<WordBook?>(null) }
     var pendingRename by remember { mutableStateOf<WordBook?>(null) }
     LazyColumn(
@@ -379,6 +385,7 @@ private fun DashboardScreen(
                 MetricCard("完成率", "${(session.overview.completionRatio * 100).toInt()}%", Modifier.weight(1f))
             }
         }
+        item { StudyFocusCueCard(focusCue) }
         if (uiState.settings.examDate != null || uiState.pace.isAuto) {
             item { ExamCountdownCard(uiState) }
         }
@@ -1363,6 +1370,124 @@ private fun MetricCard(label: String, value: String, modifier: Modifier = Modifi
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(label, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f))
             Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun StudyFocusCueCard(cue: StudyFocusCue) {
+    val accent = when (cue.kind) {
+        StudyFocusKind.REVIEW -> MaterialTheme.colorScheme.primary
+        StudyFocusKind.PACE -> MaterialTheme.colorScheme.tertiary
+        StudyFocusKind.ROOTS -> Color(0xFF2D5B52)
+        StudyFocusKind.NEW_WORDS -> Color(0xFFC98A3D)
+        StudyFocusKind.MOMENTUM -> Color(0xFF6E8B3D)
+    }
+    val icon = when (cue.kind) {
+        StudyFocusKind.REVIEW -> Icons.Rounded.PsychologyAlt
+        StudyFocusKind.PACE -> Icons.Rounded.EventAvailable
+        StudyFocusKind.ROOTS -> Icons.Rounded.AccountTree
+        StudyFocusKind.NEW_WORDS -> Icons.Rounded.AutoStories
+        StudyFocusKind.MOMENTUM -> Icons.Rounded.LocalFireDepartment
+    }
+    val animated by animateFloatAsState(
+        targetValue = cue.progress.coerceIn(0f, 1f),
+        animationSpec = tween(500),
+        label = "studyFocusProgress",
+    )
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.18f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surface,
+                        ),
+                    ),
+                )
+                .padding(18.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(18.dp),
+                            color = accent.copy(alpha = 0.16f),
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(10.dp)
+                                    .size(24.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("今日学习焦点", style = MaterialTheme.typography.labelMedium, color = accent)
+                            Text(cue.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Text(
+                        "${(cue.progress.coerceIn(0f, 1f) * 100).toInt()}%",
+                        color = accent,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                Text(
+                    cue.message,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.74f),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                LinearProgressIndicator(
+                    progress = { animated },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(7.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    FocusMetricPill(cue.primaryLabel, cue.primaryValue, accent, Modifier.weight(1f))
+                    FocusMetricPill(cue.secondaryLabel, cue.secondaryValue, accent, Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FocusMetricPill(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = accent.copy(alpha = 0.09f),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = accent)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+            )
         }
     }
 }

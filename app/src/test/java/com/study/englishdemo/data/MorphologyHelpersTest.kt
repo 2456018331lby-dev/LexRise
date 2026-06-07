@@ -94,6 +94,64 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildStudyFocusCue_prioritizesDueReview() {
+        val cue = buildStudyFocusCue(
+            session = fakeSession(reviewDueCount = 18, studiedToday = 6, completionRatio = 0.3f),
+            rootSnapshot = BookRootSnapshot(totalRoots = 100, touchedRoots = 5, totalClustered = 300, learnedClustered = 20),
+            pace = fakePace(target = 30, isAuto = true),
+        )
+
+        assertThat(cue.kind).isEqualTo(StudyFocusKind.REVIEW)
+        assertThat(cue.primaryValue).isEqualTo("18")
+        assertThat(cue.progress).isEqualTo(0.3f)
+    }
+
+    @Test
+    fun buildStudyFocusCue_usesAutoPaceWhenReviewIsClear() {
+        val cue = buildStudyFocusCue(
+            session = fakeSession(reviewDueCount = 0, newWordTarget = 20, newWordsRemaining = 400),
+            rootSnapshot = BookRootSnapshot(totalRoots = 100, touchedRoots = 50, totalClustered = 300, learnedClustered = 160),
+            pace = fakePace(target = 28, remainingWords = 400, remainingDays = 21, isAuto = true),
+        )
+
+        assertThat(cue.kind).isEqualTo(StudyFocusKind.PACE)
+        assertThat(cue.primaryValue).isEqualTo("28")
+        assertThat(cue.secondaryValue).isEqualTo("400")
+    }
+
+    @Test
+    fun buildStudyFocusCue_surfacesLowRootCoverage() {
+        val cue = buildStudyFocusCue(
+            session = fakeSession(reviewDueCount = 0, newWordTarget = 20, newWordsRemaining = 120),
+            rootSnapshot = BookRootSnapshot(totalRoots = 80, touchedRoots = 12, totalClustered = 300, learnedClustered = 40),
+            pace = fakePace(target = 20, isAuto = false),
+        )
+
+        assertThat(cue.kind).isEqualTo(StudyFocusKind.ROOTS)
+        assertThat(cue.primaryValue).isEqualTo("12/80")
+        assertThat(cue.progress).isWithin(0.001f).of(0.15f)
+    }
+
+    @Test
+    fun buildStudyFocusCue_celebratesMomentumWhenWorkIsClear() {
+        val cue = buildStudyFocusCue(
+            session = fakeSession(
+                reviewDueCount = 0,
+                newWordsRemaining = 0,
+                studiedToday = 22,
+                streakDays = 9,
+                completionRatio = 1f,
+            ),
+            rootSnapshot = BookRootSnapshot(totalRoots = 80, touchedRoots = 60, totalClustered = 300, learnedClustered = 260),
+            pace = fakePace(target = 20, remainingWords = 0, isAuto = false),
+        )
+
+        assertThat(cue.kind).isEqualTo(StudyFocusKind.MOMENTUM)
+        assertThat(cue.primaryValue).isEqualTo("9")
+        assertThat(cue.progress).isEqualTo(1f)
+    }
+
+    @Test
     fun buildQuizOptions_alwaysIncludesCorrectAndFourTotal() {
         val pool = listOf(
             fakeEntry("state", "stat"),
@@ -198,5 +256,39 @@ class MorphologyHelpersTest {
         tags = emptyList(),
         rootKey = rootKey,
         progress = null,
+    )
+
+    private fun fakeSession(
+        reviewDueCount: Int = 0,
+        newWordTarget: Int = 20,
+        newWordsRemaining: Int = 100,
+        studiedToday: Int = 0,
+        streakDays: Int = 0,
+        completionRatio: Float = 0f,
+    ): LearningSession = LearningSession(
+        overview = DailyOverview(
+            today = LocalDate.of(2026, 6, 7),
+            newWordTarget = newWordTarget,
+            newWordsRemaining = newWordsRemaining,
+            reviewDueCount = reviewDueCount,
+            streakDays = streakDays,
+            studiedToday = studiedToday,
+            completionRatio = completionRatio,
+        ),
+        dueReviewWords = emptyList(),
+        recommendedNewWords = emptyList(),
+    )
+
+    private fun fakePace(
+        target: Int,
+        remainingWords: Int = 100,
+        remainingDays: Int? = null,
+        isAuto: Boolean = false,
+    ): PaceRecommendation = PaceRecommendation(
+        target = target,
+        remainingWords = remainingWords,
+        remainingDays = remainingDays,
+        examDate = remainingDays?.let { LocalDate.of(2026, 6, 7).plusDays(it.toLong()) },
+        isAuto = isAuto,
     )
 }

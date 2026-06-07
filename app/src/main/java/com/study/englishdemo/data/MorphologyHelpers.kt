@@ -73,6 +73,73 @@ fun computePaceRecommendation(
     )
 }
 
+fun buildStudyFocusCue(
+    session: LearningSession,
+    rootSnapshot: BookRootSnapshot,
+    pace: PaceRecommendation,
+): StudyFocusCue {
+    val overview = session.overview
+    val dailyProgress = overview.completionRatio.coerceIn(0f, 1f)
+    val rootProgress = if (rootSnapshot.totalRoots == 0) {
+        0f
+    } else {
+        (rootSnapshot.touchedRoots.toFloat() / rootSnapshot.totalRoots.toFloat()).coerceIn(0f, 1f)
+    }
+    return when {
+        overview.reviewDueCount > 0 -> StudyFocusCue(
+            kind = StudyFocusKind.REVIEW,
+            title = "先清复习债",
+            message = "到期词最容易滑出长期记忆，先过 ${overview.reviewDueCount} 个旧词，再开新词更稳。",
+            primaryLabel = "待复习",
+            primaryValue = overview.reviewDueCount.toString(),
+            secondaryLabel = "今日已学",
+            secondaryValue = overview.studiedToday.toString(),
+            progress = dailyProgress,
+        )
+        pace.isAuto && pace.remainingDays != null && pace.remainingWords > 0 &&
+            pace.target > overview.newWordTarget -> StudyFocusCue(
+                kind = StudyFocusKind.PACE,
+                title = "按考试节奏加速",
+                message = "距考试还有 ${pace.remainingDays} 天，今天建议按 ${pace.target} 词推进，避免最后冲刺堆积。",
+                primaryLabel = "推荐/天",
+                primaryValue = pace.target.toString(),
+                secondaryLabel = "剩余词",
+                secondaryValue = pace.remainingWords.toString(),
+                progress = dailyProgress,
+            )
+        rootSnapshot.totalRoots > 0 && rootProgress < 0.35f -> StudyFocusCue(
+            kind = StudyFocusKind.ROOTS,
+            title = "补词根覆盖",
+            message = "词根覆盖还在起步期，优先学带 rootKey 的新词，用一个根串起一组同源词。",
+            primaryLabel = "已触达词根",
+            primaryValue = "${rootSnapshot.touchedRoots}/${rootSnapshot.totalRoots}",
+            secondaryLabel = "聚簇词",
+            secondaryValue = "${rootSnapshot.learnedClustered}/${rootSnapshot.totalClustered}",
+            progress = rootProgress,
+        )
+        overview.newWordsRemaining > 0 -> StudyFocusCue(
+            kind = StudyFocusKind.NEW_WORDS,
+            title = "推进新词地基",
+            message = "复习债已轻，适合补 ${overview.newWordTarget.coerceAtMost(overview.newWordsRemaining)} 个新词，保持词书向前滚动。",
+            primaryLabel = "今日目标",
+            primaryValue = overview.newWordTarget.coerceAtMost(overview.newWordsRemaining).toString(),
+            secondaryLabel = "剩余新词",
+            secondaryValue = overview.newWordsRemaining.toString(),
+            progress = dailyProgress,
+        )
+        else -> StudyFocusCue(
+            kind = StudyFocusKind.MOMENTUM,
+            title = "保持复习手感",
+            message = "今天的核心负担已经清掉，可以用 Review 或难词专攻巩固手感。",
+            primaryLabel = "连续天数",
+            primaryValue = overview.streakDays.toString(),
+            secondaryLabel = "今日已学",
+            secondaryValue = overview.studiedToday.toString(),
+            progress = dailyProgress,
+        )
+    }
+}
+
 /**
  * Builds a 4-option multiple-choice question. Distractors come from the
  * provided pool, prioritizing words sharing the same rootKey (higher

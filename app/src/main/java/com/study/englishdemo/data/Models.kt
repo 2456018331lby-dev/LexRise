@@ -235,6 +235,19 @@ data class PaceRecommendation(
     val isAuto: Boolean,
 )
 
+enum class StudyFocusKind { REVIEW, PACE, ROOTS, NEW_WORDS, MOMENTUM }
+
+data class StudyFocusCue(
+    val kind: StudyFocusKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val progress: Float,
+)
+
 enum class Morpheme { PREFIX, ROOT, SUFFIX, PLAIN }
 
 data class MorphemeSegment(
