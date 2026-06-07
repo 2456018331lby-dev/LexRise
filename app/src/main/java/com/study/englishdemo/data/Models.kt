@@ -283,6 +283,20 @@ data class PracticeSessionStats(
     val stabilityPercent: Int get() = if (answered == 0) 0 else (stable * 100) / answered
 }
 
+enum class PracticeSessionCoachKind { WARMUP, RECOVER, STABILIZE, ADVANCE }
+
+data class PracticeSessionCoach(
+    val kind: PracticeSessionCoachKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val progress: Float,
+)
+
 data class QuizQuestion(
     val word: WordEntry,
     /** Options are term strings; the correct one is guaranteed to be included. */

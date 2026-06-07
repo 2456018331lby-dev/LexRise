@@ -103,6 +103,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.study.englishdemo.data.DailyReviewCount
 import com.study.englishdemo.data.Morpheme
+import com.study.englishdemo.data.PracticeMode
+import com.study.englishdemo.data.PracticeSessionCoach
+import com.study.englishdemo.data.PracticeSessionCoachKind
 import com.study.englishdemo.data.PracticeSessionStats
 import com.study.englishdemo.data.ReviewRating
 import com.study.englishdemo.data.RootGroup
@@ -112,6 +115,7 @@ import com.study.englishdemo.data.StudyFocusKind
 import com.study.englishdemo.data.StudyPhase
 import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
+import com.study.englishdemo.data.buildPracticeSessionCoach
 import com.study.englishdemo.data.buildRootGroupInsight
 import com.study.englishdemo.data.buildStudyFocusCue
 import com.study.englishdemo.data.decomposeWord
@@ -751,6 +755,7 @@ private fun ReviewScreen(
         )
         PracticeSessionStatsCard(
             stats = uiState.practiceStats,
+            mode = uiState.practiceMode,
             onReset = onResetPracticeStats,
             modifier = Modifier
                 .padding(horizontal = 20.dp)
@@ -810,56 +815,173 @@ private fun ReviewScreen(
 @Composable
 private fun PracticeSessionStatsCard(
     stats: PracticeSessionStats,
+    mode: PracticeMode,
     onReset: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val coach = remember(stats, mode) { buildPracticeSessionCoach(stats, mode) }
+    val accent = practiceCoachAccent(coach.kind)
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-        ),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.18f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
+                        ),
+                    ),
+                )
+                .padding(16.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+                        Text(
+                            "本轮练习仪表",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = accent,
+                        )
+                        Text(
+                            if (stats.hasAttempts) "稳定率 ${stats.stabilityPercent}% · 教练会随作答自动改策略"
+                            else "还没作答，先完成一题再看本轮策略。",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
+                        )
+                    }
+                    TextButton(onClick = onReset, enabled = stats.hasAttempts) {
+                        Text("重置")
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { coach.progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(7.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.14f),
+                )
+                PracticeCoachPanel(coach = coach, accent = accent)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    PracticeStatsMetric("完成", stats.answered.toString(), Modifier.weight(1f))
+                    PracticeStatsMetric("稳答", stats.stable.toString(), Modifier.weight(1f))
+                    PracticeStatsMetric("再练", stats.needsPractice.toString(), Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun practiceCoachAccent(kind: PracticeSessionCoachKind): Color = when (kind) {
+    PracticeSessionCoachKind.WARMUP -> Color(0xFFC98A3D)
+    PracticeSessionCoachKind.RECOVER -> Color(0xFFB65245)
+    PracticeSessionCoachKind.STABILIZE -> MaterialTheme.colorScheme.primary
+    PracticeSessionCoachKind.ADVANCE -> Color(0xFF6E8B3D)
+}
+
+@Composable
+private fun PracticeCoachPanel(coach: PracticeSessionCoach, accent: Color) {
+    val icon = when (coach.kind) {
+        PracticeSessionCoachKind.WARMUP -> Icons.Rounded.AutoStories
+        PracticeSessionCoachKind.RECOVER -> Icons.Rounded.PsychologyAlt
+        PracticeSessionCoachKind.STABILIZE -> Icons.Rounded.Insights
+        PracticeSessionCoachKind.ADVANCE -> Icons.Rounded.LocalFireDepartment
+    }
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = accent.copy(alpha = 0.10f),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        "本轮练习仪表",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        if (stats.hasAttempts) "稳定率 ${stats.stabilityPercent}% · 可随时混合五种模式"
-                        else "还没作答，先完成一题再看稳定率。",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
-                    )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(9.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Surface(shape = RoundedCornerShape(14.dp), color = accent.copy(alpha = 0.16f)) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = accent,
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .size(20.dp),
+                        )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text(
+                            "本轮教练",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(coach.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    }
                 }
-                TextButton(onClick = onReset, enabled = stats.hasAttempts) {
-                    Text("重置")
+                Box(
+                    modifier = Modifier
+                        .background(accent.copy(alpha = 0.14f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 9.dp, vertical = 4.dp),
+                ) {
+                    Text(coach.actionLabel, style = MaterialTheme.typography.labelSmall, color = accent)
                 }
             }
-            LinearProgressIndicator(
-                progress = { stats.stabilityPercent / 100f },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+            Text(
+                coach.message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.74f),
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                PracticeStatsMetric("完成", stats.answered.toString(), Modifier.weight(1f))
-                PracticeStatsMetric("稳答", stats.stable.toString(), Modifier.weight(1f))
-                PracticeStatsMetric("再练", stats.needsPractice.toString(), Modifier.weight(1f))
+                PracticeCoachMetric(coach.primaryLabel, coach.primaryValue, accent, Modifier.weight(1f))
+                PracticeCoachMetric(coach.secondaryLabel, coach.secondaryValue, accent, Modifier.weight(1f))
             }
+        }
+    }
+}
+
+@Composable
+private fun PracticeCoachMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = accent)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
+            )
         }
     }
 }

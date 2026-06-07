@@ -429,6 +429,57 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildPracticeSessionCoach_warmsUpBeforeAttempts() {
+        val coach = buildPracticeSessionCoach(PracticeSessionStats(), PracticeMode.FLIP)
+
+        assertThat(coach.kind).isEqualTo(PracticeSessionCoachKind.WARMUP)
+        assertThat(coach.title).isEqualTo("先校准手感")
+        assertThat(coach.primaryValue).isEqualTo("5题")
+        assertThat(coach.secondaryValue).isEqualTo("0")
+        assertThat(coach.progress).isEqualTo(0f)
+    }
+
+    @Test
+    fun buildPracticeSessionCoach_recoversWhenNeedsPracticeDominates() {
+        val coach = buildPracticeSessionCoach(
+            PracticeSessionStats(answered = 6, stable = 2, needsPractice = 4),
+            PracticeMode.CLOZE,
+        )
+
+        assertThat(coach.kind).isEqualTo(PracticeSessionCoachKind.RECOVER)
+        assertThat(coach.primaryLabel).isEqualTo("再练")
+        assertThat(coach.primaryValue).isEqualTo("4")
+        assertThat(coach.secondaryValue).isEqualTo("2")
+        assertThat(coach.actionLabel).isEqualTo("慢速复盘")
+    }
+
+    @Test
+    fun buildPracticeSessionCoach_stabilizesMidSessionProgress() {
+        val coach = buildPracticeSessionCoach(
+            PracticeSessionStats(answered = 7, stable = 5, needsPractice = 2),
+            PracticeMode.SPELL,
+        )
+
+        assertThat(coach.kind).isEqualTo(PracticeSessionCoachKind.STABILIZE)
+        assertThat(coach.primaryValue).isEqualTo("71%")
+        assertThat(coach.actionLabel).isEqualTo("再做一组")
+        assertThat(coach.progress).isWithin(0.001f).of(0.71f)
+    }
+
+    @Test
+    fun buildPracticeSessionCoach_advancesAfterStableTenQuestionSample() {
+        val coach = buildPracticeSessionCoach(
+            PracticeSessionStats(answered = 12, stable = 11, needsPractice = 1),
+            PracticeMode.CHOICE,
+        )
+
+        assertThat(coach.kind).isEqualTo(PracticeSessionCoachKind.ADVANCE)
+        assertThat(coach.primaryValue).isEqualTo("91%")
+        assertThat(coach.secondaryValue).isEqualTo("12")
+        assertThat(coach.message).contains("完形或拼写")
+    }
+
+    @Test
     fun normalizedEditDistance_exactMatchIsZero() {
         assertThat(normalizedEditDistance("focus", "focus")).isEqualTo(0.0)
         assertThat(normalizedEditDistance("Focus", "focus")).isEqualTo(0.0)

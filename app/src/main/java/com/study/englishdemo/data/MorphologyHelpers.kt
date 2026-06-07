@@ -374,6 +374,76 @@ fun recordPracticeAttempt(
     )
 }
 
+fun buildPracticeSessionCoach(stats: PracticeSessionStats, mode: PracticeMode): PracticeSessionCoach {
+    val answered = stats.answered.coerceAtLeast(0)
+    val stable = stats.stable.coerceIn(0, answered)
+    val needsPractice = stats.needsPractice.coerceIn(0, answered)
+    val stabilityPercent = if (answered == 0) 0 else (stable * 100) / answered
+    val progress = (stabilityPercent / 100f).coerceIn(0f, 1f)
+    val modeLabel = practiceModeLabel(mode)
+    return when {
+        answered == 0 -> PracticeSessionCoach(
+            kind = PracticeSessionCoachKind.WARMUP,
+            title = "先校准手感",
+            message = "从${modeLabel}开始，先完成 5 题建立本轮基线；别急着追速度。",
+            primaryLabel = "热身目标",
+            primaryValue = "5题",
+            secondaryLabel = "当前完成",
+            secondaryValue = "0",
+            actionLabel = "开始第一题",
+            progress = 0f,
+        )
+        needsPractice > stable || stabilityPercent < 50 -> PracticeSessionCoach(
+            kind = PracticeSessionCoachKind.RECOVER,
+            title = "先降速修复",
+            message = "再练数已经压过稳答数，留在${modeLabel}逐题复盘；每题先说出词根或例句线索再评分。",
+            primaryLabel = "再练",
+            primaryValue = needsPractice.toString(),
+            secondaryLabel = "稳答",
+            secondaryValue = stable.toString(),
+            actionLabel = "慢速复盘",
+            progress = progress,
+        )
+        answered >= 10 && stabilityPercent >= 85 -> PracticeSessionCoach(
+            kind = PracticeSessionCoachKind.ADVANCE,
+            title = "可以提高难度",
+            message = "${modeLabel}稳定率已经够高，下一组切到${practiceModeUpgradeLabel(mode)}，把识别提升到主动提取。",
+            primaryLabel = "稳定率",
+            primaryValue = "$stabilityPercent%",
+            secondaryLabel = "完成",
+            secondaryValue = answered.toString(),
+            actionLabel = "加难一档",
+            progress = progress,
+        )
+        else -> PracticeSessionCoach(
+            kind = PracticeSessionCoachKind.STABILIZE,
+            title = "继续稳住节奏",
+            message = "当前稳定率可用，再做 ${maxOf(0, 10 - answered)} 题形成一组样本；若再练上升就降速复盘。",
+            primaryLabel = "稳定率",
+            primaryValue = "$stabilityPercent%",
+            secondaryLabel = "再练",
+            secondaryValue = needsPractice.toString(),
+            actionLabel = "再做一组",
+            progress = progress,
+        )
+    }
+}
+
+private fun practiceModeLabel(mode: PracticeMode): String = when (mode) {
+    PracticeMode.FLIP -> "翻卡"
+    PracticeMode.CHOICE -> "选择"
+    PracticeMode.CLOZE -> "完形"
+    PracticeMode.SPELL -> "拼写"
+    PracticeMode.DICTATION -> "听写"
+}
+
+private fun practiceModeUpgradeLabel(mode: PracticeMode): String = when (mode) {
+    PracticeMode.FLIP, PracticeMode.CHOICE -> "完形或拼写"
+    PracticeMode.CLOZE -> "拼写"
+    PracticeMode.SPELL -> "听写"
+    PracticeMode.DICTATION -> "错词回放"
+}
+
 /**
  * Levenshtein edit distance normalized to [0, 1] over the longer string,
  * case-insensitive. 0 = identical, 1 = totally different.
