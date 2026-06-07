@@ -2,6 +2,7 @@ package com.study.englishdemo.data
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
+import java.time.Instant
 import java.time.LocalDate
 
 class MorphologyHelpersTest {
@@ -166,6 +167,99 @@ class MorphologyHelpersTest {
         assertThat(cue.primaryValue).isEqualTo("9")
         assertThat(cue.actionLabel).isEqualTo("巩固一轮")
         assertThat(cue.progress).isEqualTo(1f)
+    }
+
+    @Test
+    fun buildRootGroupInsight_seedsUntouchedRootFamilies() {
+        val insight = buildRootGroupInsight(
+            RootGroup(
+                rootKey = "spec",
+                meanings = listOf("看"),
+                totalWords = 4,
+                learnedWords = 0,
+                members = listOf(
+                    fakeEntry("inspect", "spec", StudyPhase.NEW),
+                    fakeEntry("respect", "spec", StudyPhase.NEW),
+                    fakeEntry("prospect", "spec", StudyPhase.NEW),
+                    fakeEntry("spectator", "spec", StudyPhase.NEW),
+                ),
+            ),
+        )
+
+        assertThat(insight.stage).isEqualTo(RootGroupStage.SEED)
+        assertThat(insight.badgeLabel).isEqualTo("起步")
+        assertThat(insight.primaryValue).isEqualTo("0/4")
+        assertThat(insight.secondaryValue).isEqualTo("4")
+        assertThat(insight.focusTerms).containsExactly("inspect", "respect", "prospect").inOrder()
+    }
+
+    @Test
+    fun buildRootGroupInsight_buildingPrioritizesUntouchedThenLearningTerms() {
+        val insight = buildRootGroupInsight(
+            RootGroup(
+                rootKey = "stat",
+                meanings = listOf("站立"),
+                totalWords = 5,
+                learnedWords = 2,
+                members = listOf(
+                    fakeEntry("state", "stat", StudyPhase.REVIEW),
+                    fakeEntry("status", "stat", StudyPhase.LEARNING),
+                    fakeEntry("statement", "stat", StudyPhase.NEW),
+                    fakeEntry("static", "stat", null),
+                    fakeEntry("statue", "stat", StudyPhase.NEW),
+                ),
+            ),
+        )
+
+        assertThat(insight.stage).isEqualTo(RootGroupStage.BUILDING)
+        assertThat(insight.badgeLabel).isEqualTo("推进")
+        assertThat(insight.focusTerms).containsExactly("statement", "static", "statue").inOrder()
+        assertThat(insight.progress).isWithin(0.001f).of(0.4f)
+    }
+
+    @Test
+    fun buildRootGroupInsight_consolidatingPrioritizesLearningAndReviewTerms() {
+        val insight = buildRootGroupInsight(
+            RootGroup(
+                rootKey = "scrib",
+                meanings = listOf("写"),
+                totalWords = 4,
+                learnedWords = 3,
+                members = listOf(
+                    fakeEntry("scribe", "scrib", StudyPhase.REVIEW),
+                    fakeEntry("describe", "scrib", StudyPhase.LEARNING),
+                    fakeEntry("prescribe", "scrib", StudyPhase.MASTERED),
+                    fakeEntry("inscription", "scrib", StudyPhase.NEW),
+                ),
+            ),
+        )
+
+        assertThat(insight.stage).isEqualTo(RootGroupStage.CONSOLIDATING)
+        assertThat(insight.badgeLabel).isEqualTo("收尾")
+        assertThat(insight.focusTerms).containsExactly("describe", "scribe", "inscription").inOrder()
+        assertThat(insight.secondaryValue).isEqualTo("1")
+    }
+
+    @Test
+    fun buildRootGroupInsight_marksFullyTouchedFamiliesStable() {
+        val insight = buildRootGroupInsight(
+            RootGroup(
+                rootKey = "clar",
+                meanings = listOf("清楚"),
+                totalWords = 2,
+                learnedWords = 2,
+                members = listOf(
+                    fakeEntry("clarify", "clar", StudyPhase.REVIEW),
+                    fakeEntry("clear", "clar", StudyPhase.MASTERED),
+                ),
+            ),
+        )
+
+        assertThat(insight.stage).isEqualTo(RootGroupStage.MASTERED)
+        assertThat(insight.badgeLabel).isEqualTo("稳固")
+        assertThat(insight.primaryValue).isEqualTo("2/2")
+        assertThat(insight.progress).isEqualTo(1f)
+        assertThat(insight.actionLabel).isEqualTo("回看整族")
     }
 
     @Test
@@ -355,7 +449,7 @@ class MorphologyHelpersTest {
         assertThat(ratingFromEditDistance(0.6)).isEqualTo(ReviewRating.AGAIN)
     }
 
-    private fun fakeEntry(term: String, rootKey: String): WordEntry = WordEntry(
+    private fun fakeEntry(term: String, rootKey: String, phase: StudyPhase? = null): WordEntry = WordEntry(
         id = term.hashCode().toLong(),
         term = term,
         phonetic = "",
@@ -364,7 +458,18 @@ class MorphologyHelpersTest {
         example = "",
         tags = emptyList(),
         rootKey = rootKey,
-        progress = null,
+        progress = phase?.let {
+            WordProgress(
+                phase = it,
+                familiarity = 0,
+                streak = 0,
+                lapses = 0,
+                easeFactor = 2.5,
+                intervalDays = 0,
+                lastReviewedAt = null,
+                nextReviewAt = Instant.EPOCH,
+            )
+        },
     )
 
     private fun fakeSession(

@@ -145,6 +145,95 @@ fun buildStudyFocusCue(
     }
 }
 
+fun buildRootGroupInsight(group: RootGroup, focusLimit: Int = 3): RootGroupInsight {
+    val total = group.totalWords.coerceAtLeast(0)
+    val learned = group.learnedWords.coerceIn(0, total)
+    val remaining = (total - learned).coerceAtLeast(0)
+    val progress = if (total == 0) 0f else (learned.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+    val members = group.members.distinctBy { it.term.lowercase() }
+    val untouchedTerms = members
+        .filter {
+            val phase = it.progress?.phase
+            phase == null || phase == StudyPhase.NEW
+        }
+        .map { it.term }
+    val learningTerms = members
+        .filter { it.progress?.phase == StudyPhase.LEARNING }
+        .map { it.term }
+    val reviewTerms = members
+        .filter { it.progress?.phase == StudyPhase.REVIEW }
+        .map { it.term }
+    val masteredTerms = members
+        .filter { it.progress?.phase == StudyPhase.MASTERED }
+        .map { it.term }
+    val focusTerms = when {
+        total == 0 -> emptyList()
+        learned == 0 -> untouchedTerms
+        learned == total -> reviewTerms + masteredTerms + learningTerms + untouchedTerms
+        progress < 0.5f -> untouchedTerms + learningTerms + reviewTerms
+        else -> learningTerms + reviewTerms + untouchedTerms + masteredTerms
+    }
+        .distinct()
+        .take(focusLimit.coerceAtLeast(0))
+
+    val stage = when {
+        total == 0 || learned == 0 -> RootGroupStage.SEED
+        learned == total -> RootGroupStage.MASTERED
+        progress < 0.5f -> RootGroupStage.BUILDING
+        else -> RootGroupStage.CONSOLIDATING
+    }
+
+    val title: String
+    val badge: String
+    val message: String
+    val action: String
+    when (stage) {
+        RootGroupStage.SEED -> {
+            title = "先建根族地基"
+            badge = "起步"
+            val firstTerm = focusTerms.firstOrNull()
+            message = if (firstTerm == null) {
+                "这组词根暂时没有可展示成员，先换一个词根继续浏览。"
+            } else {
+                "这组还没触达，先把 ${group.rootKey} 和 $firstTerm 绑定起来，再顺手扫同根词。"
+            }
+            action = "展开首攻词"
+        }
+        RootGroupStage.BUILDING -> {
+            title = "沿同根继续扩展"
+            badge = "推进"
+            message = "已经触达 $learned 个，还有 $remaining 个待补；继续按同根扩展，记忆负担会比孤立背词更低。"
+            action = "展开下一批"
+        }
+        RootGroupStage.CONSOLIDATING -> {
+            title = "收束近义和形近差异"
+            badge = "收尾"
+            message = "大半词族已经入轨，现在适合回看学习中/复习词，把同根词之间的细微差异讲清楚。"
+            action = "展开收尾词"
+        }
+        RootGroupStage.MASTERED -> {
+            title = "整族已触达"
+            badge = "稳固"
+            message = "这一组已全部进入学习轨道，后续靠 Review 维持；混淆时回看成员 chip 复盘差异。"
+            action = "回看整族"
+        }
+    }
+
+    return RootGroupInsight(
+        stage = stage,
+        badgeLabel = badge,
+        title = title,
+        message = message,
+        primaryLabel = "已触达",
+        primaryValue = "$learned/$total",
+        secondaryLabel = "剩余",
+        secondaryValue = remaining.toString(),
+        actionLabel = action,
+        progress = progress,
+        focusTerms = focusTerms,
+    )
+}
+
 /**
  * Builds a 4-option multiple-choice question. Distractors come from the
  * provided pool, prioritizing words sharing the same rootKey (higher

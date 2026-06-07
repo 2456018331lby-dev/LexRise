@@ -106,11 +106,13 @@ import com.study.englishdemo.data.Morpheme
 import com.study.englishdemo.data.PracticeSessionStats
 import com.study.englishdemo.data.ReviewRating
 import com.study.englishdemo.data.RootGroup
+import com.study.englishdemo.data.RootGroupStage
 import com.study.englishdemo.data.StudyFocusCue
 import com.study.englishdemo.data.StudyFocusKind
 import com.study.englishdemo.data.StudyPhase
 import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
+import com.study.englishdemo.data.buildRootGroupInsight
 import com.study.englishdemo.data.buildStudyFocusCue
 import com.study.englishdemo.data.decomposeWord
 import com.study.englishdemo.data.matchingWordForms
@@ -2037,70 +2039,193 @@ private fun RootGroupCard(group: RootGroup, onSpeak: (String) -> Unit) {
             onDismiss = { selectedWord = null },
         )
     }
-    val ratio = if (group.totalWords == 0) 0f else group.learnedWords.toFloat() / group.totalWords
-    val animatedRatio by animateFloatAsState(ratio, tween(360), label = "rootGroupRatio")
+    val insight = remember(group) { buildRootGroupInsight(group) }
+    val accent = rootGroupStageAccent(insight.stage)
+    val focusWords = remember(group, insight.focusTerms) {
+        val byTerm = group.members.associateBy { it.term.lowercase() }
+        insight.focusTerms.mapNotNull { byTerm[it.lowercase()] }
+    }
+    val animatedRatio by animateFloatAsState(
+        targetValue = insight.progress.coerceIn(0f, 1f),
+        animationSpec = tween(420),
+        label = "rootGroupRatio",
+    )
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { expanded = !expanded },
     ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.18f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+                        ),
+                    ),
+                )
+                .padding(18.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(18.dp),
+                            color = accent.copy(alpha = 0.16f),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.AccountTree,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(10.dp)
+                                    .size(24.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    group.rootKey,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                RootStageBadge(insight.badgeLabel, accent)
+                            }
+                            if (group.meanings.isNotEmpty()) {
+                                Text(
+                                    group.meanings.joinToString("；"),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                                )
+                            }
+                        }
+                    }
                     Text(
-                        group.rootKey,
+                        "${(insight.progress.coerceIn(0f, 1f) * 100).toInt()}%",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
+                        color = accent,
                     )
-                    if (group.meanings.isNotEmpty()) {
+                }
+
+                Text(
+                    insight.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = accent,
+                )
+                Text(
+                    insight.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.74f),
+                )
+                LinearProgressIndicator(
+                    progress = { animatedRatio },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(7.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    FocusMetricPill(insight.primaryLabel, insight.primaryValue, accent, Modifier.weight(1f))
+                    FocusMetricPill(insight.secondaryLabel, insight.secondaryValue, accent, Modifier.weight(1f))
+                }
+                if (focusWords.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            group.meanings.joinToString("；"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                            "推荐先看",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
                         )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(focusWords, key = { it.id }) { word ->
+                                RootFocusTermChip(
+                                    term = word.term,
+                                    accent = accent,
+                                    onClick = { selectedWord = word },
+                                )
+                            }
+                        }
                     }
                 }
-                Text(
-                    "${group.learnedWords}/${group.totalWords}",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            LinearProgressIndicator(
-                progress = { animatedRatio },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-            )
-            val preview = if (expanded) group.members else group.members.take(6)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f)) {
-                    preview.chunked(2).forEach { rowWords ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            rowWords.forEach { w ->
-                                SiblingChip(sib = w, onClick = { selectedWord = it })
+                TextButton(onClick = { expanded = !expanded }) {
+                    Text(if (expanded) "收起路线" else insight.actionLabel)
+                }
+                AnimatedVisibility(visible = expanded) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f)) {
+                            group.members.chunked(2).forEach { rowWords ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    rowWords.forEach { w ->
+                                        SiblingChip(sib = w, onClick = { selectedWord = it })
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-            if (group.members.size > 6) {
-                TextButton(onClick = { expanded = !expanded }) {
-                    Text(if (expanded) "收起" else "展开全部 ${group.members.size} 个词")
-                }
-            }
         }
+    }
+}
+
+@Composable
+private fun rootGroupStageAccent(stage: RootGroupStage): Color = when (stage) {
+    RootGroupStage.SEED -> Color(0xFFC98A3D)
+    RootGroupStage.BUILDING -> MaterialTheme.colorScheme.primary
+    RootGroupStage.CONSOLIDATING -> Color(0xFF2D5B52)
+    RootGroupStage.MASTERED -> Color(0xFF6E8B3D)
+}
+
+@Composable
+private fun RootStageBadge(label: String, accent: Color) {
+    Box(
+        modifier = Modifier
+            .background(accent.copy(alpha = 0.14f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 9.dp, vertical = 4.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = accent, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun RootFocusTermChip(term: String, accent: Color, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = accent.copy(alpha = 0.10f),
+    ) {
+        Text(
+            term,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = accent,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 
