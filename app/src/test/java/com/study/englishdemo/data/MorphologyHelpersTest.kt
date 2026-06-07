@@ -151,6 +151,23 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun recordPracticeAttempt_countsStableAndNeedsPracticeRatings() {
+        val stats = listOf(
+            ReviewRating.GOOD,
+            ReviewRating.EASY,
+            ReviewRating.HARD,
+            ReviewRating.AGAIN,
+        ).fold(PracticeSessionStats()) { acc, rating ->
+            recordPracticeAttempt(acc, rating)
+        }
+
+        assertThat(stats.answered).isEqualTo(4)
+        assertThat(stats.stable).isEqualTo(2)
+        assertThat(stats.needsPractice).isEqualTo(2)
+        assertThat(stats.stabilityPercent).isEqualTo(50)
+    }
+
+    @Test
     fun normalizedEditDistance_exactMatchIsZero() {
         assertThat(normalizedEditDistance("focus", "focus")).isEqualTo(0.0)
         assertThat(normalizedEditDistance("Focus", "focus")).isEqualTo(0.0)

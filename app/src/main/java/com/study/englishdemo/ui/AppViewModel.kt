@@ -10,6 +10,7 @@ import com.study.englishdemo.data.DailyReviewCount
 import com.study.englishdemo.data.LearningSession
 import com.study.englishdemo.data.PaceRecommendation
 import com.study.englishdemo.data.PracticeMode
+import com.study.englishdemo.data.PracticeSessionStats
 import com.study.englishdemo.data.QuizQuestion
 import com.study.englishdemo.data.ReviewRating
 import com.study.englishdemo.data.RootGroup
@@ -20,6 +21,7 @@ import com.study.englishdemo.data.ToughWord
 import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
 import com.study.englishdemo.data.normalizedEditDistance
+import com.study.englishdemo.data.recordPracticeAttempt
 import com.study.englishdemo.data.ratingFromEditDistance
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -57,6 +59,7 @@ data class AppUiState(
     val rootGroups: List<RootGroup> = emptyList(),
     val rootsLoading: Boolean = false,
     val practiceMode: PracticeMode = PracticeMode.FLIP,
+    val practiceStats: PracticeSessionStats = PracticeSessionStats(),
     val toughWords: List<ToughWord> = emptyList(),
     val toughLoading: Boolean = false,
 )
@@ -88,6 +91,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
             val anchors = container.repository.getAnchorWordIds(selectedBookId)
             val pace = container.repository.getPaceRecommendation(selectedBookId)
             val (rootMap, siblingsMap) = resolveRootsAndSiblings(session)
+            val keepPracticeStats = selectedBookId == _uiState.value.selectedBookId
             _uiState.value = AppUiState(
                 loading = false,
                 books = books,
@@ -106,6 +110,8 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
                 rootsQuery = _uiState.value.rootsQuery,
                 rootRefByKey = rootMap,
                 siblingsByWordId = siblingsMap,
+                practiceMode = _uiState.value.practiceMode,
+                practiceStats = if (keepPracticeStats) _uiState.value.practiceStats else PracticeSessionStats(),
             )
             loadVocabulary()
             loadRootGroups()
@@ -132,9 +138,24 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun reviewWord(wordId: Long, rating: ReviewRating) {
+        reviewWordInternal(wordId, rating, countPracticeAttempt = false)
+    }
+
+    fun reviewPracticeWord(wordId: Long, rating: ReviewRating) {
+        reviewWordInternal(wordId, rating, countPracticeAttempt = true)
+    }
+
+    private fun reviewWordInternal(wordId: Long, rating: ReviewRating, countPracticeAttempt: Boolean) {
         viewModelScope.launch {
             container.repository.reviewWord(wordId, rating)
-            _uiState.value = _uiState.value.copy(message = "已记录 ${rating.name.lowercase()} 反馈")
+            _uiState.value = _uiState.value.copy(
+                message = "已记录 ${rating.name.lowercase()} 反馈",
+                practiceStats = if (countPracticeAttempt) {
+                    recordPracticeAttempt(_uiState.value.practiceStats, rating)
+                } else {
+                    _uiState.value.practiceStats
+                },
+            )
             val selectedBookId = _uiState.value.selectedBookId ?: return@launch
             val session = container.repository.getLearningSession(selectedBookId)
             val snapshot = container.repository.getBookRootSnapshot(selectedBookId)
@@ -256,13 +277,17 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         _uiState.value = _uiState.value.copy(practiceMode = mode)
     }
 
+    fun resetPracticeSessionStats() {
+        _uiState.value = _uiState.value.copy(practiceStats = PracticeSessionStats())
+    }
+
     /**
      * For CHOICE/SPELL/DICTATION modes: user picks/types an answer. Repository
      * records the rating against SRS exactly like a flip-card review. Caller
      * handles advancing to the next word from `session` state.
      */
     fun submitAnswer(wordId: Long, rating: ReviewRating) {
-        reviewWord(wordId, rating)
+        reviewPracticeWord(wordId, rating)
     }
 
     suspend fun buildQuiz(wordId: Long): QuizQuestion? {

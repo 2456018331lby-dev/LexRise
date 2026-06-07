@@ -138,6 +138,18 @@ fun fuzzyTermMatchDistance(query: String, term: String): Double? {
     return distance.takeIf { it <= maxDistance }
 }
 
+fun recordPracticeAttempt(
+    stats: PracticeSessionStats,
+    rating: ReviewRating,
+): PracticeSessionStats {
+    val stable = rating == ReviewRating.GOOD || rating == ReviewRating.EASY
+    return stats.copy(
+        answered = stats.answered + 1,
+        stable = stats.stable + if (stable) 1 else 0,
+        needsPractice = stats.needsPractice + if (stable) 0 else 1,
+    )
+}
+
 /**
  * Levenshtein edit distance normalized to [0, 1] over the longer string,
  * case-insensitive. 0 = identical, 1 = totally different.

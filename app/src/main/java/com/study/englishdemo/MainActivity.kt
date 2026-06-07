@@ -103,6 +103,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.study.englishdemo.data.DailyReviewCount
 import com.study.englishdemo.data.Morpheme
+import com.study.englishdemo.data.PracticeSessionStats
 import com.study.englishdemo.data.ReviewRating
 import com.study.englishdemo.data.RootGroup
 import com.study.englishdemo.data.StudyPhase
@@ -132,6 +133,7 @@ class MainActivity : ComponentActivity() {
                 LexRiseApp(
                     uiState = uiState,
                     onRate = viewModel::reviewWord,
+                    onPracticeRate = viewModel::reviewPracticeWord,
                     onSpeak = viewModel::speakWord,
                     onDailyTargetChange = viewModel::updateDailyTarget,
                     onReminderSettingsSave = viewModel::updateReminderSettings,
@@ -145,6 +147,7 @@ class MainActivity : ComponentActivity() {
                     onRootsQuery = viewModel::updateRootsQuery,
                     onMnemonic = viewModel::updateMnemonic,
                     onModeChange = viewModel::setPracticeMode,
+                    onResetPracticeStats = viewModel::resetPracticeSessionStats,
                     buildQuiz = viewModel::buildQuiz,
                     buildCloze = viewModel::buildCloze,
                     gradeSpelling = viewModel::gradeSpelling,
@@ -162,6 +165,7 @@ private enum class HomeTab { DASHBOARD, LEARN, REVIEW, ROOTS, TOUGH, VOCAB, SETT
 private fun LexRiseApp(
     uiState: AppUiState,
     onRate: (Long, ReviewRating) -> Unit,
+    onPracticeRate: (Long, ReviewRating) -> Unit,
     onSpeak: (String) -> Unit,
     onDailyTargetChange: (Int) -> Unit,
     onReminderSettingsSave: (Boolean, Int, Int) -> Unit,
@@ -175,6 +179,7 @@ private fun LexRiseApp(
     onRootsQuery: (String) -> Unit,
     onMnemonic: (Long, String) -> Unit,
     onModeChange: (com.study.englishdemo.data.PracticeMode) -> Unit,
+    onResetPracticeStats: () -> Unit,
     buildQuiz: suspend (Long) -> com.study.englishdemo.data.QuizQuestion?,
     buildCloze: suspend (Long) -> com.study.englishdemo.data.ClozeQuestion?,
     gradeSpelling: (String, String) -> ReviewRating,
@@ -286,10 +291,11 @@ private fun LexRiseApp(
                     HomeTab.LEARN -> LearnScreen(uiState, onRate, onSpeak, onMnemonic)
                     HomeTab.REVIEW -> ReviewScreen(
                         uiState = uiState,
-                        onRate = onRate,
+                        onRate = onPracticeRate,
                         onSpeak = onSpeak,
                         onMnemonic = onMnemonic,
                         onModeChange = onModeChange,
+                        onResetPracticeStats = onResetPracticeStats,
                         buildQuiz = buildQuiz,
                         buildCloze = buildCloze,
                         gradeSpelling = gradeSpelling,
@@ -706,6 +712,7 @@ private fun ReviewScreen(
     onSpeak: (String) -> Unit,
     onMnemonic: (Long, String) -> Unit,
     onModeChange: (com.study.englishdemo.data.PracticeMode) -> Unit,
+    onResetPracticeStats: () -> Unit,
     buildQuiz: suspend (Long) -> com.study.englishdemo.data.QuizQuestion?,
     buildCloze: suspend (Long) -> com.study.englishdemo.data.ClozeQuestion?,
     gradeSpelling: (String, String) -> ReviewRating,
@@ -716,6 +723,13 @@ private fun ReviewScreen(
             current = uiState.practiceMode,
             onChange = onModeChange,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+        )
+        PracticeSessionStatsCard(
+            stats = uiState.practiceStats,
+            onReset = onResetPracticeStats,
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 12.dp),
         )
         if (words.isEmpty()) {
             Box(
@@ -763,6 +777,85 @@ private fun ReviewScreen(
                 onSpeak = onSpeak,
                 gradeSpelling = gradeSpelling,
                 withAudio = true,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PracticeSessionStatsCard(
+    stats: PracticeSessionStats,
+    onReset: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "本轮练习仪表",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        if (stats.hasAttempts) "稳定率 ${stats.stabilityPercent}% · 可随时混合五种模式"
+                        else "还没作答，先完成一题再看稳定率。",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
+                    )
+                }
+                TextButton(onClick = onReset, enabled = stats.hasAttempts) {
+                    Text("重置")
+                }
+            }
+            LinearProgressIndicator(
+                progress = { stats.stabilityPercent / 100f },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                PracticeStatsMetric("完成", stats.answered.toString(), Modifier.weight(1f))
+                PracticeStatsMetric("稳答", stats.stable.toString(), Modifier.weight(1f))
+                PracticeStatsMetric("再练", stats.needsPractice.toString(), Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PracticeStatsMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
             )
         }
     }

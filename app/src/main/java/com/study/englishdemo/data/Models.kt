@@ -244,6 +244,15 @@ data class MorphemeSegment(
 
 enum class PracticeMode { FLIP, CHOICE, CLOZE, SPELL, DICTATION }
 
+data class PracticeSessionStats(
+    val answered: Int = 0,
+    val stable: Int = 0,
+    val needsPractice: Int = 0,
+) {
+    val hasAttempts: Boolean get() = answered > 0
+    val stabilityPercent: Int get() = if (answered == 0) 0 else (stable * 100) / answered
+}
+
 data class QuizQuestion(
     val word: WordEntry,
     /** Options are term strings; the correct one is guaranteed to be included. */
