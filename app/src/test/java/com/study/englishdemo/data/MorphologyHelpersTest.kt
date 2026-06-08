@@ -409,6 +409,86 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildRootWordGuide_prefersRootTraceWithFamilyTerms() {
+        val guide = buildRootWordGuide(
+            word = fakeEntry(
+                term = "inspect",
+                rootKey = "spec",
+                phase = StudyPhase.REVIEW,
+                derivatives = listOf("inspected"),
+            ),
+            rootMeanings = listOf("看", "观察"),
+            familyTerms = listOf("inspect", "respect", "spectator"),
+        )
+
+        assertThat(guide.kind).isEqualTo(RootWordGuideKind.ROOT_TRACE)
+        assertThat(guide.badgeLabel).isEqualTo("根族导读")
+        assertThat(guide.primaryValue).isEqualTo("spec")
+        assertThat(guide.secondaryValue).isEqualTo("2")
+        assertThat(guide.focusTerms).containsExactly("respect", "spectator", "inspected").inOrder()
+        assertThat(guide.actionLabel).isEqualTo("先比同根")
+    }
+
+    @Test
+    fun buildRootWordGuide_usesWordFormsWithoutRootTrace() {
+        val guide = buildRootWordGuide(
+            word = fakeEntry(
+                term = "clarify",
+                rootKey = "",
+                phase = StudyPhase.LEARNING,
+                derivatives = listOf("clarified", "clarifies", "clarify"),
+            ),
+            rootMeanings = emptyList(),
+            familyTerms = emptyList(),
+        )
+
+        assertThat(guide.kind).isEqualTo(RootWordGuideKind.WORD_FORMS)
+        assertThat(guide.primaryValue).isEqualTo("2")
+        assertThat(guide.secondaryValue).isEqualTo("学习中")
+        assertThat(guide.focusTerms).containsExactly("clarified", "clarifies").inOrder()
+        assertThat(guide.actionLabel).isEqualTo("先扫词形")
+    }
+
+    @Test
+    fun buildRootWordGuide_usesContextWhenOnlyExampleExists() {
+        val guide = buildRootWordGuide(
+            word = fakeEntry(
+                term = "abandon",
+                rootKey = "",
+                example = "Never abandon your plan.",
+                pos = "vt.",
+            ),
+            rootMeanings = emptyList(),
+            familyTerms = emptyList(),
+        )
+
+        assertThat(guide.kind).isEqualTo(RootWordGuideKind.CONTEXT)
+        assertThat(guide.primaryValue).isEqualTo("可用")
+        assertThat(guide.secondaryValue).isEqualTo("vt.")
+        assertThat(guide.intensity).isWithin(0.001f).of(0.58f)
+        assertThat(guide.focusTerms).isEmpty()
+    }
+
+    @Test
+    fun buildRootWordGuide_fallsBackToQuickReview() {
+        val guide = buildRootWordGuide(
+            word = fakeEntry(
+                term = "plain",
+                rootKey = "",
+                phase = null,
+                frq = 1200,
+            ),
+            rootMeanings = emptyList(),
+            familyTerms = emptyList(),
+        )
+
+        assertThat(guide.kind).isEqualTo(RootWordGuideKind.QUICK_REVIEW)
+        assertThat(guide.primaryValue).isEqualTo("未建档")
+        assertThat(guide.secondaryValue).isEqualTo("1200")
+        assertThat(guide.actionLabel).isEqualTo("快速回看")
+    }
+
+    @Test
     fun buildWordBatchBrief_handlesEmptyBatch() {
         val brief = buildWordBatchBrief(emptyList())
 

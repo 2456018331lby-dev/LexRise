@@ -3,19 +3,19 @@
 这份文档专门给下一个 AI（或人）接手这个项目时读。
 README 面向用户，这份面向开发者/AI——信息密度优先，直接给"当前到哪了、地雷在哪、下一步候选是什么"。
 
-**最近一次更新**：2026-06-08（v0.24 完工后）
+**最近一次更新**：2026-06-08（v0.25 完工后）
 
 ---
 
 ## 1. 项目一句话描述
 
-`c:/Users/24560/Desktop/study/Englishdemo` 是一个本地离线的 Android 背单词 App（Kotlin + Compose + Material3 dynamicColor + Room v2 + WorkManager），面向 CET4/CET6/考研。当前能跑、104 个单测全绿，debug APK 可装。
+`c:/Users/24560/Desktop/study/Englishdemo` 是一个本地离线的 Android 背单词 App（Kotlin + Compose + Material3 dynamicColor + Room v2 + WorkManager），面向 CET4/CET6/考研。当前能跑、108 个单测全绿，debug APK 可装。
 
 **独立 git 仓库**（v0.3 起）：`Englishdemo/.git/`，分支 `main`，家目录级别仓库被完全隔离。
 
 ---
 
-## 2. 当前版本：v0.24（已完成）
+## 2. 当前版本：v0.25（已完成）
 
 **词库规模**（全部来自合法开源源头，首启自动导入）：
 
@@ -29,13 +29,13 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 
 - 词按 **rootKey 聚簇 + 簇内 frq 升序** 出现。约 21–25% 的词能聚簇；v0.21 起新词页顶部会按当前批次派生“本批新词策略”，先提示词根、词形、语境或混合打法
 - **复习模式（v0.5）**：翻卡 / 选择题 / 完形 / 拼写 / 听写 五种统一走 SRS
-  - 翻卡：默认盖住释义，点击才翻；**拆词条和词根意思常驻显示**（v0.4 bug fix，不再要翻卡二次揭示）；v0.18 起正面新增“记忆锚”，自动提示先抓词根、词形、语境或基础释义
+  - 翻卡：默认盖住释义，点击才翻；**拆词条和词根意思常驻显示**（v0.4 bug fix，不再要翻卡二次揭示）；v0.18 起正面新增“记忆锚”，自动提示先抓词根、词形、语境或基础释义；v0.25 起点击同根词 chip 打开的底部详情卡会先显示词根详情导读
   - 选择题：`buildQuizQuestion` 从同根词优先抽干扰项；答对 → GOOD，答错 → AGAIN
   - 完形：`buildClozeQuestion` 从例句中挖掉目标词或 derivatives（v0.10），v0.11 起候选排序优先原词、再按例句最早出现的派生词；复用同根优先干扰项；答对 → GOOD，答错 → AGAIN
   - 拼写/听写：Levenshtein 距离 `normalizedEditDistance` → `ratingFromEditDistance` 四档映射（0 → EASY，≤0.15 → GOOD，≤0.35 → HARD，余 → AGAIN）
 - **难词专攻 Tab**（v0.4/v0.16/v0.19）：`getToughWords` 聚合 `review_logs` 中 `rating=AGAIN` 计数 top N；v0.16 起每个难词卡派生“重建 / 词根 / 语境 / 巩固”错题处方；v0.19 起顶部汇总“错题战情台”，判断当前错题池主导打法；支持原地"会了/不会"快速评分
 - **簇首词**（同根中 frq 最低的那个）顶上『地基词』徽章
-- **词根 Tab**：按根聚合整本词书；v0.24 起顶部新增“词根图谱简报”，先判断整本词根覆盖是待生成、起步、扩展、收束还是基本铺开；v0.14 起每个根族卡自动生成“起步 / 推进 / 收尾 / 稳固”路线，展示阶段徽章、推荐关注词、触达比例和剩余词数；成员 chip 点击打开底部详情卡（v0.5），不再只播音
+- **词根 Tab**：按根聚合整本词书；v0.24 起顶部新增“词根图谱简报”，先判断整本词根覆盖是待生成、起步、扩展、收束还是基本铺开；v0.14 起每个根族卡自动生成“起步 / 推进 / 收尾 / 稳固”路线，展示阶段徽章、推荐关注词、触达比例和剩余词数；成员 chip 点击打开底部详情卡（v0.5），不再只播音；v0.25 起底部详情卡新增“根族导读 / 词形导读 / 语境导读 / 速览导读”，展示行动标签、指标、强度条和焦点词 chips
 - Dashboard：考试倒计时卡 + 词根覆盖卡 + 30 日热力图 + 连续打卡徽章；v0.17 起新增“今日训练路线”，把复习债、难词、词根覆盖和新词推进排成 1–3 个可点击步骤；v0.23 起在热力图前新增“七日节奏简报”，判断最近一周是安静期、恢复、平衡、稳态还是冲刺
 - **今日学习焦点（v0.8/v0.9）**：Dashboard 根据复习债 / 自动配速 / 词根覆盖 / 新词剩余 / 完成态，派生“今天先做什么”的建议卡；v0.9 新增行动按钮，可直达复习 / 新词 / 词根 Tab
 - **考试日期 + 自动配速**：按剩余词量 / 剩余天数 + 20% 缓冲算每日目标
@@ -47,13 +47,13 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 
 - 内置词书导入和用户词书合并统一走 `importMutex`，防止首启/重复点击导入时插入重复词书
 - 词条进度初始化从逐条 `insert` 改为 `insertAll`
-- `app/build.gradle.kts` 已同步 `versionCode=24` / `versionName="0.24.0"`
+- `app/build.gradle.kts` 已同步 `versionCode=25` / `versionName="0.25.0"`
 
 **已做的测试 / 构建验证**：
 
 - `./gradlew.bat :app:lintDebug` — **通过**（1 个既有 `GradleDependency` 版本提示）
-- `./gradlew.bat :app:testDebugUnitTest` — **104 个 test 全绿**
-- `./gradlew.bat :app:assembleDebug` — 成功，debug APK 64.36 MB
+- `./gradlew.bat :app:testDebugUnitTest` — **108 个 test 全绿**
+- `./gradlew.bat :app:assembleDebug` — 成功，debug APK 64.40 MB
 
 ---
 
@@ -63,11 +63,11 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 
 | 文件 | 职责 |
 |------|------|
-| `Models.kt` | Room 实体 + 领域模型。v0.24 增：`RootAtlasBrief`、`RootAtlasBriefKind`；v0.23 增：`StudyRhythmBrief`、`StudyRhythmBriefKind`；v0.22 增：`ReviewQueueBrief`、`ReviewQueueBriefKind`；v0.21 增：`WordBatchBrief`、`WordBatchBriefKind`；v0.20 增：`VocabularySearchInsight`、`VocabularySearchInsightKind`；v0.19 增：`ToughWordsBrief`；v0.18 增：`WordMemoryAnchor`、`WordMemoryAnchorKind`；v0.17 增：`DailyStudyRoute`、`DailyStudyRouteStep`、`DailyStudyRouteTarget`；v0.16 增：`ToughWordPrescription`、`ToughWordPrescriptionKind`；v0.15 增：`PracticeSessionCoach`、`PracticeSessionCoachKind`；v0.14 增：`RootGroupStage`、`RootGroupInsight`；v0.10 增：`ClozeBlank`；v0.9 给 `StudyFocusCue` 增 `actionLabel`；v0.8 增：`StudyFocusKind`、`StudyFocusCue`；v0.7 增：`PracticeSessionStats`；v0.5 增：`PracticeMode.CLOZE`、`ClozeQuestion`；v0.4 增：`PracticeMode`、`QuizQuestion`、`ToughWord`；v0.3 增：`SettingsState.examDate / autoPaceEnabled`、`RootGroup`、`BookRootSnapshot`、`PaceRecommendation`、`MorphemeSegment` |
+| `Models.kt` | Room 实体 + 领域模型。v0.25 增：`RootWordGuide`、`RootWordGuideKind`；v0.24 增：`RootAtlasBrief`、`RootAtlasBriefKind`；v0.23 增：`StudyRhythmBrief`、`StudyRhythmBriefKind`；v0.22 增：`ReviewQueueBrief`、`ReviewQueueBriefKind`；v0.21 增：`WordBatchBrief`、`WordBatchBriefKind`；v0.20 增：`VocabularySearchInsight`、`VocabularySearchInsightKind`；v0.19 增：`ToughWordsBrief`；v0.18 增：`WordMemoryAnchor`、`WordMemoryAnchorKind`；v0.17 增：`DailyStudyRoute`、`DailyStudyRouteStep`、`DailyStudyRouteTarget`；v0.16 增：`ToughWordPrescription`、`ToughWordPrescriptionKind`；v0.15 增：`PracticeSessionCoach`、`PracticeSessionCoachKind`；v0.14 增：`RootGroupStage`、`RootGroupInsight`；v0.10 增：`ClozeBlank`；v0.9 给 `StudyFocusCue` 增 `actionLabel`；v0.8 增：`StudyFocusKind`、`StudyFocusCue`；v0.7 增：`PracticeSessionStats`；v0.5 增：`PracticeMode.CLOZE`、`ClozeQuestion`；v0.4 增：`PracticeMode`、`QuizQuestion`、`ToughWord`；v0.3 增：`SettingsState.examDate / autoPaceEnabled`、`RootGroup`、`BookRootSnapshot`、`PaceRecommendation`、`MorphemeSegment` |
 | `Dao.kt` | 四个 DAO。v0.12 `searchInBook` 纳入 `derivatives`；v0.5 增：`WordProgressDao.insertAll`；v0.4 增：`getDistractorPool`（词根优先 + RANDOM 兜底）、`getToughWordsForBook`（AGAIN 次数聚合）、`ToughWordRow` 投影；v0.3 增：`getClusteredEntries / countClusteredForBook / getByWordIds / countLearnedForBook` |
 | `AppDatabase.kt` | Room DB，version=2，`fallbackToDestructiveMigration()` |
 | `SpacedRepetitionScheduler.kt` | SRS 算法（纯函数，已测） |
-| `MorphologyHelpers.kt` | 纯函数。v0.24 增 `buildRootAtlasBrief`；v0.23 增 `buildStudyRhythmBrief`；v0.22 增 `buildReviewQueueBrief`；v0.21 增 `buildWordBatchBrief`；v0.20 增 `buildVocabularySearchInsight`；v0.19 增 `buildToughWordsBrief`；v0.18 增 `buildWordMemoryAnchor`；v0.17 增 `buildDailyStudyRoute`；v0.16 增 `buildToughWordPrescription`；v0.15 增 `buildPracticeSessionCoach`；v0.14 增 `buildRootGroupInsight`；v0.13 增 `matchingWordForms`；v0.12 增 `fuzzyWordFormMatchDistance`；v0.11 优化 `buildClozeBlank` 候选排序（原词优先、派生词按例句位置）；v0.10 增：`buildClozeBlank`；v0.8 增：`buildStudyFocusCue`；v0.7 增：`recordPracticeAttempt`；v0.6 增：`fuzzyTermMatchDistance`；v0.5 增：`blankTermInExample`；v0.4 增：`buildQuizOptions`（干扰项生成）、`normalizedEditDistance`（Levenshtein / 长度）、`ratingFromEditDistance`（距离 → 四档）；v0.3 有：`decomposeWord`、`computePaceRecommendation` |
+| `MorphologyHelpers.kt` | 纯函数。v0.25 增 `buildRootWordGuide`；v0.24 增 `buildRootAtlasBrief`；v0.23 增 `buildStudyRhythmBrief`；v0.22 增 `buildReviewQueueBrief`；v0.21 增 `buildWordBatchBrief`；v0.20 增 `buildVocabularySearchInsight`；v0.19 增 `buildToughWordsBrief`；v0.18 增 `buildWordMemoryAnchor`；v0.17 增 `buildDailyStudyRoute`；v0.16 增 `buildToughWordPrescription`；v0.15 增 `buildPracticeSessionCoach`；v0.14 增 `buildRootGroupInsight`；v0.13 增 `matchingWordForms`；v0.12 增 `fuzzyWordFormMatchDistance`；v0.11 优化 `buildClozeBlank` 候选排序（原词优先、派生词按例句位置）；v0.10 增：`buildClozeBlank`；v0.8 增：`buildStudyFocusCue`；v0.7 增：`recordPracticeAttempt`；v0.6 增：`fuzzyTermMatchDistance`；v0.5 增：`blankTermInExample`；v0.4 增：`buildQuizOptions`（干扰项生成）、`normalizedEditDistance`（Levenshtein / 长度）、`ratingFromEditDistance`（距离 → 四档）；v0.3 有：`decomposeWord`、`computePaceRecommendation` |
 | `StudyRepository.kt` | 业务层。v0.12 `searchWords` 的 fuzzy fallback 比对原词 + derivatives；v0.10 `buildClozeQuestion` 支持 derivatives 挖空；v0.6 增：`searchWords` 直接命中 + fuzzy fallback；v0.5 增：`importMutex`、批量初始化进度、`buildClozeQuestion(wordId, bookId)`；v0.4 增：`buildQuizQuestion(wordId, bookId)`、`getToughWords(bookId, limit)`；v0.3 增：`getRootGroups / getBookRootSnapshot / getAnchorWordIds / getPaceRecommendation / updateExamPlan` |
 | `WordBookParser.kt` / `WordBookImporter.kt` | CSV/TXT 解析；新 10 列 + 旧 6 列兼容 |
 | `UserPreferencesRepository.kt` | DataStore 设置 |
@@ -77,7 +77,7 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 
 | 文件 | 职责 |
 |------|------|
-| `MainActivity.kt` | 所有 Compose 页面：Dashboard / Learn / Review / **Roots** / **Tough** / Vocab / Settings（Settings 移到 TopAppBar 齿轮按钮）。v0.24 给 Roots Tab 增“词根图谱简报”并新增 `RootAtlasBriefCard / RootAtlasMetric`；v0.23 给 Dashboard 增“七日节奏简报”并新增 `StudyRhythmBriefCard / StudyRhythmMetric`；v0.22 给 Review Tab 增“复习队列预案”并新增 `ReviewQueueBriefCard / ReviewQueueMetric`；v0.21 给 Learn Tab 增“本批新词策略”并新增 `WordBatchBriefCard / BatchBriefMetric`；v0.20 给 Vocab Tab 增“检索洞察”并新增 `VocabularySearchInsightCard / VocabularyInsightMetric`；v0.19 给 Tough Tab 增“错题战情台”并新增 `ToughWordsBriefCard / ToughBriefMetric`；v0.18 给 `FlipWordCard` 增“记忆锚”正面面板并新增 `WordMemoryAnchorPanel / MemoryAnchorMetric`；v0.17 给 Dashboard 增“今日训练路线”轨道并新增 `DailyStudyRouteCard / DailyStudyRouteStepCard`；v0.16 给 `ToughWordCard` 增“错题处方”面板并新增 `ToughPrescriptionPanel / ToughPrescriptionMetric`；v0.15 给 `PracticeSessionStatsCard` 增“本轮教练”策略面板并新增 `PracticeCoachPanel / PracticeCoachMetric`；v0.14 优化 `RootGroupCard` 为根族路线卡并新增 `RootStageBadge / RootFocusTermChip`；v0.13 增 `VocabularyMatchRail` 并优化 `VocabularyRow` 视觉层级；v0.12 更新词汇搜索 label / supportingText / 状态提示；v0.11 更新完形无题状态文案；v0.9 给 `StudyFocusCueCard` 增行动按钮和 Tab 跳转；v0.8 增：`StudyFocusCueCard / FocusMetricPill`；v0.7 增：`PracticeSessionStatsCard / PracticeStatsMetric`；v0.6 改：`VocabularyScreen` 搜索提示、横向阶段筛选、词根/词性/标签 chips；v0.5 增：`ClozePracticePager`、横向滑动 `PracticeModeBar`、`RootWordPreviewSheet`；v0.4 增组件：`PracticeModeBar / PracticeChip / QuizPracticePager / QuizOptionButton / QuizOptionState / SpellPracticePager / ToughWordsScreen / ToughWordCard`；v0.4 改 `MorphemeRow` 接收 `rootRef` 常驻显示词根意思；v0.3 有：`FlipWordCard / AnchorBadge / ReviewHeatmap / StreakBadge / ExamCountdownCard / RootCoverageCard / ExamPlanCard / RootsScreen / RootGroupCard / SiblingChip` |
+| `MainActivity.kt` | 所有 Compose 页面：Dashboard / Learn / Review / **Roots** / **Tough** / Vocab / Settings（Settings 移到 TopAppBar 齿轮按钮）。v0.25 给 `RootWordPreviewSheet` 增“词根详情导读”并新增 `RootWordGuidePanel / RootWordGuideMetric`；v0.24 给 Roots Tab 增“词根图谱简报”并新增 `RootAtlasBriefCard / RootAtlasMetric`；v0.23 给 Dashboard 增“七日节奏简报”并新增 `StudyRhythmBriefCard / StudyRhythmMetric`；v0.22 给 Review Tab 增“复习队列预案”并新增 `ReviewQueueBriefCard / ReviewQueueMetric`；v0.21 给 Learn Tab 增“本批新词策略”并新增 `WordBatchBriefCard / BatchBriefMetric`；v0.20 给 Vocab Tab 增“检索洞察”并新增 `VocabularySearchInsightCard / VocabularyInsightMetric`；v0.19 给 Tough Tab 增“错题战情台”并新增 `ToughWordsBriefCard / ToughBriefMetric`；v0.18 给 `FlipWordCard` 增“记忆锚”正面面板并新增 `WordMemoryAnchorPanel / MemoryAnchorMetric`；v0.17 给 Dashboard 增“今日训练路线”轨道并新增 `DailyStudyRouteCard / DailyStudyRouteStepCard`；v0.16 给 `ToughWordCard` 增“错题处方”面板并新增 `ToughPrescriptionPanel / ToughPrescriptionMetric`；v0.15 给 `PracticeSessionStatsCard` 增“本轮教练”策略面板并新增 `PracticeCoachPanel / PracticeCoachMetric`；v0.14 优化 `RootGroupCard` 为根族路线卡并新增 `RootStageBadge / RootFocusTermChip`；v0.13 增 `VocabularyMatchRail` 并优化 `VocabularyRow` 视觉层级；v0.12 更新词汇搜索 label / supportingText / 状态提示；v0.11 更新完形无题状态文案；v0.9 给 `StudyFocusCueCard` 增行动按钮和 Tab 跳转；v0.8 增：`StudyFocusCueCard / FocusMetricPill`；v0.7 增：`PracticeSessionStatsCard / PracticeStatsMetric`；v0.6 改：`VocabularyScreen` 搜索提示、横向阶段筛选、词根/词性/标签 chips；v0.5 增：`ClozePracticePager`、横向滑动 `PracticeModeBar`、`RootWordPreviewSheet`；v0.4 增组件：`PracticeModeBar / PracticeChip / QuizPracticePager / QuizOptionButton / QuizOptionState / SpellPracticePager / ToughWordsScreen / ToughWordCard`；v0.4 改 `MorphemeRow` 接收 `rootRef` 常驻显示词根意思；v0.3 有：`FlipWordCard / AnchorBadge / ReviewHeatmap / StreakBadge / ExamCountdownCard / RootCoverageCard / ExamPlanCard / RootsScreen / RootGroupCard / SiblingChip` |
 | `ui/AppViewModel.kt` | `AppUiState` + action。v0.7 增：`practiceStats / reviewPracticeWord / resetPracticeSessionStats`；v0.5 增：`buildCloze`；v0.4 增：`practiceMode / toughWords / toughLoading`、`setPracticeMode / buildQuiz / gradeSpelling / loadToughWords`；`refresh` 和 `reviewWord` 现在同步 resolve roots/siblings（v0.4 bug fix，消除空壳闪烁） |
 | `ui/PreviewData.kt` | Compose Preview 样板数据 |
 | `ui/Theme.kt` | Material 3 dynamicLight/Dark (Android 12+)，低版本 fallback 到 LexRise 品牌色 |
@@ -110,9 +110,9 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 | `WordBookParserTest.kt` | 3 | CSV/TXT 解析 |
 | `ReviewReminderSchedulerTest.kt` | 2 | 提醒时间计算 |
 | `StudyRepositoryTest.kt` | 14 | recentReviewCounts / 合并去重 / **拼写容错搜索** / **derivatives 搜索** / **派生词 typo fallback** / 同根近邻 / 词根聚合 / 簇首 / 配速 / **选择题构建** / **完形题构建（含 derivatives）** / **内置导入幂等** / **难词 TopN** |
-| `MorphologyHelpersTest.kt` | 81 | decomposeWord / computePaceRecommendation / **buildStudyFocusCue** / **buildDailyStudyRoute** / **buildStudyRhythmBrief** / **buildRootAtlasBrief** / **buildWordMemoryAnchor** / **buildWordBatchBrief** / **buildReviewQueueBrief** / **buildRootGroupInsight** / **buildPracticeSessionCoach** / **buildToughWordPrescription** / **buildToughWordsBrief** / **buildVocabularySearchInsight** / **buildClozeBlank**（含原词优先、最早派生词优先） / **buildQuizOptions** / **blankTermInExample** / **fuzzyTermMatchDistance** / **fuzzyWordFormMatchDistance** / **matchingWordForms** / **recordPracticeAttempt** / **normalizedEditDistance** / **ratingFromEditDistance** |
+| `MorphologyHelpersTest.kt` | 85 | decomposeWord / computePaceRecommendation / **buildStudyFocusCue** / **buildDailyStudyRoute** / **buildStudyRhythmBrief** / **buildRootAtlasBrief** / **buildRootWordGuide** / **buildWordMemoryAnchor** / **buildWordBatchBrief** / **buildReviewQueueBrief** / **buildRootGroupInsight** / **buildPracticeSessionCoach** / **buildToughWordPrescription** / **buildToughWordsBrief** / **buildVocabularySearchInsight** / **buildClozeBlank**（含原词优先、最早派生词优先） / **buildQuizOptions** / **blankTermInExample** / **fuzzyTermMatchDistance** / **fuzzyWordFormMatchDistance** / **matchingWordForms** / **recordPracticeAttempt** / **normalizedEditDistance** / **ratingFromEditDistance** |
 
-**总计 104 个单测**。
+**总计 108 个单测**。
 
 ---
 
@@ -130,7 +130,7 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 10. **完形模式也必须经 reviewWord**：`ClozePracticePager` 答对 GOOD、答错 AGAIN；不要为完形新开表。v0.10 支持 derivatives 挖空，v0.11 优先挖原词、再按例句位置选派生词，但 SRS 仍记录到原词条
 11. **Review 统计只统计 Review Tab**：`reviewPracticeWord` 包装 `reviewWord` 并更新 `PracticeSessionStats`；Learn/Tough 仍走普通 `reviewWord`，不要混入本轮练习统计
 12. **首页学习焦点是派生建议**：`buildStudyFocusCue` 只读 `LearningSession / BookRootSnapshot / PaceRecommendation`，不要写回 `dailyNewWordTarget`，也不要为建议新增 Room 表；v0.9 行动按钮只切换本地 Tab
-13. **buildStudyFocusCue / buildDailyStudyRoute / buildStudyRhythmBrief / buildRootAtlasBrief / buildWordMemoryAnchor / buildWordBatchBrief / buildReviewQueueBrief / buildRootGroupInsight / buildPracticeSessionCoach / buildToughWordPrescription / buildToughWordsBrief / buildVocabularySearchInsight / buildQuizOptions / buildClozeBlank / blankTermInExample / fuzzyTermMatchDistance / fuzzyWordFormMatchDistance / matchingWordForms / recordPracticeAttempt / normalizedEditDistance 是纯函数**：不要换成带 Context 的实现。首页建议与按钮文案 / 今日训练路线 / 七日节奏简报 / 词根图谱简报 / 新词记忆锚 / 新词批次策略 / 复习队列预案 / 根族路线 / 本轮教练 / 难词处方 / 错题战情台 / 词汇检索洞察 / SRS / 干扰项 / 完形挖空 / 拼写容错 / derivatives 搜索 / 词汇命中词形展示 / session 统计 / 拼写判定都应该能在 `:app:testDebugUnitTest`（non-instrumented）里跑
+13. **buildStudyFocusCue / buildDailyStudyRoute / buildStudyRhythmBrief / buildRootAtlasBrief / buildRootWordGuide / buildWordMemoryAnchor / buildWordBatchBrief / buildReviewQueueBrief / buildRootGroupInsight / buildPracticeSessionCoach / buildToughWordPrescription / buildToughWordsBrief / buildVocabularySearchInsight / buildQuizOptions / buildClozeBlank / blankTermInExample / fuzzyTermMatchDistance / fuzzyWordFormMatchDistance / matchingWordForms / recordPracticeAttempt / normalizedEditDistance 是纯函数**：不要换成带 Context 的实现。首页建议与按钮文案 / 今日训练路线 / 七日节奏简报 / 词根图谱简报 / 词根详情导读 / 新词记忆锚 / 新词批次策略 / 复习队列预案 / 根族路线 / 本轮教练 / 难词处方 / 错题战情台 / 词汇检索洞察 / SRS / 干扰项 / 完形挖空 / 拼写容错 / derivatives 搜索 / 词汇命中词形展示 / session 统计 / 拼写判定都应该能在 `:app:testDebugUnitTest`（non-instrumented）里跑
 14. **导入互斥不要移除**：`ensureBundledBookImported`、`importBook`、`importPreview` 共享 `importMutex`，防止并发首启或重复点击导入造成重复词书/重复进度
 
 ---
@@ -169,7 +169,7 @@ README 面向用户，这份面向开发者/AI——信息密度优先，直接�
 
 ## 6. 下一步候选（按优先级）
 
-v0.24 后，以下是还没开工或值得继续深化的方向。按优先级从高到低。
+v0.25 后，以下是还没开工或值得继续深化的方向。按优先级从高到低。
 
 ### P0 — GitHub 发布（用户单边操作 + AI 辅助）
 
@@ -186,7 +186,7 @@ v0.24 后，以下是还没开工或值得继续深化的方向。按优先级�
 
 1. **AI 批量巧记**：LLM 离线生成首轮填入 `assets/books/*.csv` 的 `mnemonic` 列，用户再编辑。**不走在线 API**——改 `build_wordlists.py`，读一个额外的 `tools/raw/mnemonics.csv` 注入即可
 2. **完形模式继续增强**：v0.10 已支持 derivatives，v0.11 已做单句内候选排序；后续可支持多例句质量评分和候选句排序
-3. **词根详情卡深化**：v0.5 已有 BottomSheet 速览，v0.14 已有根族路线；后续可把底部卡扩展为完整 FlipWordCard 或支持“加入今日复习”
+3. **词根详情卡二期**：v0.25 已有底部详情导读；后续可把底部卡扩展为完整 FlipWordCard 或支持“加入今日复习”（需要先定义状态/队列语义）
 
 已完成（v0.5）：
 - 词根→例词 BottomSheet 速览
@@ -253,6 +253,9 @@ v0.24 后，以下是还没开工或值得继续深化的方向。按优先级�
 已完成（v0.24）：
 - 词根 Tab 新增“词根图谱简报”，在浏览单个根族前先判断整本词根覆盖是待生成、起步、扩展、收束还是基本铺开
 
+已完成（v0.25）：
+- 词根详情 BottomSheet 新增“词根详情导读”，点击同根词或根族成员后先给出根族、词形、语境或速览复盘路线
+
 ### P3 — 工程化 / 发布
 
 1. **APK 签名**：`signingConfigs` 放 `local.properties`，docs/github-release-playbook.md 已写好最小步骤
@@ -295,10 +298,10 @@ curl -fL -o tools/raw/roots_raw.md \
 
 按序执行，全部通过再说"做完了"：
 
-1. `./gradlew.bat :app:testDebugUnitTest` 全绿（当前 104 个）
+1. `./gradlew.bat :app:testDebugUnitTest` 全绿（当前 108 个）
 2. `./gradlew.bat :app:assembleDebug` 成功
 3. APK 体积 < 80 MB（v0.3 基线 67 MB）
-4. 手装 APK 到手机/模拟器，**v0.24 冒烟清单**：
+4. 手装 APK 到手机/模拟器，**v0.25 冒烟清单**：
    - 首启 Dashboard 看到三本内置词书，词根覆盖卡出现
    - 新词页卡片拆词条显示 `pre-scrib-e` 三色 + 紧跟一行"scrib = 写"（无需翻卡点击）
    - 新词页顶部显示“本批新词策略”，会按本批新词线索切换词根 / 词形 / 语境 / 混合打法，并展示焦点词 chips
@@ -318,12 +321,13 @@ curl -fL -o tools/raw/roots_raw.md \
    - 难词 Tab 顶部显示“错题战情台”，能汇总错题总数、高风险数、最高重来次数和主导打法
    - 词根 Tab 顶部显示“词根图谱简报”，能按整本词根覆盖切换待生成 / 起步 / 扩展 / 收束 / 基本铺开状态，并展示词根覆盖、词条入轨和优先根族
    - 词根 Tab 每个词根卡显示“根族路线”阶段徽章、推荐关注词、触达比例和剩余词数；展开后点击成员 chip，会打开底部词条详情卡并能播放发音
+   - 词根 Tab 或翻卡中点击同根词 chip 后，底部详情卡显示“根族导读 / 词形导读 / 语境导读 / 速览导读”，展示行动标签、指标、强度条和焦点词 chips；不改变评分和词根排序
    - 设置齿轮从 TopAppBar 能打开，底栏 6 项无 Settings
    - 词汇 Tab 输入 `clarfy` 这类原词 typo 能找回 `clarify`；输入 `clarified` 或 `clarifed` 这类派生词/派生词 typo 也能找回 `clarify`，搜索框下方显示“检索洞察”，结果卡显示“词形雷达”命中词形
 5. **项目仓库 `git status`**（不是家目录！）检查——只应该看到你这轮改的文件。如果冒出 `.android-sdk/` 或 `app/build/` 要立刻查 .gitignore
 6. **家目录 `cd ~ && git status`** 检查——如果 Englishdemo 下的文件出现在 staged 区域，说明有人把 `.git` 删掉了，立刻停止
 
-### v0.24 之后新增 feature 的"最小验证套路"
+### v0.25 之后新增 feature 的"最小验证套路"
 
 - **新复习模式**：在 `PracticeMode` 枚举加一项，在 `ReviewScreen` 的 when 加分支；所有评分依然回 `onRate(wordId, rating)`
 - 纯函数逻辑（拆词、配速、首页建议/按钮文案、完形挖空、打分、距离）：补 `MorphologyHelpersTest.kt`
@@ -359,13 +363,14 @@ curl -fL -o tools/raw/roots_raw.md \
 - **v0.22（2026-06-08）**：Review Tab 新增“复习队列预案”；`buildReviewQueueBrief` 纯函数按到期词和当前练习模式派生轻量回温、词根修复、语境回忆、主动提取或混合清债；版本元数据同步 0.22.0；测试 87→94
 - **v0.23（2026-06-08）**：Dashboard 新增“七日节奏简报”；`buildStudyRhythmBrief` 纯函数按最近复习记录和今日概览派生安静期、恢复、平衡、稳态或冲刺；版本元数据同步 0.23.0；测试 94→99
 - **v0.24（2026-06-08）**：词根 Tab 新增“词根图谱简报”；`buildRootAtlasBrief` 纯函数按 `RootGroup` + `BookRootSnapshot` 派生待生成、起步、扩展、收束或基本铺开状态；版本元数据同步 0.24.0；测试 99→104
+- **v0.25（2026-06-08）**：词根详情 BottomSheet 新增“词根详情导读”；`buildRootWordGuide` 纯函数按 `WordEntry` + root meanings + family terms 派生根族、词形、语境或速览复盘路线；版本元数据同步 0.25.0；测试 104→108
 
 ---
 
-## 10. APK 与 GitHub 当前状态（v0.24 后）
+## 10. APK 与 GitHub 当前状态（v0.25 后）
 
 **APK**  
-- 最近一次 `assembleDebug` 验证生成：`app/build/outputs/apk/debug/app-debug.apk`，64.36 MB，未签名 debug 包；清理构建产物后可重跑命令再生成
+- 最近一次 `assembleDebug` 验证生成：`app/build/outputs/apk/debug/app-debug.apk`，64.40 MB，未签名 debug 包；清理构建产物后可重跑命令再生成
 - Release 包没做。要做的话先在 `local.properties` 加 signing config，然后 `./gradlew.bat :app:assembleRelease`；参考 `docs/github-release-playbook.md`
 
 **GitHub 发布状态：尚未 push**，**是有意的**。流程是：
@@ -381,6 +386,7 @@ curl -fL -o tools/raw/roots_raw.md \
 
 这个独立仓库当前分支 `main`，最新提交以 `git log --oneline -1` 为准；近期历史提交包括：
 ```
+896d730 Orient root study before browsing families
 e6ae455 Explain weekly rhythm before the heatmap
 6f5cbf7 Prepare review queues before practice starts
 6a8ab65 Guide new-word batches before individual cards
@@ -415,7 +421,7 @@ c37c48f docs: add MAINTENANCE.md for day-to-day upkeep
 
 1. 先读本文件**全部**（不是只读改动段落），特别是 §4 不变量和 §5 地雷
 2. `cd c:/Users/24560/Desktop/study/Englishdemo && git status` 看干净了
-3. `./gradlew.bat :app:testDebugUnitTest` 确认当前 104 个单测全绿
+3. `./gradlew.bat :app:testDebugUnitTest` 确认当前 108 个单测全绿
 4. 确认 `.gitignore` 覆盖了 `.android-sdk/` `build/` `.gradle/` `.kotlin/` `tools/raw/` `local.properties`
 5. 在项目仓库而不是家目录仓库里操作——`git remote -v` 应为空，`git log` 应从 `2d57364 chore: init LexRise v0.2 standalone repository` 开始
 6. 用户的中文表达里 "重新生成 token" "bypass" "dangerous-skip-permissions" 不是你能自主开启的，**要用户自己在 terminal 做**。你的角色是把流程写清楚

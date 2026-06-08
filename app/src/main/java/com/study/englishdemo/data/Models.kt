@@ -148,6 +148,22 @@ data class WordMemoryAnchor(
     val focusTerms: List<String>,
 )
 
+enum class RootWordGuideKind { ROOT_TRACE, WORD_FORMS, CONTEXT, QUICK_REVIEW }
+
+data class RootWordGuide(
+    val kind: RootWordGuideKind,
+    val badgeLabel: String,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val intensity: Float,
+    val focusTerms: List<String>,
+)
+
 enum class WordBatchBriefKind { ROOTS, WORD_FORMS, CONTEXT, MIXED, EMPTY }
 
 data class WordBatchBrief(

@@ -402,6 +402,91 @@ fun buildWordMemoryAnchor(
     }
 }
 
+fun buildRootWordGuide(
+    word: WordEntry,
+    rootMeanings: List<String>,
+    familyTerms: List<String>,
+    focusLimit: Int = 4,
+): RootWordGuide {
+    val cappedFocus = focusLimit.coerceAtLeast(0)
+    val cleanDerivatives = word.derivatives
+        .map { it.trim() }
+        .filter { it.isNotBlank() && !it.equals(word.term, ignoreCase = true) }
+        .distinctBy { it.lowercase() }
+    val cleanFamilyTerms = familyTerms
+        .map { it.trim() }
+        .filter { it.isNotBlank() && !it.equals(word.term, ignoreCase = true) }
+        .distinctBy { it.lowercase() }
+    val rootKey = word.rootKey.trim()
+    val phaseLabel = studyPhaseLabel(word.progress?.phase)
+    return when {
+        rootKey.isNotBlank() && (rootMeanings.isNotEmpty() || cleanFamilyTerms.isNotEmpty()) -> {
+            val meaning = rootMeanings
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .take(2)
+                .joinToString(" / ")
+                .ifBlank { "同根线索" }
+            val focusTerms = (cleanFamilyTerms + cleanDerivatives)
+                .distinctBy { it.lowercase() }
+                .take(cappedFocus)
+            val familyCount = cleanFamilyTerms.size
+            RootWordGuide(
+                kind = RootWordGuideKind.ROOT_TRACE,
+                badgeLabel = "根族导读",
+                title = "先把 ${word.term} 放回 $rootKey 这条根线",
+                message = "用“$rootKey = $meaning”定位核心义，再和同根词对照差异，能比单看释义更快稳住记忆。",
+                primaryLabel = "词根",
+                primaryValue = rootKey,
+                secondaryLabel = "同根可比",
+                secondaryValue = familyCount.toString(),
+                actionLabel = "先比同根",
+                intensity = ((familyCount + 1).toFloat() / 6f).coerceIn(0.24f, 1f),
+                focusTerms = focusTerms,
+            )
+        }
+        cleanDerivatives.isNotEmpty() -> RootWordGuide(
+            kind = RootWordGuideKind.WORD_FORMS,
+            badgeLabel = "词形导读",
+            title = "先看 ${word.term} 的词形变化",
+            message = "这张详情没有强词根线索，先把原词和派生形绑起来，再回到释义和例句。",
+            primaryLabel = "派生词",
+            primaryValue = cleanDerivatives.size.toString(),
+            secondaryLabel = "阶段",
+            secondaryValue = phaseLabel,
+            actionLabel = "先扫词形",
+            intensity = (cleanDerivatives.size.toFloat() / 4f).coerceIn(0.24f, 1f),
+            focusTerms = cleanDerivatives.take(cappedFocus),
+        )
+        word.example.isNotBlank() -> RootWordGuide(
+            kind = RootWordGuideKind.CONTEXT,
+            badgeLabel = "语境导读",
+            title = "把 ${word.term} 放回句子里确认",
+            message = "先读例句，再回看中文释义；如果能在句子里复述它，就比只认中文更可靠。",
+            primaryLabel = "例句",
+            primaryValue = "可用",
+            secondaryLabel = "词性",
+            secondaryValue = word.pos.ifBlank { "未标" },
+            actionLabel = "先读例句",
+            intensity = 0.58f,
+            focusTerms = emptyList(),
+        )
+        else -> RootWordGuide(
+            kind = RootWordGuideKind.QUICK_REVIEW,
+            badgeLabel = "速览导读",
+            title = "先做一次最小回看",
+            message = "这个词的外部线索较少，先听发音、看释义，再用一次主动回忆建立基本印象。",
+            primaryLabel = "阶段",
+            primaryValue = phaseLabel,
+            secondaryLabel = "频率",
+            secondaryValue = if (word.frq > 0) word.frq.toString() else "未标",
+            actionLabel = "快速回看",
+            intensity = 0.32f,
+            focusTerms = emptyList(),
+        )
+    }
+}
+
 fun buildWordBatchBrief(words: List<WordEntry>, focusLimit: Int = 4): WordBatchBrief {
     val cleanWords = words.distinctBy { it.id }
     val total = cleanWords.size

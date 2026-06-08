@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.24
+# Englishdemo / LexRise v0.25
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.25 亮点
+
+- **词根详情卡新增“词根详情导读”**
+  - 在新词翻卡的同根词 chip 或词根 Tab 的成员 chip 打开底部详情卡时，先给出根族导读、词形导读、语境导读或速览导读
+  - 导读卡展示行动标签、两项关键指标、强度条和焦点词 chips，让用户知道先比同根、先扫词形、先读例句还是快速回看
+  - 底部详情卡支持纵向滚动，避免长释义、例句和导读内容在小屏上挤压
+  - 逻辑由 `buildRootWordGuide` 纯函数派生，不新增数据库字段，不改变词根排序、学习顺序或 SRS 评分
 
 ## v0.24 亮点
 
@@ -290,6 +298,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.25（2026-06-08）
+- 词根详情 BottomSheet 新增“词根详情导读”，点击同根词或根族成员后先解释当前词应按词根、词形、语境还是速览复盘
+- 新增 `RootWordGuide` / `RootWordGuideKind` 和 `buildRootWordGuide` 纯函数
+- 新增 `RootWordGuidePanel` / `RootWordGuideMetric`，展示行动标签、指标、强度条和焦点词 chips
+- 应用版本元数据同步到 0.25.0
+- 测试 104 → 108
 
 ### v0.24（2026-06-08）
 - 词根 Tab 新增“词根图谱简报”，在浏览单个根族前先解释整本词根覆盖状态和下一步打法
