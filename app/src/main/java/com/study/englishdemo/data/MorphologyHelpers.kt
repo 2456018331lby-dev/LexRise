@@ -244,6 +244,77 @@ fun buildDailyStudyRoute(
     )
 }
 
+fun buildWordMemoryAnchor(
+    word: WordEntry,
+    rootRef: RootReference?,
+    siblingCount: Int,
+): WordMemoryAnchor {
+    val cleanDerivatives = word.derivatives
+        .map { it.trim() }
+        .filter { it.isNotBlank() && !it.equals(word.term, ignoreCase = true) }
+        .distinctBy { it.lowercase() }
+    val rootKey = word.rootKey.ifBlank { rootRef?.key.orEmpty() }
+    val phaseLabel = studyPhaseLabel(word.progress?.phase)
+    return when {
+        rootKey.isNotBlank() || rootRef != null -> {
+            val meanings = rootRef?.meanings.orEmpty().take(2).joinToString(" / ").ifBlank { "同根线索" }
+            val familyTerms = (rootRef?.examples.orEmpty() + cleanDerivatives)
+                .map { it.trim() }
+                .filter { it.isNotBlank() && !it.equals(word.term, ignoreCase = true) }
+                .distinctBy { it.lowercase() }
+                .take(4)
+            WordMemoryAnchor(
+                kind = WordMemoryAnchorKind.ROOT_FAMILY,
+                badgeLabel = "词根锚",
+                title = "先抓 $rootKey 这条线",
+                message = "把 ${word.term} 放进 $rootKey 家族，先记“$meanings”，再看释义细节。",
+                primaryLabel = "词根",
+                primaryValue = rootKey,
+                secondaryLabel = "同根邻居",
+                secondaryValue = siblingCount.coerceAtLeast(0).toString(),
+                actionLabel = "先看构词",
+                focusTerms = familyTerms,
+            )
+        }
+        cleanDerivatives.isNotEmpty() -> WordMemoryAnchor(
+            kind = WordMemoryAnchorKind.WORD_FORMS,
+            badgeLabel = "词形锚",
+            title = "从词形家族入手",
+            message = "先把原词和常见变化绑在一起，完形、拼写和听写都会更稳。",
+            primaryLabel = "派生词",
+            primaryValue = cleanDerivatives.size.toString(),
+            secondaryLabel = "阶段",
+            secondaryValue = phaseLabel,
+            actionLabel = "看词形变化",
+            focusTerms = cleanDerivatives.take(4),
+        )
+        word.example.isNotBlank() -> WordMemoryAnchor(
+            kind = WordMemoryAnchorKind.CONTEXT,
+            badgeLabel = "语境锚",
+            title = "把词放回句子里",
+            message = "先读例句，再遮住 ${word.term} 回想；能在语境里提取，才不是孤立背中文。",
+            primaryLabel = "例句",
+            primaryValue = "可用",
+            secondaryLabel = "词性",
+            secondaryValue = word.pos.ifBlank { "未标" },
+            actionLabel = "读例句自测",
+            focusTerms = emptyList(),
+        )
+        else -> WordMemoryAnchor(
+            kind = WordMemoryAnchorKind.SOLO,
+            badgeLabel = "基础锚",
+            title = "先建最小记忆",
+            message = "这个词线索较少，先用发音、中文释义和一次主动回忆建立第一层记忆。",
+            primaryLabel = "阶段",
+            primaryValue = phaseLabel,
+            secondaryLabel = "频率",
+            secondaryValue = if (word.frq > 0) word.frq.toString() else "未标",
+            actionLabel = "翻卡自测",
+            focusTerms = emptyList(),
+        )
+    }
+}
+
 fun buildRootGroupInsight(group: RootGroup, focusLimit: Int = 3): RootGroupInsight {
     val total = group.totalWords.coerceAtLeast(0)
     val learned = group.learnedWords.coerceIn(0, total)

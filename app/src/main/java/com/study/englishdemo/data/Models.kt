@@ -133,6 +133,21 @@ data class RootReference(
     val examples: List<String>,
 )
 
+enum class WordMemoryAnchorKind { ROOT_FAMILY, WORD_FORMS, CONTEXT, SOLO }
+
+data class WordMemoryAnchor(
+    val kind: WordMemoryAnchorKind,
+    val badgeLabel: String,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val focusTerms: List<String>,
+)
+
 data class WordProgress(
     val phase: StudyPhase,
     val familiarity: Int,

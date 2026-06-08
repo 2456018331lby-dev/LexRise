@@ -120,11 +120,14 @@ import com.study.englishdemo.data.ToughWordPrescription
 import com.study.englishdemo.data.ToughWordPrescriptionKind
 import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
+import com.study.englishdemo.data.WordMemoryAnchor
+import com.study.englishdemo.data.WordMemoryAnchorKind
 import com.study.englishdemo.data.buildDailyStudyRoute
 import com.study.englishdemo.data.buildPracticeSessionCoach
 import com.study.englishdemo.data.buildRootGroupInsight
 import com.study.englishdemo.data.buildStudyFocusCue
 import com.study.englishdemo.data.buildToughWordPrescription
+import com.study.englishdemo.data.buildWordMemoryAnchor
 import com.study.englishdemo.data.decomposeWord
 import com.study.englishdemo.data.matchingWordForms
 import com.study.englishdemo.ui.AppUiState
@@ -1418,6 +1421,9 @@ private fun FlipWordCard(
     var mnemonicEditorOpen by remember(word.id) { mutableStateOf(false) }
     var mnemonicDraft by remember(word.id, word.mnemonic) { mutableStateOf(word.mnemonic) }
     var selectedSibling by remember(word.id) { mutableStateOf<WordEntry?>(null) }
+    val memoryAnchor = remember(word, rootRef, siblings.size) {
+        buildWordMemoryAnchor(word = word, rootRef = rootRef, siblingCount = siblings.size)
+    }
     selectedSibling?.let { selected ->
         RootWordPreviewSheet(
             word = selected,
@@ -1453,6 +1459,7 @@ private fun FlipWordCard(
                     }
                 }
             }
+            WordMemoryAnchorPanel(memoryAnchor)
             if (word.rootKey.isNotBlank()) {
                 MorphemeRow(term = word.term, rootKey = word.rootKey, rootRef = rootRef)
             }
@@ -1561,6 +1568,117 @@ private fun FlipWordCard(
             }
         }
     }
+}
+
+@Composable
+private fun WordMemoryAnchorPanel(anchor: WordMemoryAnchor) {
+    val accent = wordMemoryAnchorAccent(anchor.kind)
+    val icon = wordMemoryAnchorIcon(anchor.kind)
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = Color.Transparent,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.14f),
+                            MaterialTheme.colorScheme.surface,
+                        ),
+                    ),
+                    RoundedCornerShape(24.dp),
+                )
+                .padding(14.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Surface(shape = RoundedCornerShape(15.dp), color = accent.copy(alpha = 0.18f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(8.dp)
+                                    .size(20.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(anchor.badgeLabel, style = MaterialTheme.typography.labelMedium, color = accent)
+                            Text(anchor.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            anchor.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                Text(
+                    anchor.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    MemoryAnchorMetric(anchor.primaryLabel, anchor.primaryValue, accent, Modifier.weight(1f))
+                    MemoryAnchorMetric(anchor.secondaryLabel, anchor.secondaryValue, accent, Modifier.weight(1f))
+                }
+                if (anchor.focusTerms.isNotEmpty()) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(anchor.focusTerms, key = { it }) { term ->
+                            AssistChip(onClick = {}, label = { Text(term) })
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MemoryAnchorMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = accent.copy(alpha = 0.09f),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = accent)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun wordMemoryAnchorAccent(kind: WordMemoryAnchorKind): Color = when (kind) {
+    WordMemoryAnchorKind.ROOT_FAMILY -> Color(0xFF2D5B52)
+    WordMemoryAnchorKind.WORD_FORMS -> MaterialTheme.colorScheme.primary
+    WordMemoryAnchorKind.CONTEXT -> Color(0xFFC98A3D)
+    WordMemoryAnchorKind.SOLO -> Color(0xFF6E8B3D)
+}
+
+private fun wordMemoryAnchorIcon(kind: WordMemoryAnchorKind) = when (kind) {
+    WordMemoryAnchorKind.ROOT_FAMILY -> Icons.Rounded.AccountTree
+    WordMemoryAnchorKind.WORD_FORMS -> Icons.Rounded.Translate
+    WordMemoryAnchorKind.CONTEXT -> Icons.Rounded.AutoStories
+    WordMemoryAnchorKind.SOLO -> Icons.Rounded.PsychologyAlt
 }
 
 @Composable

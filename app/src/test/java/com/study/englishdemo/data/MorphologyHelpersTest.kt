@@ -242,6 +242,83 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildWordMemoryAnchor_prefersRootFamilyClues() {
+        val anchor = buildWordMemoryAnchor(
+            word = fakeEntry(
+                term = "inspect",
+                rootKey = "spec",
+                phase = StudyPhase.NEW,
+                derivatives = listOf("inspected"),
+            ),
+            rootRef = RootReference("spec", listOf("看"), listOf("inspect", "respect", "spectator")),
+            siblingCount = 3,
+        )
+
+        assertThat(anchor.kind).isEqualTo(WordMemoryAnchorKind.ROOT_FAMILY)
+        assertThat(anchor.badgeLabel).isEqualTo("词根锚")
+        assertThat(anchor.primaryValue).isEqualTo("spec")
+        assertThat(anchor.secondaryValue).isEqualTo("3")
+        assertThat(anchor.focusTerms).containsExactly("respect", "spectator", "inspected").inOrder()
+    }
+
+    @Test
+    fun buildWordMemoryAnchor_usesWordFormsWhenRootIsMissing() {
+        val anchor = buildWordMemoryAnchor(
+            word = fakeEntry(
+                term = "clarify",
+                rootKey = "",
+                phase = StudyPhase.LEARNING,
+                derivatives = listOf("clarified", "clarifies", "clarify"),
+            ),
+            rootRef = null,
+            siblingCount = 0,
+        )
+
+        assertThat(anchor.kind).isEqualTo(WordMemoryAnchorKind.WORD_FORMS)
+        assertThat(anchor.primaryValue).isEqualTo("2")
+        assertThat(anchor.secondaryValue).isEqualTo("学习中")
+        assertThat(anchor.focusTerms).containsExactly("clarified", "clarifies").inOrder()
+    }
+
+    @Test
+    fun buildWordMemoryAnchor_usesContextWhenOnlyExampleExists() {
+        val anchor = buildWordMemoryAnchor(
+            word = fakeEntry(
+                term = "abandon",
+                rootKey = "",
+                example = "Never abandon your plan.",
+                pos = "vt.",
+            ),
+            rootRef = null,
+            siblingCount = 0,
+        )
+
+        assertThat(anchor.kind).isEqualTo(WordMemoryAnchorKind.CONTEXT)
+        assertThat(anchor.badgeLabel).isEqualTo("语境锚")
+        assertThat(anchor.secondaryValue).isEqualTo("vt.")
+        assertThat(anchor.focusTerms).isEmpty()
+    }
+
+    @Test
+    fun buildWordMemoryAnchor_fallsBackToSoloAnchor() {
+        val anchor = buildWordMemoryAnchor(
+            word = fakeEntry(
+                term = "plain",
+                rootKey = "",
+                phase = null,
+                frq = 1200,
+            ),
+            rootRef = null,
+            siblingCount = 0,
+        )
+
+        assertThat(anchor.kind).isEqualTo(WordMemoryAnchorKind.SOLO)
+        assertThat(anchor.primaryValue).isEqualTo("未建档")
+        assertThat(anchor.secondaryValue).isEqualTo("1200")
+        assertThat(anchor.actionLabel).isEqualTo("翻卡自测")
+    }
+
+    @Test
     fun buildRootGroupInsight_seedsUntouchedRootFamilies() {
         val insight = buildRootGroupInsight(
             RootGroup(
@@ -650,6 +727,9 @@ class MorphologyHelpersTest {
         rootKey: String,
         phase: StudyPhase? = null,
         example: String = "",
+        derivatives: List<String> = emptyList(),
+        pos: String = "",
+        frq: Int = 0,
     ): WordEntry = WordEntry(
         id = term.hashCode().toLong(),
         term = term,
@@ -659,6 +739,9 @@ class MorphologyHelpersTest {
         example = example,
         tags = emptyList(),
         rootKey = rootKey,
+        derivatives = derivatives,
+        pos = pos,
+        frq = frq,
         progress = phase?.let {
             WordProgress(
                 phase = it,

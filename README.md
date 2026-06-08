@@ -1,8 +1,16 @@
-# Englishdemo / LexRise v0.17
+# Englishdemo / LexRise v0.18
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
 
-## v0.17 亮点
+## v0.18 亮点
+
+- **新词卡新增“记忆锚”**
+  - 翻卡正面会自动判断当前词优先抓词根、词形、语境还是基础释义
+  - 词根锚会显示词根含义、同根邻居数和相关词；词形锚会展示常见 derivatives
+  - 语境锚提示先读例句再遮词回想；无明显线索时回退到最小记忆策略
+  - 逻辑由 `buildWordMemoryAnchor` 纯函数派生，不新增数据库字段，不覆盖用户巧记
+
+## v0.17 基线亮点
 
 - **Dashboard 新增“今日训练路线”**
   - 首页不再只给一个焦点，会把复习债、难词、词根覆盖和新词推进排成 1–3 步训练路线
@@ -234,6 +242,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.18（2026-06-08）
+- 新词翻卡新增“记忆锚”，按词根、派生词形、例句和基础信息生成正面学习切入点
+- 新增 `WordMemoryAnchor` / `WordMemoryAnchorKind` 和 `buildWordMemoryAnchor` 纯函数
+- 新增 `WordMemoryAnchorPanel` / `MemoryAnchorMetric`，展示记忆锚徽章、线索文案、关键指标和相关词 chips
+- 应用版本元数据同步到 0.18.0
+- 测试 69 → 73
 
 ### v0.17（2026-06-08）
 - Dashboard 新增“今日训练路线”，把复习债、错题、词根覆盖和新词推进排成可点击训练步骤
