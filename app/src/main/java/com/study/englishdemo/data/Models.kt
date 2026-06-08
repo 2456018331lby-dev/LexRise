@@ -345,6 +345,21 @@ data class PracticeSessionCoach(
     val progress: Float,
 )
 
+enum class ReviewQueueBriefKind { EMPTY, WARMUP, ROOT_TRACE, CONTEXT, ACTIVE_RECALL, MIXED }
+
+data class ReviewQueueBrief(
+    val kind: ReviewQueueBriefKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val intensity: Float,
+    val focusTerms: List<String>,
+)
+
 data class QuizQuestion(
     val word: WordEntry,
     /** Options are term strings; the correct one is guaranteed to be included. */

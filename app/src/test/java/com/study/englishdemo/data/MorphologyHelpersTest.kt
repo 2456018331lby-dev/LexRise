@@ -780,6 +780,119 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildReviewQueueBrief_handlesEmptyQueue() {
+        val brief = buildReviewQueueBrief(emptyList(), PracticeMode.FLIP)
+
+        assertThat(brief.kind).isEqualTo(ReviewQueueBriefKind.EMPTY)
+        assertThat(brief.primaryValue).isEqualTo("0")
+        assertThat(brief.actionLabel).isEqualTo("去新词")
+        assertThat(brief.focusTerms).isEmpty()
+    }
+
+    @Test
+    fun buildReviewQueueBrief_warmsUpSmallFlipQueues() {
+        val brief = buildReviewQueueBrief(
+            words = listOf(
+                fakeEntry("plain", ""),
+                fakeEntry("focus", ""),
+            ),
+            mode = PracticeMode.FLIP,
+        )
+
+        assertThat(brief.kind).isEqualTo(ReviewQueueBriefKind.WARMUP)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.secondaryValue).isEqualTo("翻卡")
+        assertThat(brief.actionLabel).isEqualTo("快翻确认")
+    }
+
+    @Test
+    fun buildReviewQueueBrief_prioritizesRootClusters() {
+        val brief = buildReviewQueueBrief(
+            words = listOf(
+                fakeEntry("inspect", "spec"),
+                fakeEntry("respect", "spec"),
+                fakeEntry("benefit", "", example = "Daily practice brings benefit."),
+            ),
+            mode = PracticeMode.CHOICE,
+        )
+
+        assertThat(brief.kind).isEqualTo(ReviewQueueBriefKind.ROOT_TRACE)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.secondaryValue).isEqualTo("3")
+        assertThat(brief.focusTerms).containsExactly("inspect", "respect").inOrder()
+    }
+
+    @Test
+    fun buildReviewQueueBrief_usesContextForClozeQueues() {
+        val brief = buildReviewQueueBrief(
+            words = listOf(
+                fakeEntry("abandon", "", example = "Never abandon the plan."),
+                fakeEntry("benefit", "", example = "Daily practice brings benefit."),
+                fakeEntry("plain", ""),
+            ),
+            mode = PracticeMode.CLOZE,
+        )
+
+        assertThat(brief.kind).isEqualTo(ReviewQueueBriefKind.CONTEXT)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.actionLabel).isEqualTo("先看语境")
+        assertThat(brief.focusTerms).containsExactly("abandon", "benefit").inOrder()
+    }
+
+    @Test
+    fun buildReviewQueueBrief_usesActiveRecallForSpellQueues() {
+        val brief = buildReviewQueueBrief(
+            words = listOf(
+                fakeEntry("clarify", "", derivatives = listOf("clarified", "clarifies")),
+                fakeEntry("review", "", derivatives = listOf("reviewed")),
+                fakeEntry("plain", ""),
+            ),
+            mode = PracticeMode.SPELL,
+        )
+
+        assertThat(brief.kind).isEqualTo(ReviewQueueBriefKind.ACTIVE_RECALL)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.secondaryValue).isEqualTo("拼写")
+        assertThat(brief.focusTerms).containsExactly("clarify", "review").inOrder()
+    }
+
+    @Test
+    fun buildReviewQueueBrief_prioritizesSpellModeBeforeContextHints() {
+        val brief = buildReviewQueueBrief(
+            words = listOf(
+                fakeEntry("abandon", "", example = "Never abandon the plan."),
+                fakeEntry("benefit", "", example = "Daily practice brings benefit."),
+                fakeEntry("focus", "", example = "Focus on the next answer."),
+            ),
+            mode = PracticeMode.SPELL,
+        )
+
+        assertThat(brief.kind).isEqualTo(ReviewQueueBriefKind.ACTIVE_RECALL)
+        assertThat(brief.primaryLabel).isEqualTo("到期")
+        assertThat(brief.primaryValue).isEqualTo("3")
+        assertThat(brief.secondaryValue).isEqualTo("拼写")
+        assertThat(brief.focusTerms).containsExactly("abandon", "benefit", "focus").inOrder()
+    }
+
+    @Test
+    fun buildReviewQueueBrief_fallsBackToMixedQueues() {
+        val brief = buildReviewQueueBrief(
+            words = listOf(
+                fakeEntry("plain", ""),
+                fakeEntry("single", "sing"),
+                fakeEntry("focus", ""),
+                fakeEntry("benefit", ""),
+            ),
+            mode = PracticeMode.CHOICE,
+        )
+
+        assertThat(brief.kind).isEqualTo(ReviewQueueBriefKind.MIXED)
+        assertThat(brief.primaryValue).isEqualTo("4")
+        assertThat(brief.secondaryValue).isEqualTo("选择")
+        assertThat(brief.actionLabel).isEqualTo("开始清债")
+    }
+
+    @Test
     fun buildToughWordPrescription_rebuildsHighLapseWords() {
         val prescription = buildToughWordPrescription(
             ToughWord(

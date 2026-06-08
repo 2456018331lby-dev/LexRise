@@ -92,7 +92,7 @@ python tools/build_wordlists.py
 
 ### 能不能避开？能避开就避开
 
-很多"新功能"其实不需要加列。本项目 v0.3-v0.21 的所有新能力（簇首、词根覆盖、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、本轮练习统计、本轮教练、首页学习焦点、今日训练路线、新词记忆锚、新词批次策略）都走**派生查询、纯函数派生或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
+很多"新功能"其实不需要加列。本项目 v0.3-v0.22 的所有新能力（簇首、词根覆盖、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、本轮练习统计、本轮教练、复习队列预案、首页学习焦点、今日训练路线、新词记忆锚、新词批次策略）都走**派生查询、纯函数派生或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
 
 - 想标记"这个词是簇首"？→ 已经有 `getAnchorWordIds(bookId)` 动态算，不加 `isAnchor` 列
 - 想统计"哪个词翻车最多"？→ `getToughWordsForBook` 从 `review_logs` GROUP BY 出来
@@ -106,6 +106,7 @@ python tools/build_wordlists.py
 - 想在结果列表前解释“这次搜索质量如何”？→ `buildVocabularySearchInsight` 从当前 query 和结果列表派生检索洞察，不改 DAO、不改排序、不写搜索日志
 - 想统计"这轮 Review 做得怎么样"？→ `PracticeSessionStats` 是 UI session 状态，`recordPracticeAttempt` 纯函数计数，不写 Room
 - 想根据本轮表现提示“该降速还是加难”？→ `buildPracticeSessionCoach` 从 `PracticeSessionStats` + `PracticeMode` 派生本轮教练，不写设置、不写 Room
+- 想在本轮复习开始前提示“先怎么清这批到期词”？→ `buildReviewQueueBrief` 从 `dueReviewWords` + `PracticeMode` 派生复习队列预案，不改复习顺序、不写评分、不写 Room
 - 想提示"今天先做什么"并跳到对应页面？→ `buildStudyFocusCue` 从 session / rootSnapshot / pace 派生建议和按钮文案；`MainActivity` 只做本地 Tab 切换，不写设置、不写 Room
 - 想把今天拆成多步路线？→ `buildDailyStudyRoute` 从 session / rootSnapshot / pace / toughWords 数量派生 1–3 个行动步骤；`MainActivity` 只负责跳 Tab，不写设置、不写 Room
 - 想让新词卡先提示“抓什么线索”？→ `buildWordMemoryAnchor` 从词条、词根引用和同根词数量派生记忆锚；UI 只展示，不覆盖用户 `mnemonic`
@@ -301,6 +302,7 @@ git ls-files .android-sdk/ app/build/   # 应为空
 | 改词汇搜索/拼写容错 | `data/Dao.kt#searchInBook` + `data/MorphologyHelpers.kt#fuzzyTermMatchDistance/fuzzyWordFormMatchDistance/matchingWordForms` + `StudyRepository.kt#searchWords` + `MainActivity.kt#VocabularyRow/VocabularyMatchRail` + 对应 Test |
 | 改本轮练习统计 | `data/Models.kt#PracticeSessionStats` + `data/MorphologyHelpers.kt#recordPracticeAttempt` + `ui/AppViewModel.kt#reviewPracticeWord` + `MainActivity.kt#PracticeSessionStatsCard` |
 | 改本轮练习教练 | `data/Models.kt#PracticeSessionCoach/PracticeSessionCoachKind` + `data/MorphologyHelpers.kt#buildPracticeSessionCoach` + `MainActivity.kt#PracticeCoachPanel/PracticeSessionStatsCard` + `MorphologyHelpersTest` |
+| 改复习队列预案 | `data/Models.kt#ReviewQueueBrief/ReviewQueueBriefKind` + `data/MorphologyHelpers.kt#buildReviewQueueBrief` + `MainActivity.kt#ReviewQueueBriefCard/ReviewQueueMetric` + `MorphologyHelpersTest` |
 | 改难词错题处方 | `data/Models.kt#ToughWordPrescription/ToughWordPrescriptionKind` + `data/MorphologyHelpers.kt#buildToughWordPrescription` + `MainActivity.kt#ToughWordCard/ToughPrescriptionPanel` + `MorphologyHelpersTest` |
 | 改难词错题战情台 | `data/Models.kt#ToughWordsBrief` + `data/MorphologyHelpers.kt#buildToughWordsBrief` + `MainActivity.kt#ToughWordsBriefCard/ToughBriefMetric` + `MorphologyHelpersTest` |
 | 改词汇检索洞察 | `data/Models.kt#VocabularySearchInsight` + `data/MorphologyHelpers.kt#buildVocabularySearchInsight` + `MainActivity.kt#VocabularySearchInsightCard/VocabularyInsightMetric` + `MorphologyHelpersTest` |

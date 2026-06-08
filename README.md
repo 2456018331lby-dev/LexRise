@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.21
+# Englishdemo / LexRise v0.22
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.22 亮点
+
+- **Review Tab 新增“复习队列预案”**
+  - 到期词进入练习前会先判断这轮更适合轻量回温、词根修复、语境回忆、主动提取还是混合清债
+  - 同根词聚集时优先抓 `rootKey`；拼写/听写模式优先提示主动提取；完形或例句覆盖高时提示先读语境
+  - 预案卡展示到期数量、当前模式/线索指标、强度条、行动标签和焦点词 chips，放在模式条和本轮统计之间
+  - 逻辑由 `buildReviewQueueBrief` 纯函数派生，不新增数据库字段，不改变 SRS 评分、复习顺序或练习模式
 
 ## v0.21 亮点
 
@@ -266,6 +274,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.22（2026-06-08）
+- Review Tab 新增“复习队列预案”，在本轮统计前提示到期词应先轻量回温、按词根修复、读语境、主动提取或混合清债
+- 新增 `ReviewQueueBrief` / `ReviewQueueBriefKind` 和 `buildReviewQueueBrief` 纯函数
+- 新增 `ReviewQueueBriefCard` / `ReviewQueueMetric`，展示复习队列策略、强度条、指标和焦点词 chips
+- 应用版本元数据同步到 0.22.0
+- 测试 87 → 94
 
 ### v0.21（2026-06-08）
 - 新词页新增“本批新词策略”，在进入单张翻卡前提示本批应先抓词根、词形、语境或混合线索

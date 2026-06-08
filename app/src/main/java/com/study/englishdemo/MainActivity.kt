@@ -111,6 +111,8 @@ import com.study.englishdemo.data.PracticeSessionCoach
 import com.study.englishdemo.data.PracticeSessionCoachKind
 import com.study.englishdemo.data.PracticeSessionStats
 import com.study.englishdemo.data.ReviewRating
+import com.study.englishdemo.data.ReviewQueueBrief
+import com.study.englishdemo.data.ReviewQueueBriefKind
 import com.study.englishdemo.data.RootGroup
 import com.study.englishdemo.data.RootGroupStage
 import com.study.englishdemo.data.StudyFocusCue
@@ -129,6 +131,7 @@ import com.study.englishdemo.data.WordMemoryAnchor
 import com.study.englishdemo.data.WordMemoryAnchorKind
 import com.study.englishdemo.data.buildDailyStudyRoute
 import com.study.englishdemo.data.buildPracticeSessionCoach
+import com.study.englishdemo.data.buildReviewQueueBrief
 import com.study.englishdemo.data.buildRootGroupInsight
 import com.study.englishdemo.data.buildStudyFocusCue
 import com.study.englishdemo.data.buildToughWordPrescription
@@ -785,11 +788,20 @@ private fun ReviewScreen(
     gradeSpelling: (String, String) -> ReviewRating,
 ) {
     val words = uiState.session?.dueReviewWords.orEmpty()
+    val queueBrief = remember(words, uiState.practiceMode) {
+        buildReviewQueueBrief(words = words, mode = uiState.practiceMode)
+    }
     Column(modifier = Modifier.fillMaxSize()) {
         PracticeModeBar(
             current = uiState.practiceMode,
             onChange = onModeChange,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+        )
+        ReviewQueueBriefCard(
+            brief = queueBrief,
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 12.dp),
         )
         PracticeSessionStatsCard(
             stats = uiState.practiceStats,
@@ -931,6 +943,156 @@ private fun practiceCoachAccent(kind: PracticeSessionCoachKind): Color = when (k
     PracticeSessionCoachKind.RECOVER -> Color(0xFFB65245)
     PracticeSessionCoachKind.STABILIZE -> MaterialTheme.colorScheme.primary
     PracticeSessionCoachKind.ADVANCE -> Color(0xFF6E8B3D)
+}
+
+@Composable
+private fun ReviewQueueBriefCard(brief: ReviewQueueBrief, modifier: Modifier = Modifier) {
+    val accent = reviewQueueBriefAccent(brief.kind)
+    val icon = when (brief.kind) {
+        ReviewQueueBriefKind.EMPTY -> Icons.Rounded.Check
+        ReviewQueueBriefKind.WARMUP -> Icons.Rounded.AutoStories
+        ReviewQueueBriefKind.ROOT_TRACE -> Icons.Rounded.AccountTree
+        ReviewQueueBriefKind.CONTEXT -> Icons.Rounded.PsychologyAlt
+        ReviewQueueBriefKind.ACTIVE_RECALL -> Icons.Rounded.Keyboard
+        ReviewQueueBriefKind.MIXED -> Icons.Rounded.Insights
+    }
+    val animated by animateFloatAsState(
+        targetValue = brief.intensity.coerceIn(0f, 1f),
+        animationSpec = tween(500),
+        label = "reviewQueueBriefIntensity",
+    )
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.18f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+                        ),
+                    ),
+                )
+                .padding(16.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(15.dp), color = accent.copy(alpha = 0.16f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(8.dp)
+                                    .size(20.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "复习队列预案",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(brief.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                brief.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                            )
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            brief.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { animated },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ReviewQueueMetric(brief.primaryLabel, brief.primaryValue, accent, Modifier.weight(1f))
+                    ReviewQueueMetric(brief.secondaryLabel, brief.secondaryValue, accent, Modifier.weight(1f))
+                }
+                if (brief.focusTerms.isNotEmpty()) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        items(brief.focusTerms, key = { it }) { term ->
+                            Surface(shape = RoundedCornerShape(14.dp), color = accent.copy(alpha = 0.10f)) {
+                                Text(
+                                    term,
+                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = accent,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReviewQueueMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.76f),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = accent)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun reviewQueueBriefAccent(kind: ReviewQueueBriefKind): Color = when (kind) {
+    ReviewQueueBriefKind.EMPTY -> Color(0xFF6E8B3D)
+    ReviewQueueBriefKind.WARMUP -> Color(0xFFC98A3D)
+    ReviewQueueBriefKind.ROOT_TRACE -> Color(0xFF2D5B52)
+    ReviewQueueBriefKind.CONTEXT -> MaterialTheme.colorScheme.primary
+    ReviewQueueBriefKind.ACTIVE_RECALL -> Color(0xFF3F6F8F)
+    ReviewQueueBriefKind.MIXED -> MaterialTheme.colorScheme.secondary
 }
 
 @Composable

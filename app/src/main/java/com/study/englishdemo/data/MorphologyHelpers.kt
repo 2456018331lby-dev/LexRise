@@ -826,6 +826,129 @@ fun buildPracticeSessionCoach(stats: PracticeSessionStats, mode: PracticeMode): 
     }
 }
 
+fun buildReviewQueueBrief(
+    words: List<WordEntry>,
+    mode: PracticeMode,
+    focusLimit: Int = 4,
+): ReviewQueueBrief {
+    val cleanWords = words.distinctBy { it.id }
+    val total = cleanWords.size
+    val cappedFocus = focusLimit.coerceAtLeast(0)
+    if (total == 0) {
+        return ReviewQueueBrief(
+            kind = ReviewQueueBriefKind.EMPTY,
+            title = "复习队列已清空",
+            message = "当前没有到期词，适合去新词页推进一小组，或到难词专攻做轻量巩固。",
+            primaryLabel = "到期",
+            primaryValue = "0",
+            secondaryLabel = "模式",
+            secondaryValue = practiceModeLabel(mode),
+            actionLabel = "去新词",
+            intensity = 0f,
+            focusTerms = emptyList(),
+        )
+    }
+
+    val rootedWords = cleanWords.filter { it.rootKey.isNotBlank() }
+    val contextWords = cleanWords.filter { it.example.isNotBlank() }
+    val derivativeWords = cleanWords.filter { word ->
+        word.derivatives.any { it.isNotBlank() && !it.equals(word.term, ignoreCase = true) }
+    }
+    val strongestRoot = rootedWords
+        .groupingBy { it.rootKey }
+        .eachCount()
+        .filterValues { it >= 2 }
+        .maxWithOrNull(
+            compareBy<Map.Entry<String, Int>> { it.value }
+                .thenBy { it.key.length },
+        )
+    val rootShare = strongestRoot?.value?.toFloat()?.div(total.toFloat()) ?: 0f
+    val contextShare = contextWords.size.toFloat() / total.toFloat()
+    val derivativeShare = derivativeWords.size.toFloat() / total.toFloat()
+    val focusTerms = when {
+        strongestRoot != null -> cleanWords.filter { it.rootKey == strongestRoot.key }.map { it.term }
+        mode == PracticeMode.CLOZE && contextWords.isNotEmpty() -> contextWords.map { it.term }
+        mode == PracticeMode.SPELL || mode == PracticeMode.DICTATION -> derivativeWords.ifEmpty { cleanWords }.map { it.term }
+        contextWords.size >= 2 -> contextWords.map { it.term }
+        derivativeWords.size >= 2 -> derivativeWords.map { it.term }
+        else -> cleanWords.map { it.term }
+    }
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .distinctBy { it.lowercase() }
+        .take(cappedFocus)
+
+    fun activeRecallBrief() = ReviewQueueBrief(
+        kind = ReviewQueueBriefKind.ACTIVE_RECALL,
+        title = "进入主动提取模式",
+        message = if (derivativeWords.isEmpty()) {
+            "这轮适合把识别推进到拼写或听写；先听音或看中文，在心里完整拼出再提交答案。"
+        } else {
+            "这轮适合把识别推进到拼写或听写；先扫词形变化，再提交答案。"
+        },
+        primaryLabel = if (derivativeWords.isEmpty()) "到期" else "词形词",
+        primaryValue = if (derivativeWords.isEmpty()) total.toString() else derivativeWords.size.toString(),
+        secondaryLabel = "模式",
+        secondaryValue = practiceModeLabel(mode),
+        actionLabel = "主动提取",
+        intensity = maxOf(derivativeShare, total.toFloat() / 12f).coerceIn(0.18f, 1f),
+        focusTerms = focusTerms,
+    )
+
+    return when {
+        strongestRoot != null -> ReviewQueueBrief(
+            kind = ReviewQueueBriefKind.ROOT_TRACE,
+            title = "这轮先按 ${strongestRoot.key} 词根修",
+            message = "到期词里同根聚集，先把这组词的共同线索说出来，再进入 ${practiceModeLabel(mode)}。",
+            primaryLabel = "同根",
+            primaryValue = strongestRoot.value.toString(),
+            secondaryLabel = "到期",
+            secondaryValue = total.toString(),
+            actionLabel = "先按词根",
+            intensity = rootShare.coerceIn(0.18f, 1f),
+            focusTerms = focusTerms,
+        )
+        mode == PracticeMode.SPELL || mode == PracticeMode.DICTATION -> activeRecallBrief()
+        total <= 3 && mode == PracticeMode.FLIP -> ReviewQueueBrief(
+            kind = ReviewQueueBriefKind.WARMUP,
+            title = "先做轻量回温",
+            message = "到期词不多，用翻卡快速确认记忆状态；翻出前先在心里说出词义或构词线索。",
+            primaryLabel = "到期",
+            primaryValue = total.toString(),
+            secondaryLabel = "模式",
+            secondaryValue = practiceModeLabel(mode),
+            actionLabel = "快翻确认",
+            intensity = (total.toFloat() / 6f).coerceIn(0.18f, 1f),
+            focusTerms = focusTerms,
+        )
+        (mode == PracticeMode.CLOZE && contextWords.isNotEmpty()) || contextShare >= 0.5f -> ReviewQueueBrief(
+            kind = ReviewQueueBriefKind.CONTEXT,
+            title = "用语境把旧词拉回来",
+            message = "这轮有 ${contextWords.size} 个词带例句，先读上下文再作答，避免只靠中文释义回忆。",
+            primaryLabel = "有例句",
+            primaryValue = contextWords.size.toString(),
+            secondaryLabel = "到期",
+            secondaryValue = total.toString(),
+            actionLabel = "先看语境",
+            intensity = contextShare.coerceIn(0.18f, 1f),
+            focusTerms = focusTerms,
+        )
+        derivativeShare >= 0.45f -> activeRecallBrief()
+        else -> ReviewQueueBrief(
+            kind = ReviewQueueBriefKind.MIXED,
+            title = "按当前模式稳步清债",
+            message = "这轮到期词线索分散，先保持 ${practiceModeLabel(mode)} 节奏；错的词会自动回流到难词专攻。",
+            primaryLabel = "到期",
+            primaryValue = total.toString(),
+            secondaryLabel = "模式",
+            secondaryValue = practiceModeLabel(mode),
+            actionLabel = "开始清债",
+            intensity = (total.toFloat() / 20f).coerceIn(0.18f, 1f),
+            focusTerms = focusTerms,
+        )
+    }
+}
+
 private fun practiceModeLabel(mode: PracticeMode): String = when (mode) {
     PracticeMode.FLIP -> "翻卡"
     PracticeMode.CHOICE -> "选择"
