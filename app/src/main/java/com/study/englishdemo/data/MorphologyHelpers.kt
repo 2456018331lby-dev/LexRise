@@ -444,6 +444,73 @@ private fun practiceModeUpgradeLabel(mode: PracticeMode): String = when (mode) {
     PracticeMode.DICTATION -> "错词回放"
 }
 
+fun buildToughWordPrescription(tough: ToughWord): ToughWordPrescription {
+    val again = tough.againCount.coerceAtLeast(0)
+    val lapses = tough.lapses.coerceAtLeast(0)
+    val word = tough.word
+    val phaseLabel = studyPhaseLabel(word.progress?.phase)
+    val intensity = ((again + lapses).toFloat() / 8f).coerceIn(0f, 1f)
+    return when {
+        lapses >= 3 || again >= 5 -> ToughWordPrescription(
+            kind = ToughWordPrescriptionKind.REBUILD,
+            badgeLabel = "重建",
+            title = "先拆开重建",
+            message = "这个词已经多次回落，先暂停快刷：读词根、中文和例句，再只给 HARD/GOOD，别急着点会。",
+            primaryLabel = "重来",
+            primaryValue = again.toString(),
+            secondaryLabel = "回落",
+            secondaryValue = lapses.toString(),
+            actionLabel = "慢速重建",
+            intensity = intensity,
+        )
+        word.rootKey.isNotBlank() && (again >= 2 || word.progress?.phase == StudyPhase.LEARNING) ->
+            ToughWordPrescription(
+                kind = ToughWordPrescriptionKind.ROOT_TRACE,
+                badgeLabel = "词根",
+                title = "回到同根线索",
+                message = "先把 ${word.rootKey} 和词义重新绑住，再对照同根词；这类错题通常不是不会背，是线索没接牢。",
+                primaryLabel = "词根",
+                primaryValue = word.rootKey,
+                secondaryLabel = "阶段",
+                secondaryValue = phaseLabel,
+                actionLabel = "看词根",
+                intensity = intensity,
+            )
+        word.example.isNotBlank() && again >= 2 -> ToughWordPrescription(
+            kind = ToughWordPrescriptionKind.CONTEXT,
+            badgeLabel = "语境",
+            title = "放回例句里修复",
+            message = "不要只盯中文释义，先读例句再遮住目标词；能在上下文里想起，才算真的可提取。",
+            primaryLabel = "重来",
+            primaryValue = again.toString(),
+            secondaryLabel = "阶段",
+            secondaryValue = phaseLabel,
+            actionLabel = "读例句",
+            intensity = intensity,
+        )
+        else -> ToughWordPrescription(
+            kind = ToughWordPrescriptionKind.STABILIZE,
+            badgeLabel = "巩固",
+            title = "短频快扫",
+            message = "这还是轻量错题，快速听发音、说中文、再评分；连续两次 GOOD 后它会自然退出错题压力区。",
+            primaryLabel = "重来",
+            primaryValue = again.toString(),
+            secondaryLabel = "阶段",
+            secondaryValue = phaseLabel,
+            actionLabel = "快扫确认",
+            intensity = intensity,
+        )
+    }
+}
+
+private fun studyPhaseLabel(phase: StudyPhase?): String = when (phase) {
+    StudyPhase.NEW -> "新词"
+    StudyPhase.LEARNING -> "学习中"
+    StudyPhase.REVIEW -> "复习"
+    StudyPhase.MASTERED -> "掌握"
+    null -> "未建档"
+}
+
 /**
  * Levenshtein edit distance normalized to [0, 1] over the longer string,
  * case-insensitive. 0 = identical, 1 = totally different.

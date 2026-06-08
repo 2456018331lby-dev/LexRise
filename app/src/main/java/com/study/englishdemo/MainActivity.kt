@@ -113,11 +113,14 @@ import com.study.englishdemo.data.RootGroupStage
 import com.study.englishdemo.data.StudyFocusCue
 import com.study.englishdemo.data.StudyFocusKind
 import com.study.englishdemo.data.StudyPhase
+import com.study.englishdemo.data.ToughWordPrescription
+import com.study.englishdemo.data.ToughWordPrescriptionKind
 import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
 import com.study.englishdemo.data.buildPracticeSessionCoach
 import com.study.englishdemo.data.buildRootGroupInsight
 import com.study.englishdemo.data.buildStudyFocusCue
+import com.study.englishdemo.data.buildToughWordPrescription
 import com.study.englishdemo.data.decomposeWord
 import com.study.englishdemo.data.matchingWordForms
 import com.study.englishdemo.ui.AppUiState
@@ -2871,7 +2874,7 @@ private fun ToughWordsScreen(
         item {
             SectionTitle(
                 "难词专攻",
-                "按『重来』次数排序的错题本。先把这些啃下，整本掌握度会显著前进。",
+                "按『重来』次数排序，并给每个错题生成重建、词根、语境或巩固处方。",
             )
         }
         if (uiState.toughLoading && uiState.toughWords.isEmpty()) {
@@ -2906,96 +2909,244 @@ private fun ToughWordCard(
     var editing by remember(tough.word.id) { mutableStateOf(false) }
     var draft by remember(tough.word.id, tough.word.mnemonic) { mutableStateOf(tough.word.mnemonic) }
     val word = tough.word
+    val prescription = remember(tough) { buildToughWordPrescription(tough) }
+    val accent = toughPrescriptionAccent(prescription.kind)
     Card(
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { expanded = !expanded },
     ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.18f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
+                        ),
+                    ),
+                )
+                .padding(18.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Text(word.term, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            ToughPrescriptionBadge(prescription.badgeLabel, accent)
+                            if (isAnchor) AnchorBadge()
+                        }
+                        Text(
+                            word.translation,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            "${tough.againCount} 次",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = accent,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            "重来",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        )
+                    }
+                }
+                ToughPrescriptionPanel(prescription = prescription, accent = accent)
+                if (word.rootKey.isNotBlank()) {
+                    MorphemeRow(term = word.term, rootKey = word.rootKey, rootRef = rootRef)
+                }
+                AnimatedVisibility(visible = expanded) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (word.example.isNotBlank()) {
+                            Text(
+                                "例句：${word.example}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
+                            )
+                        }
+                        if (!editing && word.mnemonic.isNotBlank()) {
+                            Text(
+                                "巧记：${word.mnemonic}",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                        if (editing) {
+                            OutlinedTextField(
+                                value = draft,
+                                onValueChange = { draft = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("写一句让你记住的话") },
+                                minLines = 2,
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = {
+                                    onMnemonic(word.id, draft)
+                                    editing = false
+                                }) { Text("保存") }
+                                TextButton(onClick = { editing = false }) { Text("取消") }
+                            }
+                        } else {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = { onSpeak(word.term) }) { Text("听发音") }
+                                TextButton(onClick = { editing = true }) {
+                                    Text(if (word.mnemonic.isBlank()) "+ 巧记" else "编辑巧记")
+                                }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = { onRate(word.id, ReviewRating.GOOD) },
+                                    modifier = Modifier.weight(1f),
+                                ) { Text("这次会了") }
+                                TextButton(
+                                    onClick = { onRate(word.id, ReviewRating.AGAIN) },
+                                    modifier = Modifier.weight(1f),
+                                ) { Text("还是不会") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun toughPrescriptionAccent(kind: ToughWordPrescriptionKind): Color = when (kind) {
+    ToughWordPrescriptionKind.REBUILD -> Color(0xFFB65245)
+    ToughWordPrescriptionKind.ROOT_TRACE -> Color(0xFF2D5B52)
+    ToughWordPrescriptionKind.CONTEXT -> MaterialTheme.colorScheme.primary
+    ToughWordPrescriptionKind.STABILIZE -> Color(0xFF6E8B3D)
+}
+
+@Composable
+private fun ToughPrescriptionBadge(label: String, accent: Color) {
+    Box(
+        modifier = Modifier
+            .background(accent.copy(alpha = 0.14f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 9.dp, vertical = 4.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = accent, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun ToughPrescriptionPanel(prescription: ToughWordPrescription, accent: Color) {
+    val icon = when (prescription.kind) {
+        ToughWordPrescriptionKind.REBUILD -> Icons.Rounded.PsychologyAlt
+        ToughWordPrescriptionKind.ROOT_TRACE -> Icons.Rounded.AccountTree
+        ToughWordPrescriptionKind.CONTEXT -> Icons.Rounded.AutoStories
+        ToughWordPrescriptionKind.STABILIZE -> Icons.Rounded.Check
+    }
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = accent.copy(alpha = 0.10f),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(word.term, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        if (isAnchor) AnchorBadge()
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(9.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Surface(shape = RoundedCornerShape(14.dp), color = accent.copy(alpha = 0.16f)) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = accent,
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .size(20.dp),
+                        )
                     }
-                    Text(
-                        word.translation,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        "${tough.againCount} 次",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        "重来",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                    )
-                }
-            }
-            if (word.rootKey.isNotBlank()) {
-                MorphemeRow(term = word.term, rootKey = word.rootKey, rootRef = rootRef)
-            }
-            AnimatedVisibility(visible = expanded) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (word.example.isNotBlank()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                         Text(
-                            "例句：${word.example}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
+                            "错题处方",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
                         )
-                    }
-                    if (!editing && word.mnemonic.isNotBlank()) {
-                        Text(
-                            "巧记：${word.mnemonic}",
-                            color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                    if (editing) {
-                        OutlinedTextField(
-                            value = draft,
-                            onValueChange = { draft = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("写一句让你记住的话") },
-                            minLines = 2,
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = {
-                                onMnemonic(word.id, draft)
-                                editing = false
-                            }) { Text("保存") }
-                            TextButton(onClick = { editing = false }) { Text("取消") }
-                        }
-                    } else {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { onSpeak(word.term) }) { Text("听发音") }
-                            TextButton(onClick = { editing = true }) {
-                                Text(if (word.mnemonic.isBlank()) "+ 巧记" else "编辑巧记")
-                            }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = { onRate(word.id, ReviewRating.GOOD) },
-                                modifier = Modifier.weight(1f),
-                            ) { Text("这次会了") }
-                            TextButton(
-                                onClick = { onRate(word.id, ReviewRating.AGAIN) },
-                                modifier = Modifier.weight(1f),
-                            ) { Text("还是不会") }
-                        }
+                        Text(prescription.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
                 }
+                Box(
+                    modifier = Modifier
+                        .background(accent.copy(alpha = 0.14f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 9.dp, vertical = 4.dp),
+                ) {
+                    Text(prescription.actionLabel, style = MaterialTheme.typography.labelSmall, color = accent)
+                }
             }
+            Text(
+                prescription.message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.74f),
+            )
+            LinearProgressIndicator(
+                progress = { prescription.intensity },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp),
+                color = accent,
+                trackColor = accent.copy(alpha = 0.12f),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ToughPrescriptionMetric(
+                    prescription.primaryLabel,
+                    prescription.primaryValue,
+                    accent,
+                    Modifier.weight(1f),
+                )
+                ToughPrescriptionMetric(
+                    prescription.secondaryLabel,
+                    prescription.secondaryValue,
+                    accent,
+                    Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToughPrescriptionMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = accent)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
+            )
         }
     }
 }

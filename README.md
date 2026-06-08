@@ -1,8 +1,16 @@
-# Englishdemo / LexRise v0.15
+# Englishdemo / LexRise v0.16
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
 
-## v0.15 亮点
+## v0.16 亮点
+
+- **难词专攻新增“错题处方”**
+  - 每个难词卡会根据 `againCount`、`lapses`、学习阶段、词根和例句生成处理建议
+  - 自动在“慢速重建 / 回到同根线索 / 放回例句里修复 / 短频快扫”之间切换
+  - 难词卡视觉升级为处方卡：风险强度条、处方徽章、行动标签和两项关键指标常驻显示
+  - 逻辑由 `buildToughWordPrescription` 纯函数派生，不新增数据库字段，不改变错题排序
+
+## v0.15 基线亮点
 
 - **Review Tab 新增“本轮教练”**
   - 本轮练习仪表不再只显示完成/稳答/再练，会根据当前模式和稳定率给出下一步策略
@@ -218,6 +226,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.16（2026-06-08）
+- 难词专攻卡片新增“错题处方”，按错题强度和词条线索生成重建/词根/语境/巩固建议
+- 新增 `ToughWordPrescription` / `ToughWordPrescriptionKind` 和 `buildToughWordPrescription` 纯函数
+- `ToughWordCard` 视觉升级为渐变处方卡，展示处方徽章、风险强度条、行动标签和关键指标
+- 应用版本元数据同步到 0.16.0
+- 测试 61 → 65
 
 ### v0.15（2026-06-07）
 - Review Tab “本轮练习仪表”新增“本轮教练”策略面板

@@ -323,3 +323,18 @@ data class ToughWord(
     val lapses: Int,
     val lastReviewedAt: Instant?,
 )
+
+enum class ToughWordPrescriptionKind { REBUILD, ROOT_TRACE, CONTEXT, STABILIZE }
+
+data class ToughWordPrescription(
+    val kind: ToughWordPrescriptionKind,
+    val badgeLabel: String,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val intensity: Float,
+)

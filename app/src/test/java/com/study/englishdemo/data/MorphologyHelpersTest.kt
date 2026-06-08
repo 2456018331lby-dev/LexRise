@@ -480,6 +480,79 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildToughWordPrescription_rebuildsHighLapseWords() {
+        val prescription = buildToughWordPrescription(
+            ToughWord(
+                word = fakeEntry("clarify", "clar", StudyPhase.LEARNING, example = "Please clarify the goal."),
+                againCount = 5,
+                lapses = 3,
+                lastReviewedAt = Instant.EPOCH,
+            ),
+        )
+
+        assertThat(prescription.kind).isEqualTo(ToughWordPrescriptionKind.REBUILD)
+        assertThat(prescription.badgeLabel).isEqualTo("重建")
+        assertThat(prescription.primaryValue).isEqualTo("5")
+        assertThat(prescription.secondaryValue).isEqualTo("3")
+        assertThat(prescription.intensity).isEqualTo(1f)
+    }
+
+    @Test
+    fun buildToughWordPrescription_prefersRootTraceForRootedWords() {
+        val prescription = buildToughWordPrescription(
+            ToughWord(
+                word = fakeEntry("statement", "stat", StudyPhase.LEARNING),
+                againCount = 2,
+                lapses = 0,
+                lastReviewedAt = null,
+            ),
+        )
+
+        assertThat(prescription.kind).isEqualTo(ToughWordPrescriptionKind.ROOT_TRACE)
+        assertThat(prescription.primaryLabel).isEqualTo("词根")
+        assertThat(prescription.primaryValue).isEqualTo("stat")
+        assertThat(prescription.secondaryValue).isEqualTo("学习中")
+    }
+
+    @Test
+    fun buildToughWordPrescription_usesContextForUnrootedExampleWords() {
+        val prescription = buildToughWordPrescription(
+            ToughWord(
+                word = fakeEntry(
+                    term = "benefit",
+                    rootKey = "",
+                    phase = StudyPhase.REVIEW,
+                    example = "Daily practice brings benefit.",
+                ),
+                againCount = 2,
+                lapses = 0,
+                lastReviewedAt = null,
+            ),
+        )
+
+        assertThat(prescription.kind).isEqualTo(ToughWordPrescriptionKind.CONTEXT)
+        assertThat(prescription.badgeLabel).isEqualTo("语境")
+        assertThat(prescription.actionLabel).isEqualTo("读例句")
+    }
+
+    @Test
+    fun buildToughWordPrescription_stabilizesLightMistakes() {
+        val prescription = buildToughWordPrescription(
+            ToughWord(
+                word = fakeEntry("focus", "", StudyPhase.REVIEW),
+                againCount = 1,
+                lapses = 0,
+                lastReviewedAt = null,
+            ),
+        )
+
+        assertThat(prescription.kind).isEqualTo(ToughWordPrescriptionKind.STABILIZE)
+        assertThat(prescription.badgeLabel).isEqualTo("巩固")
+        assertThat(prescription.actionLabel).isEqualTo("快扫确认")
+        assertThat(prescription.intensity).isWithin(0.001f).of(0.125f)
+    }
+
+    @Test
     fun normalizedEditDistance_exactMatchIsZero() {
         assertThat(normalizedEditDistance("focus", "focus")).isEqualTo(0.0)
         assertThat(normalizedEditDistance("Focus", "focus")).isEqualTo(0.0)
@@ -500,13 +573,18 @@ class MorphologyHelpersTest {
         assertThat(ratingFromEditDistance(0.6)).isEqualTo(ReviewRating.AGAIN)
     }
 
-    private fun fakeEntry(term: String, rootKey: String, phase: StudyPhase? = null): WordEntry = WordEntry(
+    private fun fakeEntry(
+        term: String,
+        rootKey: String,
+        phase: StudyPhase? = null,
+        example: String = "",
+    ): WordEntry = WordEntry(
         id = term.hashCode().toLong(),
         term = term,
         phonetic = "",
         definition = "",
         translation = "",
-        example = "",
+        example = example,
         tags = emptyList(),
         rootKey = rootKey,
         progress = phase?.let {
