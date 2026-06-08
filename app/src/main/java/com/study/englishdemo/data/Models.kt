@@ -148,6 +148,21 @@ data class WordMemoryAnchor(
     val focusTerms: List<String>,
 )
 
+enum class WordBatchBriefKind { ROOTS, WORD_FORMS, CONTEXT, MIXED, EMPTY }
+
+data class WordBatchBrief(
+    val kind: WordBatchBriefKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val intensity: Float,
+    val focusTerms: List<String>,
+)
+
 data class WordProgress(
     val phase: StudyPhase,
     val familiarity: Int,

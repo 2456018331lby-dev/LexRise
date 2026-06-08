@@ -121,6 +121,8 @@ import com.study.englishdemo.data.ToughWordPrescriptionKind
 import com.study.englishdemo.data.ToughWordsBrief
 import com.study.englishdemo.data.VocabularySearchInsight
 import com.study.englishdemo.data.VocabularySearchInsightKind
+import com.study.englishdemo.data.WordBatchBrief
+import com.study.englishdemo.data.WordBatchBriefKind
 import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
 import com.study.englishdemo.data.WordMemoryAnchor
@@ -132,6 +134,7 @@ import com.study.englishdemo.data.buildStudyFocusCue
 import com.study.englishdemo.data.buildToughWordPrescription
 import com.study.englishdemo.data.buildToughWordsBrief
 import com.study.englishdemo.data.buildVocabularySearchInsight
+import com.study.englishdemo.data.buildWordBatchBrief
 import com.study.englishdemo.data.buildWordMemoryAnchor
 import com.study.englishdemo.data.decomposeWord
 import com.study.englishdemo.data.matchingWordForms
@@ -756,11 +759,13 @@ private fun LearnScreen(
     onMnemonic: (Long, String) -> Unit,
 ) {
     val words = uiState.session?.recommendedNewWords.orEmpty()
+    val batchBrief = remember(words) { buildWordBatchBrief(words) }
     WordQueueScreen(
         title = "新词学习",
         subtitle = "当前词书：${uiState.selectedBookTitle}。按词根聚簇出词——同根词连着记，比字母序高效。",
         words = words,
         uiState = uiState,
+        batchBrief = batchBrief,
         onRate = onRate,
         onSpeak = onSpeak,
         onMnemonic = onMnemonic,
@@ -811,6 +816,7 @@ private fun ReviewScreen(
                 subtitle = "当前词书：${uiState.selectedBookTitle}。先自测回忆，再翻卡核对。",
                 words = words,
                 uiState = uiState,
+                batchBrief = null,
                 onRate = onRate,
                 onSpeak = onSpeak,
                 onMnemonic = onMnemonic,
@@ -1559,6 +1565,7 @@ private fun WordQueueScreen(
     subtitle: String,
     words: List<WordEntry>,
     uiState: AppUiState,
+    batchBrief: WordBatchBrief? = null,
     onRate: (Long, ReviewRating) -> Unit,
     onSpeak: (String) -> Unit,
     onMnemonic: (Long, String) -> Unit,
@@ -1570,6 +1577,11 @@ private fun WordQueueScreen(
     ) {
         item {
             SectionTitle(title, subtitle)
+        }
+        batchBrief?.let { brief ->
+            item {
+                WordBatchBriefCard(brief)
+            }
         }
         if (words.isEmpty()) {
             item {
@@ -1589,6 +1601,153 @@ private fun WordQueueScreen(
             }
         }
     }
+}
+
+@Composable
+private fun WordBatchBriefCard(brief: WordBatchBrief) {
+    val accent = wordBatchBriefAccent(brief.kind)
+    val icon = when (brief.kind) {
+        WordBatchBriefKind.ROOTS -> Icons.Rounded.AccountTree
+        WordBatchBriefKind.WORD_FORMS -> Icons.Rounded.Translate
+        WordBatchBriefKind.CONTEXT -> Icons.Rounded.AutoStories
+        WordBatchBriefKind.MIXED -> Icons.Rounded.Insights
+        WordBatchBriefKind.EMPTY -> Icons.Rounded.Check
+    }
+    val animated by animateFloatAsState(
+        targetValue = brief.intensity.coerceIn(0f, 1f),
+        animationSpec = tween(500),
+        label = "wordBatchBriefIntensity",
+    )
+    Card(
+        shape = RoundedCornerShape(30.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.20f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
+                        ),
+                    ),
+                )
+                .padding(18.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(16.dp), color = accent.copy(alpha = 0.16f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(9.dp)
+                                    .size(21.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "本批新词策略",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(brief.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                brief.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                            )
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            brief.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { animated },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    BatchBriefMetric(brief.primaryLabel, brief.primaryValue, accent, Modifier.weight(1f))
+                    BatchBriefMetric(brief.secondaryLabel, brief.secondaryValue, accent, Modifier.weight(1f))
+                }
+                if (brief.focusTerms.isNotEmpty()) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        items(brief.focusTerms, key = { it }) { term ->
+                            Surface(shape = RoundedCornerShape(14.dp), color = accent.copy(alpha = 0.10f)) {
+                                Text(
+                                    term,
+                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = accent,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BatchBriefMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.76f),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = accent)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun wordBatchBriefAccent(kind: WordBatchBriefKind): Color = when (kind) {
+    WordBatchBriefKind.ROOTS -> Color(0xFF2D5B52)
+    WordBatchBriefKind.WORD_FORMS -> Color(0xFF3F6F8F)
+    WordBatchBriefKind.CONTEXT -> MaterialTheme.colorScheme.primary
+    WordBatchBriefKind.MIXED -> Color(0xFFC98A3D)
+    WordBatchBriefKind.EMPTY -> Color(0xFF6E8B3D)
 }
 
 @Composable

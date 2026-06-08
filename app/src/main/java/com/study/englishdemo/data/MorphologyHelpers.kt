@@ -315,6 +315,105 @@ fun buildWordMemoryAnchor(
     }
 }
 
+fun buildWordBatchBrief(words: List<WordEntry>, focusLimit: Int = 4): WordBatchBrief {
+    val cleanWords = words.distinctBy { it.id }
+    val total = cleanWords.size
+    val cappedFocus = focusLimit.coerceAtLeast(0)
+    if (total == 0) {
+        return WordBatchBrief(
+            kind = WordBatchBriefKind.EMPTY,
+            title = "新词队列已清空",
+            message = "当前没有待处理新词，可以去 Review 或难词专攻保持手感。",
+            primaryLabel = "待学",
+            primaryValue = "0",
+            secondaryLabel = "建议",
+            secondaryValue = "复习",
+            actionLabel = "去巩固",
+            intensity = 0f,
+            focusTerms = emptyList(),
+        )
+    }
+
+    val rootedWords = cleanWords.filter { it.rootKey.isNotBlank() }
+    val derivativeWords = cleanWords.filter { word ->
+        word.derivatives.any { it.isNotBlank() && !it.equals(word.term, ignoreCase = true) }
+    }
+    val contextWords = cleanWords.filter { it.example.isNotBlank() }
+    val strongestRoot = rootedWords
+        .groupingBy { it.rootKey }
+        .eachCount()
+        .maxWithOrNull(
+            compareBy<Map.Entry<String, Int>> { it.value }
+                .thenBy { it.key.length },
+        )
+    val rootShare = strongestRoot?.value?.toFloat()?.div(total.toFloat()) ?: 0f
+    val derivativeShare = derivativeWords.size.toFloat() / total.toFloat()
+    val contextShare = contextWords.size.toFloat() / total.toFloat()
+    val focusTerms = when {
+        strongestRoot != null && strongestRoot.value >= 2 -> cleanWords
+            .filter { it.rootKey == strongestRoot.key }
+            .map { it.term }
+        derivativeWords.size >= 2 -> derivativeWords.map { it.term }
+        contextWords.size >= 2 -> contextWords.map { it.term }
+        else -> cleanWords.map { it.term }
+    }
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .distinctBy { it.lowercase() }
+        .take(cappedFocus)
+
+    return when {
+        strongestRoot != null && strongestRoot.value >= 2 -> WordBatchBrief(
+            kind = WordBatchBriefKind.ROOTS,
+            title = "这批先按 ${strongestRoot.key} 词根成组学",
+            message = "当前新词里有 ${strongestRoot.value} 个同根词，先抓同一条构词线，再逐张翻卡补释义。",
+            primaryLabel = "同根词",
+            primaryValue = strongestRoot.value.toString(),
+            secondaryLabel = "批次",
+            secondaryValue = total.toString(),
+            actionLabel = "先看词根",
+            intensity = rootShare.coerceIn(0.18f, 1f),
+            focusTerms = focusTerms,
+        )
+        derivativeWords.size >= 2 -> WordBatchBrief(
+            kind = WordBatchBriefKind.WORD_FORMS,
+            title = "先把词形变化绑成一组",
+            message = "这批新词里派生形较多，先扫原词、过去式、复数或 -ing 形，后面的完形和拼写会更稳。",
+            primaryLabel = "词形词",
+            primaryValue = derivativeWords.size.toString(),
+            secondaryLabel = "批次",
+            secondaryValue = total.toString(),
+            actionLabel = "先看词形",
+            intensity = derivativeShare.coerceIn(0.18f, 1f),
+            focusTerms = focusTerms,
+        )
+        contextWords.size >= 2 -> WordBatchBrief(
+            kind = WordBatchBriefKind.CONTEXT,
+            title = "这批适合放回例句里学",
+            message = "多数词有可用例句，先读句子再翻卡；能在语境里提取，比只背中文释义更可靠。",
+            primaryLabel = "有例句",
+            primaryValue = contextWords.size.toString(),
+            secondaryLabel = "批次",
+            secondaryValue = total.toString(),
+            actionLabel = "先读例句",
+            intensity = contextShare.coerceIn(0.18f, 1f),
+            focusTerms = focusTerms,
+        )
+        else -> WordBatchBrief(
+            kind = WordBatchBriefKind.MIXED,
+            title = "小批混合，逐张建立第一印象",
+            message = "这批线索分散，先按卡片里的记忆锚走：有词根看词根，有词形看词形，其他用发音和释义建立最小记忆。",
+            primaryLabel = "待学",
+            primaryValue = total.toString(),
+            secondaryLabel = "线索",
+            secondaryValue = "混合",
+            actionLabel = "逐张建立",
+            intensity = (total.toFloat() / 10f).coerceIn(0.18f, 1f),
+            focusTerms = focusTerms,
+        )
+    }
+}
+
 fun buildRootGroupInsight(group: RootGroup, focusLimit: Int = 3): RootGroupInsight {
     val total = group.totalWords.coerceAtLeast(0)
     val learned = group.learnedWords.coerceIn(0, total)

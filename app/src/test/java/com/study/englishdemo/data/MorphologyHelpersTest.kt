@@ -319,6 +319,80 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildWordBatchBrief_handlesEmptyBatch() {
+        val brief = buildWordBatchBrief(emptyList())
+
+        assertThat(brief.kind).isEqualTo(WordBatchBriefKind.EMPTY)
+        assertThat(brief.primaryValue).isEqualTo("0")
+        assertThat(brief.actionLabel).isEqualTo("去巩固")
+        assertThat(brief.focusTerms).isEmpty()
+    }
+
+    @Test
+    fun buildWordBatchBrief_prefersRootClusters() {
+        val brief = buildWordBatchBrief(
+            listOf(
+                fakeEntry("inspect", "spec", derivatives = listOf("inspected")),
+                fakeEntry("respect", "spec"),
+                fakeEntry("clarify", "", derivatives = listOf("clarified")),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(WordBatchBriefKind.ROOTS)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.secondaryValue).isEqualTo("3")
+        assertThat(brief.focusTerms).containsExactly("inspect", "respect").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("先看词根")
+    }
+
+    @Test
+    fun buildWordBatchBrief_usesWordFormsWhenRootsAreSparse() {
+        val brief = buildWordBatchBrief(
+            listOf(
+                fakeEntry("clarify", "", derivatives = listOf("clarified", "clarifies")),
+                fakeEntry("review", "", derivatives = listOf("reviewed")),
+                fakeEntry("plain", ""),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(WordBatchBriefKind.WORD_FORMS)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.focusTerms).containsExactly("clarify", "review").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("先看词形")
+    }
+
+    @Test
+    fun buildWordBatchBrief_usesContextWhenExamplesDominate() {
+        val brief = buildWordBatchBrief(
+            listOf(
+                fakeEntry("abandon", "", example = "Never abandon the plan."),
+                fakeEntry("benefit", "", example = "Daily practice brings benefit."),
+                fakeEntry("plain", ""),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(WordBatchBriefKind.CONTEXT)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.focusTerms).containsExactly("abandon", "benefit").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("先读例句")
+    }
+
+    @Test
+    fun buildWordBatchBrief_fallsBackToMixedSmallBatches() {
+        val brief = buildWordBatchBrief(
+            listOf(
+                fakeEntry("plain", ""),
+                fakeEntry("single", "sing"),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(WordBatchBriefKind.MIXED)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.secondaryValue).isEqualTo("混合")
+        assertThat(brief.focusTerms).containsExactly("plain", "single").inOrder()
+    }
+
+    @Test
     fun buildRootGroupInsight_seedsUntouchedRootFamilies() {
         val insight = buildRootGroupInsight(
             RootGroup(
