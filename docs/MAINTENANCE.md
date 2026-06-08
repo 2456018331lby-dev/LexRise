@@ -92,7 +92,7 @@ python tools/build_wordlists.py
 
 ### 能不能避开？能避开就避开
 
-很多"新功能"其实不需要加列。本项目 v0.3-v0.16 的所有新能力（簇首、词根覆盖、根族路线、难词专攻、难词处方、选择题干扰池、完形题、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、本轮练习统计、本轮教练、首页学习焦点）都走**派生查询、纯函数派生或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
+很多"新功能"其实不需要加列。本项目 v0.3-v0.17 的所有新能力（簇首、词根覆盖、根族路线、难词专攻、难词处方、选择题干扰池、完形题、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、本轮练习统计、本轮教练、首页学习焦点、今日训练路线）都走**派生查询、纯函数派生或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
 
 - 想标记"这个词是簇首"？→ 已经有 `getAnchorWordIds(bookId)` 动态算，不加 `isAnchor` 列
 - 想统计"哪个词翻车最多"？→ `getToughWordsForBook` 从 `review_logs` GROUP BY 出来
@@ -105,6 +105,7 @@ python tools/build_wordlists.py
 - 想统计"这轮 Review 做得怎么样"？→ `PracticeSessionStats` 是 UI session 状态，`recordPracticeAttempt` 纯函数计数，不写 Room
 - 想根据本轮表现提示“该降速还是加难”？→ `buildPracticeSessionCoach` 从 `PracticeSessionStats` + `PracticeMode` 派生本轮教练，不写设置、不写 Room
 - 想提示"今天先做什么"并跳到对应页面？→ `buildStudyFocusCue` 从 session / rootSnapshot / pace 派生建议和按钮文案；`MainActivity` 只做本地 Tab 切换，不写设置、不写 Room
+- 想把今天拆成多步路线？→ `buildDailyStudyRoute` 从 session / rootSnapshot / pace / toughWords 数量派生 1–3 个行动步骤；`MainActivity` 只负责跳 Tab，不写设置、不写 Room
 
 ### 如果确实要升级 schema
 
@@ -287,6 +288,7 @@ git ls-files .android-sdk/ app/build/   # 应为空
 | 改发音 | `speech/WordSpeaker.kt`（当前是 Android TTS，改成音频文件要加 raw 资源） |
 | 改考试计划/自动配速 | `data/MorphologyHelpers.kt#computePaceRecommendation` + `MorphologyHelpersTest` |
 | 改首页学习焦点/行动按钮 | `data/MorphologyHelpers.kt#buildStudyFocusCue` + `data/Models.kt#StudyFocusCue` + `MainActivity.kt#StudyFocusCueCard` + `MorphologyHelpersTest` |
+| 改首页今日训练路线 | `data/MorphologyHelpers.kt#buildDailyStudyRoute` + `data/Models.kt#DailyStudyRoute/DailyStudyRouteStep/DailyStudyRouteTarget` + `MainActivity.kt#DailyStudyRouteCard/DailyStudyRouteStepCard` + `MorphologyHelpersTest` |
 | 改词根 Tab 根族路线 | `data/MorphologyHelpers.kt#buildRootGroupInsight` + `data/Models.kt#RootGroupInsight/RootGroupStage` + `MainActivity.kt#RootGroupCard/RootStageBadge/RootFocusTermChip` + `MorphologyHelpersTest` |
 | 改选择题干扰项逻辑 | `data/MorphologyHelpers.kt#buildQuizOptions` + `MorphologyHelpersTest` |
 | 改完形/例句挖空 | `data/MorphologyHelpers.kt#buildClozeBlank/blankTermInExample` + `StudyRepository.kt#buildClozeQuestion` + 对应 Test；候选排序保持原词优先、派生词按例句位置优先 |

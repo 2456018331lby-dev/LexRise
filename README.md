@@ -1,8 +1,16 @@
-# Englishdemo / LexRise v0.16
+# Englishdemo / LexRise v0.17
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
 
-## v0.16 亮点
+## v0.17 亮点
+
+- **Dashboard 新增“今日训练路线”**
+  - 首页不再只给一个焦点，会把复习债、难词、词根覆盖和新词推进排成 1–3 步训练路线
+  - 每一步都有入口按钮，可直接跳到复习、难词、词根或新词页
+  - 路线卡使用横向任务轨道：任务标题、原因、关键指标和强度条一屏可见
+  - 逻辑由 `buildDailyStudyRoute` 纯函数派生，不新增数据库字段，不改变原有学习/评分路径
+
+## v0.16 基线亮点
 
 - **难词专攻新增“错题处方”**
   - 每个难词卡会根据 `againCount`、`lapses`、学习阶段、词根和例句生成处理建议
@@ -226,6 +234,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.17（2026-06-08）
+- Dashboard 新增“今日训练路线”，把复习债、错题、词根覆盖和新词推进排成可点击训练步骤
+- 新增 `DailyStudyRoute` / `DailyStudyRouteStep` / `DailyStudyRouteTarget` 和 `buildDailyStudyRoute` 纯函数
+- 新增 `DailyStudyRouteCard` / `DailyStudyRouteStepCard`，首页显示横向路线轨道并可直达对应 Tab
+- 应用版本元数据同步到 0.17.0
+- 测试 65 → 69
 
 ### v0.16（2026-06-08）
 - 难词专攻卡片新增“错题处方”，按错题强度和词条线索生成重建/词根/语境/巩固建议

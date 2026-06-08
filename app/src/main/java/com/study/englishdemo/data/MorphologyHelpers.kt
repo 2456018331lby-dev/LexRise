@@ -145,6 +145,105 @@ fun buildStudyFocusCue(
     }
 }
 
+fun buildDailyStudyRoute(
+    session: LearningSession,
+    rootSnapshot: BookRootSnapshot,
+    pace: PaceRecommendation,
+    toughWordCount: Int,
+    maxSteps: Int = 3,
+): DailyStudyRoute {
+    val overview = session.overview
+    val cappedSteps = maxSteps.coerceAtLeast(1)
+    val rootProgress = if (rootSnapshot.totalRoots == 0) {
+        1f
+    } else {
+        (rootSnapshot.touchedRoots.toFloat() / rootSnapshot.totalRoots.toFloat()).coerceIn(0f, 1f)
+    }
+    val routeSteps = mutableListOf<DailyStudyRouteStep>()
+    if (overview.reviewDueCount > 0) {
+        routeSteps += DailyStudyRouteStep(
+            target = DailyStudyRouteTarget.REVIEW,
+            title = "清复习债",
+            reason = "先把到期旧词拉回长期记忆，再进入新内容。",
+            metricLabel = "到期",
+            metricValue = overview.reviewDueCount.toString(),
+            actionLabel = "复习",
+            weight = (overview.reviewDueCount.toFloat() / 24f).coerceIn(0.18f, 1f),
+        )
+    }
+    if (toughWordCount > 0) {
+        routeSteps += DailyStudyRouteStep(
+            target = DailyStudyRouteTarget.TOUGH,
+            title = "修错题",
+            reason = "集中处理反复 AGAIN 的词，避免同一批词持续漏水。",
+            metricLabel = "难词",
+            metricValue = toughWordCount.toString(),
+            actionLabel = "难词",
+            weight = (toughWordCount.toFloat() / 12f).coerceIn(0.18f, 1f),
+        )
+    }
+    if (rootSnapshot.totalRoots > 0 && rootProgress < 0.5f) {
+        routeSteps += DailyStudyRouteStep(
+            target = DailyStudyRouteTarget.ROOTS,
+            title = "补词根网",
+            reason = "先补低覆盖词根，用构词线索减少孤立记忆。",
+            metricLabel = "触达",
+            metricValue = "${rootSnapshot.touchedRoots}/${rootSnapshot.totalRoots}",
+            actionLabel = "词根",
+            weight = (1f - rootProgress).coerceIn(0.18f, 1f),
+        )
+    }
+    if (overview.newWordsRemaining > 0) {
+        val target = if (
+            pace.isAuto &&
+            pace.remainingWords > 0 &&
+            pace.target > overview.newWordTarget
+        ) {
+            pace.target
+        } else {
+            overview.newWordTarget
+        }
+        val title = if (target > overview.newWordTarget) "按配速推进" else "补新词地基"
+        val reason = if (target > overview.newWordTarget && pace.remainingDays != null) {
+            "考试倒计时 ${pace.remainingDays} 天，按推荐节奏消化新词。"
+        } else {
+            "复习压力可控时，推进一小组新词保持词书滚动。"
+        }
+        routeSteps += DailyStudyRouteStep(
+            target = DailyStudyRouteTarget.LEARN,
+            title = title,
+            reason = reason,
+            metricLabel = "目标",
+            metricValue = target.coerceAtMost(overview.newWordsRemaining).toString(),
+            actionLabel = "新词",
+            weight = (target.toFloat() / 40f).coerceIn(0.18f, 1f),
+        )
+    }
+    if (routeSteps.isEmpty()) {
+        routeSteps += DailyStudyRouteStep(
+            target = DailyStudyRouteTarget.REVIEW,
+            title = "稳态复盘",
+            reason = "今天核心负担已清，做一轮轻复习保持手感。",
+            metricLabel = "连续",
+            metricValue = overview.streakDays.toString(),
+            actionLabel = "巩固",
+            weight = overview.completionRatio.coerceIn(0.18f, 1f),
+        )
+    }
+    val selected = routeSteps.take(cappedSteps)
+    val headline = when (selected.first().target) {
+        DailyStudyRouteTarget.REVIEW -> "先稳记忆，再开新局"
+        DailyStudyRouteTarget.TOUGH -> "先修漏点，再补地基"
+        DailyStudyRouteTarget.ROOTS -> "先铺词根网，再滚新词"
+        DailyStudyRouteTarget.LEARN -> "压力可控，推进新词"
+    }
+    return DailyStudyRoute(
+        headline = headline,
+        summary = selected.joinToString(" → ") { it.title },
+        steps = selected,
+    )
+}
+
 fun buildRootGroupInsight(group: RootGroup, focusLimit: Int = 3): RootGroupInsight {
     val total = group.totalWords.coerceAtLeast(0)
     val learned = group.learnedWords.coerceIn(0, total)

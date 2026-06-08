@@ -102,6 +102,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.study.englishdemo.data.DailyReviewCount
+import com.study.englishdemo.data.DailyStudyRoute
+import com.study.englishdemo.data.DailyStudyRouteStep
+import com.study.englishdemo.data.DailyStudyRouteTarget
 import com.study.englishdemo.data.Morpheme
 import com.study.englishdemo.data.PracticeMode
 import com.study.englishdemo.data.PracticeSessionCoach
@@ -117,6 +120,7 @@ import com.study.englishdemo.data.ToughWordPrescription
 import com.study.englishdemo.data.ToughWordPrescriptionKind
 import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
+import com.study.englishdemo.data.buildDailyStudyRoute
 import com.study.englishdemo.data.buildPracticeSessionCoach
 import com.study.englishdemo.data.buildRootGroupInsight
 import com.study.englishdemo.data.buildStudyFocusCue
@@ -314,6 +318,14 @@ private fun LexRiseApp(
                                 StudyFocusKind.MOMENTUM -> HomeTab.REVIEW
                             }
                         },
+                        onRouteAction = { step ->
+                            currentTab = when (step.target) {
+                                DailyStudyRouteTarget.REVIEW -> HomeTab.REVIEW
+                                DailyStudyRouteTarget.TOUGH -> HomeTab.TOUGH
+                                DailyStudyRouteTarget.ROOTS -> HomeTab.ROOTS
+                                DailyStudyRouteTarget.LEARN -> HomeTab.LEARN
+                            }
+                        },
                     )
                     HomeTab.LEARN -> LearnScreen(uiState, onRate, onSpeak, onMnemonic)
                     HomeTab.REVIEW -> ReviewScreen(
@@ -361,10 +373,19 @@ private fun DashboardScreen(
     onDeleteBook: (Long) -> Unit,
     onRenameBook: (Long, String) -> Unit,
     onFocusAction: (StudyFocusCue) -> Unit,
+    onRouteAction: (DailyStudyRouteStep) -> Unit,
 ) {
     val session = requireNotNull(uiState.session)
     val focusCue = remember(session, uiState.rootSnapshot, uiState.pace) {
         buildStudyFocusCue(session, uiState.rootSnapshot, uiState.pace)
+    }
+    val dailyRoute = remember(session, uiState.rootSnapshot, uiState.pace, uiState.toughWords.size) {
+        buildDailyStudyRoute(
+            session = session,
+            rootSnapshot = uiState.rootSnapshot,
+            pace = uiState.pace,
+            toughWordCount = uiState.toughWords.size,
+        )
     }
     var pendingDelete by remember { mutableStateOf<WordBook?>(null) }
     var pendingRename by remember { mutableStateOf<WordBook?>(null) }
@@ -411,6 +432,7 @@ private fun DashboardScreen(
             }
         }
         item { StudyFocusCueCard(focusCue, onAction = { onFocusAction(focusCue) }) }
+        item { DailyStudyRouteCard(dailyRoute, onStepAction = onRouteAction) }
         if (uiState.settings.examDate != null || uiState.pace.isAuto) {
             item { ExamCountdownCard(uiState) }
         }
@@ -1673,6 +1695,152 @@ private fun StudyFocusCueCard(cue: StudyFocusCue, onAction: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun DailyStudyRouteCard(route: DailyStudyRoute, onStepAction: (DailyStudyRouteStep) -> Unit) {
+    val firstAccent = dailyRouteAccent(route.steps.first().target)
+    Card(
+        shape = RoundedCornerShape(30.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.surface,
+                            firstAccent.copy(alpha = 0.14f),
+                            Color(0xFFD6B179).copy(alpha = 0.10f),
+                        ),
+                    ),
+                )
+                .padding(18.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
+                        Text("今日训练路线", style = MaterialTheme.typography.labelMedium, color = firstAccent)
+                        Text(
+                            route.headline,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            route.summary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = firstAccent.copy(alpha = 0.14f),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Insights,
+                            contentDescription = null,
+                            tint = firstAccent,
+                            modifier = Modifier
+                                .padding(11.dp)
+                                .size(25.dp),
+                        )
+                    }
+                }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(route.steps, key = { "${it.target}-${it.title}" }) { step ->
+                        DailyStudyRouteStepCard(step = step, onClick = { onStepAction(step) })
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DailyStudyRouteStepCard(step: DailyStudyRouteStep, onClick: () -> Unit) {
+    val accent = dailyRouteAccent(step.target)
+    val icon = dailyRouteIcon(step.target)
+    val animated by animateFloatAsState(
+        targetValue = step.weight.coerceIn(0f, 1f),
+        animationSpec = tween(500),
+        label = "dailyRouteStepWeight",
+    )
+    Surface(
+        modifier = Modifier.width(198.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = accent.copy(alpha = 0.10f),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(shape = RoundedCornerShape(14.dp), color = accent.copy(alpha = 0.16f)) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .size(20.dp),
+                    )
+                }
+                Text(step.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Text(step.metricValue, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = accent)
+                Text(
+                    step.metricLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+            }
+            LinearProgressIndicator(
+                progress = { animated },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp),
+                color = accent,
+                trackColor = accent.copy(alpha = 0.12f),
+            )
+            Text(
+                step.reason,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
+                modifier = Modifier.heightIn(min = 48.dp),
+            )
+            Button(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+                Text(step.actionLabel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun dailyRouteAccent(target: DailyStudyRouteTarget): Color = when (target) {
+    DailyStudyRouteTarget.REVIEW -> MaterialTheme.colorScheme.primary
+    DailyStudyRouteTarget.TOUGH -> Color(0xFFB65245)
+    DailyStudyRouteTarget.ROOTS -> Color(0xFF2D5B52)
+    DailyStudyRouteTarget.LEARN -> Color(0xFFC98A3D)
+}
+
+private fun dailyRouteIcon(target: DailyStudyRouteTarget) = when (target) {
+    DailyStudyRouteTarget.REVIEW -> Icons.Rounded.PsychologyAlt
+    DailyStudyRouteTarget.TOUGH -> Icons.Rounded.LocalFireDepartment
+    DailyStudyRouteTarget.ROOTS -> Icons.Rounded.AccountTree
+    DailyStudyRouteTarget.LEARN -> Icons.Rounded.AutoStories
 }
 
 @Composable

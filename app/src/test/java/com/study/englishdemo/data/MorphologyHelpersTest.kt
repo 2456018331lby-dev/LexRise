@@ -170,6 +170,78 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildDailyStudyRoute_prioritizesReviewToughAndRoots() {
+        val route = buildDailyStudyRoute(
+            session = fakeSession(reviewDueCount = 18, newWordsRemaining = 120),
+            rootSnapshot = BookRootSnapshot(totalRoots = 80, touchedRoots = 12, totalClustered = 300, learnedClustered = 40),
+            pace = fakePace(target = 20, isAuto = false),
+            toughWordCount = 7,
+        )
+
+        assertThat(route.headline).isEqualTo("先稳记忆，再开新局")
+        assertThat(route.summary).isEqualTo("清复习债 → 修错题 → 补词根网")
+        assertThat(route.steps.map { it.target }).containsExactly(
+            DailyStudyRouteTarget.REVIEW,
+            DailyStudyRouteTarget.TOUGH,
+            DailyStudyRouteTarget.ROOTS,
+        ).inOrder()
+        assertThat(route.steps[1].metricValue).isEqualTo("7")
+    }
+
+    @Test
+    fun buildDailyStudyRoute_usesAutoPaceForLearnStep() {
+        val route = buildDailyStudyRoute(
+            session = fakeSession(reviewDueCount = 0, newWordTarget = 20, newWordsRemaining = 400),
+            rootSnapshot = BookRootSnapshot(totalRoots = 80, touchedRoots = 50, totalClustered = 300, learnedClustered = 180),
+            pace = fakePace(target = 32, remainingWords = 400, remainingDays = 18, isAuto = true),
+            toughWordCount = 0,
+        )
+
+        assertThat(route.headline).isEqualTo("压力可控，推进新词")
+        assertThat(route.steps).hasSize(1)
+        assertThat(route.steps.first().target).isEqualTo(DailyStudyRouteTarget.LEARN)
+        assertThat(route.steps.first().title).isEqualTo("按配速推进")
+        assertThat(route.steps.first().metricValue).isEqualTo("32")
+    }
+
+    @Test
+    fun buildDailyStudyRoute_capsStepCountButKeepsPriority() {
+        val route = buildDailyStudyRoute(
+            session = fakeSession(reviewDueCount = 12, newWordsRemaining = 90),
+            rootSnapshot = BookRootSnapshot(totalRoots = 80, touchedRoots = 10, totalClustered = 300, learnedClustered = 20),
+            pace = fakePace(target = 28, remainingWords = 90, remainingDays = 8, isAuto = true),
+            toughWordCount = 6,
+            maxSteps = 2,
+        )
+
+        assertThat(route.steps.map { it.target }).containsExactly(
+            DailyStudyRouteTarget.REVIEW,
+            DailyStudyRouteTarget.TOUGH,
+        ).inOrder()
+        assertThat(route.summary).isEqualTo("清复习债 → 修错题")
+    }
+
+    @Test
+    fun buildDailyStudyRoute_fallsBackToStabilizeWhenWorkIsClear() {
+        val route = buildDailyStudyRoute(
+            session = fakeSession(
+                reviewDueCount = 0,
+                newWordsRemaining = 0,
+                streakDays = 9,
+                completionRatio = 1f,
+            ),
+            rootSnapshot = BookRootSnapshot(totalRoots = 80, touchedRoots = 70, totalClustered = 300, learnedClustered = 260),
+            pace = fakePace(target = 20, remainingWords = 0, isAuto = false),
+            toughWordCount = 0,
+        )
+
+        assertThat(route.steps).hasSize(1)
+        assertThat(route.steps.first().target).isEqualTo(DailyStudyRouteTarget.REVIEW)
+        assertThat(route.steps.first().title).isEqualTo("稳态复盘")
+        assertThat(route.steps.first().metricValue).isEqualTo("9")
+    }
+
+    @Test
     fun buildRootGroupInsight_seedsUntouchedRootFamilies() {
         val insight = buildRootGroupInsight(
             RootGroup(

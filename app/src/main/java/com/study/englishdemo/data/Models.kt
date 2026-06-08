@@ -265,6 +265,24 @@ data class StudyFocusCue(
     val progress: Float,
 )
 
+enum class DailyStudyRouteTarget { REVIEW, TOUGH, ROOTS, LEARN }
+
+data class DailyStudyRouteStep(
+    val target: DailyStudyRouteTarget,
+    val title: String,
+    val reason: String,
+    val metricLabel: String,
+    val metricValue: String,
+    val actionLabel: String,
+    val weight: Float,
+)
+
+data class DailyStudyRoute(
+    val headline: String,
+    val summary: String,
+    val steps: List<DailyStudyRouteStep>,
+)
+
 enum class Morpheme { PREFIX, ROOT, SUFFIX, PLAIN }
 
 data class MorphemeSegment(
