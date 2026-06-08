@@ -92,7 +92,7 @@ python tools/build_wordlists.py
 
 ### 能不能避开？能避开就避开
 
-很多"新功能"其实不需要加列。本项目 v0.3-v0.19 的所有新能力（簇首、词根覆盖、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、本轮练习统计、本轮教练、首页学习焦点、今日训练路线、新词记忆锚）都走**派生查询、纯函数派生或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
+很多"新功能"其实不需要加列。本项目 v0.3-v0.20 的所有新能力（簇首、词根覆盖、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、本轮练习统计、本轮教练、首页学习焦点、今日训练路线、新词记忆锚）都走**派生查询、纯函数派生或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
 
 - 想标记"这个词是簇首"？→ 已经有 `getAnchorWordIds(bookId)` 动态算，不加 `isAnchor` 列
 - 想统计"哪个词翻车最多"？→ `getToughWordsForBook` 从 `review_logs` GROUP BY 出来
@@ -103,6 +103,7 @@ python tools/build_wordlists.py
 - 想加新练习题型？→ 优先用 `PracticeMode` + Repository 构题 + 纯函数，评分仍回 `reviewWord`
 - 想让完形题支持派生词或优化挖空优先级？→ `buildClozeBlank` 从已有 `derivatives` 字段派生候选并排序，不加表
 - 想让词汇搜索支持复数/时态/派生形，或解释“为什么命中这个词”？→ `searchInBook` 查已有 `derivatives` 列，`searchWords` 用 `fuzzyWordFormMatchDistance` 做 fallback，UI 用 `matchingWordForms` 展示命中词形，不加表
+- 想在结果列表前解释“这次搜索质量如何”？→ `buildVocabularySearchInsight` 从当前 query 和结果列表派生检索洞察，不改 DAO、不改排序、不写搜索日志
 - 想统计"这轮 Review 做得怎么样"？→ `PracticeSessionStats` 是 UI session 状态，`recordPracticeAttempt` 纯函数计数，不写 Room
 - 想根据本轮表现提示“该降速还是加难”？→ `buildPracticeSessionCoach` 从 `PracticeSessionStats` + `PracticeMode` 派生本轮教练，不写设置、不写 Room
 - 想提示"今天先做什么"并跳到对应页面？→ `buildStudyFocusCue` 从 session / rootSnapshot / pace 派生建议和按钮文案；`MainActivity` 只做本地 Tab 切换，不写设置、不写 Room
@@ -300,6 +301,7 @@ git ls-files .android-sdk/ app/build/   # 应为空
 | 改本轮练习教练 | `data/Models.kt#PracticeSessionCoach/PracticeSessionCoachKind` + `data/MorphologyHelpers.kt#buildPracticeSessionCoach` + `MainActivity.kt#PracticeCoachPanel/PracticeSessionStatsCard` + `MorphologyHelpersTest` |
 | 改难词错题处方 | `data/Models.kt#ToughWordPrescription/ToughWordPrescriptionKind` + `data/MorphologyHelpers.kt#buildToughWordPrescription` + `MainActivity.kt#ToughWordCard/ToughPrescriptionPanel` + `MorphologyHelpersTest` |
 | 改难词错题战情台 | `data/Models.kt#ToughWordsBrief` + `data/MorphologyHelpers.kt#buildToughWordsBrief` + `MainActivity.kt#ToughWordsBriefCard/ToughBriefMetric` + `MorphologyHelpersTest` |
+| 改词汇检索洞察 | `data/Models.kt#VocabularySearchInsight` + `data/MorphologyHelpers.kt#buildVocabularySearchInsight` + `MainActivity.kt#VocabularySearchInsightCard/VocabularyInsightMetric` + `MorphologyHelpersTest` |
 | 改拼写判分 | `data/MorphologyHelpers.kt#normalizedEditDistance` + `ratingFromEditDistance` |
 | 加新复习模式 | `data/Models.kt#PracticeMode` 枚举 + `MainActivity.kt#ReviewScreen` when 分支 |
 | 加新底栏 Tab | `MainActivity.kt#HomeTab` 枚举 + NavigationBar item + when 分支 |

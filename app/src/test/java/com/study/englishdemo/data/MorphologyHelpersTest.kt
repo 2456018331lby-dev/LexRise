@@ -561,6 +561,83 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildVocabularySearchInsight_guidesBlankQueries() {
+        val insight = buildVocabularySearchInsight(
+            query = " ",
+            results = listOf(fakeEntry("clarify", "clar")),
+        )
+
+        assertThat(insight.kind).isEqualTo(VocabularySearchInsightKind.READY)
+        assertThat(insight.primaryValue).isEqualTo("全词书")
+        assertThat(insight.focusTerms).isEmpty()
+        assertThat(insight.confidence).isEqualTo(0f)
+    }
+
+    @Test
+    fun buildVocabularySearchInsight_handlesEmptyResults() {
+        val insight = buildVocabularySearchInsight(
+            query = "clarifiy",
+            results = emptyList(),
+        )
+
+        assertThat(insight.kind).isEqualTo(VocabularySearchInsightKind.EMPTY_RESULTS)
+        assertThat(insight.primaryValue).isEqualTo("0")
+        assertThat(insight.actionLabel).isEqualTo("改关键词")
+    }
+
+    @Test
+    fun buildVocabularySearchInsight_prioritizesDirectTermMatches() {
+        val insight = buildVocabularySearchInsight(
+            query = "stat",
+            results = listOf(
+                fakeEntry("state", "stat"),
+                fakeEntry("statement", "stat"),
+                fakeEntry("stable", "sta"),
+            ),
+        )
+
+        assertThat(insight.kind).isEqualTo(VocabularySearchInsightKind.TERM_MATCH)
+        assertThat(insight.primaryValue).isEqualTo("2")
+        assertThat(insight.focusTerms).containsExactly("state", "statement").inOrder()
+    }
+
+    @Test
+    fun buildVocabularySearchInsight_explainsDerivativeOrTypoHits() {
+        val insight = buildVocabularySearchInsight(
+            query = "clarifed",
+            results = listOf(
+                fakeEntry(
+                    term = "clarify",
+                    rootKey = "clar",
+                    derivatives = listOf("clarified", "clarifies"),
+                ),
+            ),
+        )
+
+        assertThat(insight.kind).isEqualTo(VocabularySearchInsightKind.WORD_FORM_MATCH)
+        assertThat(insight.primaryValue).isEqualTo("1")
+        assertThat(insight.focusTerms).containsExactly("clarified", "clarifies").inOrder()
+        assertThat(insight.actionLabel).isEqualTo("看词形雷达")
+    }
+
+    @Test
+    fun buildVocabularySearchInsight_surfacesRootClustersAfterMeaningMatches() {
+        val insight = buildVocabularySearchInsight(
+            query = "说",
+            results = listOf(
+                fakeEntry(term = "describe", rootKey = "scrib", translation = "描述，说清楚"),
+                fakeEntry(term = "prescribe", rootKey = "scrib", translation = "规定，开处方"),
+                fakeEntry(term = "announce", rootKey = "", translation = "宣布，说出"),
+            ),
+        )
+
+        assertThat(insight.kind).isEqualTo(VocabularySearchInsightKind.ROOT_CLUSTER)
+        assertThat(insight.primaryValue).isEqualTo("2")
+        assertThat(insight.secondaryValue).isEqualTo("scrib")
+        assertThat(insight.focusTerms).containsExactly("describe", "prescribe").inOrder()
+    }
+
+    @Test
     fun recordPracticeAttempt_countsStableAndNeedsPracticeRatings() {
         val stats = listOf(
             ReviewRating.GOOD,
@@ -827,6 +904,7 @@ class MorphologyHelpersTest {
         phase: StudyPhase? = null,
         example: String = "",
         derivatives: List<String> = emptyList(),
+        translation: String = "",
         pos: String = "",
         frq: Int = 0,
     ): WordEntry = WordEntry(
@@ -834,7 +912,7 @@ class MorphologyHelpersTest {
         term = term,
         phonetic = "",
         definition = "",
-        translation = "",
+        translation = translation,
         example = example,
         tags = emptyList(),
         rootKey = rootKey,

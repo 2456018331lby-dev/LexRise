@@ -532,6 +532,134 @@ fun matchingWordForms(query: String, term: String, variants: List<String>, limit
     return matches.take(limit)
 }
 
+fun buildVocabularySearchInsight(
+    query: String,
+    results: List<WordEntry>,
+    focusLimit: Int = 4,
+): VocabularySearchInsight {
+    val trimmed = query.trim()
+    val cappedFocus = focusLimit.coerceAtLeast(0)
+    if (trimmed.isEmpty()) {
+        return VocabularySearchInsight(
+            kind = VocabularySearchInsightKind.READY,
+            title = "输入一个线索开始定位",
+            message = "可以搜原词、派生词、中文释义或英文解释；英文拼写有轻微错误也会尝试找回。",
+            primaryLabel = "检索范围",
+            primaryValue = "全词书",
+            secondaryLabel = "支持",
+            secondaryValue = "词形容错",
+            actionLabel = "先搜一个词",
+            confidence = 0f,
+            focusTerms = emptyList(),
+        )
+    }
+    if (results.isEmpty()) {
+        return VocabularySearchInsight(
+            kind = VocabularySearchInsightKind.EMPTY_RESULTS,
+            title = "这条线索暂时没命中",
+            message = "换成原形、常见派生词或中文释义再试；很短的英文 typo 会被刻意忽略，避免噪声过多。",
+            primaryLabel = "结果",
+            primaryValue = "0",
+            secondaryLabel = "建议",
+            secondaryValue = "换词形",
+            actionLabel = "改关键词",
+            confidence = 0f,
+            focusTerms = emptyList(),
+        )
+    }
+
+    val directTermHits = results
+        .filter { it.term.contains(trimmed, ignoreCase = true) }
+        .distinctBy { it.term.lowercase() }
+    val formHits = results
+        .map { word ->
+            word to matchingWordForms(
+                query = trimmed,
+                term = word.term,
+                variants = word.derivatives,
+                limit = 2,
+            )
+        }
+        .filter { (_, forms) -> forms.isNotEmpty() }
+    val formHitCount = formHits.size
+    val meaningHits = results.count { word ->
+        word.translation.contains(trimmed, ignoreCase = true) ||
+            word.definition.contains(trimmed, ignoreCase = true)
+    }
+    val rootCluster = results
+        .mapNotNull { word -> word.rootKey.takeIf { it.isNotBlank() } }
+        .groupingBy { it }
+        .eachCount()
+        .filterValues { it >= 2 }
+        .maxWithOrNull(
+            compareBy<Map.Entry<String, Int>> { it.value }
+                .thenBy { it.key.length },
+        )
+    val focusTerms = when {
+        directTermHits.isNotEmpty() -> directTermHits.map { it.term }
+        formHits.isNotEmpty() -> formHits.flatMap { (word, forms) ->
+            forms.map { form -> if (form.equals(word.term, ignoreCase = true)) word.term else form }
+        }
+        rootCluster != null -> results.filter { it.rootKey == rootCluster.key }.map { it.term }
+        else -> results.map { it.term }
+    }
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .distinctBy { it.lowercase() }
+        .take(cappedFocus)
+
+    return when {
+        directTermHits.isNotEmpty() -> VocabularySearchInsight(
+            kind = VocabularySearchInsightKind.TERM_MATCH,
+            title = "已直接命中原词",
+            message = "结果里有 ${directTermHits.size} 个词条包含“$trimmed”，优先看这些原词，再顺手扫同根和派生词。",
+            primaryLabel = "原词命中",
+            primaryValue = directTermHits.size.toString(),
+            secondaryLabel = "总结果",
+            secondaryValue = results.size.toString(),
+            actionLabel = "先看原词",
+            confidence = (directTermHits.size.toFloat() / results.size.toFloat()).coerceIn(0.2f, 1f),
+            focusTerms = focusTerms,
+        )
+        formHitCount > 0 -> VocabularySearchInsight(
+            kind = VocabularySearchInsightKind.WORD_FORM_MATCH,
+            title = "这是词形命中",
+            message = "“$trimmed” 更像派生词或轻微 typo，先看词形雷达里的命中形，再回到原词建立记忆。",
+            primaryLabel = "词形命中",
+            primaryValue = formHitCount.toString(),
+            secondaryLabel = "总结果",
+            secondaryValue = results.size.toString(),
+            actionLabel = "看词形雷达",
+            confidence = (formHitCount.toFloat() / results.size.toFloat()).coerceIn(0.24f, 1f),
+            focusTerms = focusTerms,
+        )
+        rootCluster != null -> VocabularySearchInsight(
+            kind = VocabularySearchInsightKind.ROOT_CLUSTER,
+            title = "结果集中在 ${rootCluster.key} 词根",
+            message = "这次命中形成了同根小簇，适合把这些词放在一起比较，而不是逐个孤立背。",
+            primaryLabel = "同根结果",
+            primaryValue = rootCluster.value.toString(),
+            secondaryLabel = "词根",
+            secondaryValue = rootCluster.key,
+            actionLabel = "按词根看",
+            confidence = (rootCluster.value.toFloat() / results.size.toFloat()).coerceIn(0.25f, 1f),
+            focusTerms = focusTerms,
+        )
+        else -> VocabularySearchInsight(
+            kind = VocabularySearchInsightKind.MEANING_MATCH,
+            title = "主要是释义线索命中",
+            message = "这次更像中文释义或英文解释命中；先看前几条，再用词根和例句判断是不是你要找的词。",
+            primaryLabel = "释义命中",
+            primaryValue = meaningHits.toString(),
+            secondaryLabel = "总结果",
+            secondaryValue = results.size.toString(),
+            actionLabel = if (trimmed.length >= 4) "对照释义" else "继续缩小",
+            confidence = (meaningHits.toFloat() / results.size.toFloat()).coerceIn(0.12f, 1f),
+            focusTerms = focusTerms,
+        )
+    }
+}
+
 fun recordPracticeAttempt(
     stats: PracticeSessionStats,
     rating: ReviewRating,

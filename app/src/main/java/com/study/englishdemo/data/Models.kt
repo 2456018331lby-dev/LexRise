@@ -383,3 +383,18 @@ data class ToughWordsBrief(
     val actionLabel: String,
     val intensity: Float,
 )
+
+enum class VocabularySearchInsightKind { READY, EMPTY_RESULTS, TERM_MATCH, WORD_FORM_MATCH, ROOT_CLUSTER, MEANING_MATCH }
+
+data class VocabularySearchInsight(
+    val kind: VocabularySearchInsightKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val confidence: Float,
+    val focusTerms: List<String>,
+)

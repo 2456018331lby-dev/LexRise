@@ -1,8 +1,16 @@
-# Englishdemo / LexRise v0.19
+# Englishdemo / LexRise v0.20
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
 
-## v0.19 亮点
+## v0.20 亮点
+
+- **词汇搜索新增“检索洞察”**
+  - 词汇 Tab 会在结果列表前判断当前查询是原词命中、词形/typo 命中、同根聚簇、释义命中还是无结果
+  - 洞察卡展示命中类型、结果强度、关键数量和优先查看的焦点词形/词条
+  - 搜 `clarifed` 这类派生词 typo 时，会提示先看词形雷达，再回到原词建立记忆
+  - 逻辑由 `buildVocabularySearchInsight` 纯函数派生，不新增数据库字段，不改变搜索排序
+
+## v0.19 基线亮点
 
 - **难词专攻新增“错题战情台”**
   - 难词 Tab 顶部会汇总当前错题池，判断主导问题是重建、词根、语境还是巩固
@@ -250,6 +258,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.20（2026-06-08）
+- 词汇 Tab 新增“检索洞察”，在结果列表前解释当前命中类型和下一步查看顺序
+- 新增 `VocabularySearchInsight` / `VocabularySearchInsightKind` 和 `buildVocabularySearchInsight` 纯函数
+- 新增 `VocabularySearchInsightCard` / `VocabularyInsightMetric`，展示命中强度、数量指标和焦点词形/词条
+- 应用版本元数据同步到 0.20.0
+- 测试 77 → 82
 
 ### v0.19（2026-06-08）
 - 难词专攻新增“错题战情台”，汇总错题池的主导处方、风险强度和优先打法

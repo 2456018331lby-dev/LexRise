@@ -119,6 +119,8 @@ import com.study.englishdemo.data.StudyPhase
 import com.study.englishdemo.data.ToughWordPrescription
 import com.study.englishdemo.data.ToughWordPrescriptionKind
 import com.study.englishdemo.data.ToughWordsBrief
+import com.study.englishdemo.data.VocabularySearchInsight
+import com.study.englishdemo.data.VocabularySearchInsightKind
 import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
 import com.study.englishdemo.data.WordMemoryAnchor
@@ -129,6 +131,7 @@ import com.study.englishdemo.data.buildRootGroupInsight
 import com.study.englishdemo.data.buildStudyFocusCue
 import com.study.englishdemo.data.buildToughWordPrescription
 import com.study.englishdemo.data.buildToughWordsBrief
+import com.study.englishdemo.data.buildVocabularySearchInsight
 import com.study.englishdemo.data.buildWordMemoryAnchor
 import com.study.englishdemo.data.decomposeWord
 import com.study.englishdemo.data.matchingWordForms
@@ -1045,6 +1048,16 @@ private fun VocabularyScreen(
     onQuery: (String) -> Unit,
     onPhase: (StudyPhase?) -> Unit,
 ) {
+    val searchInsight = remember(
+        uiState.vocabularyQuery,
+        uiState.vocabularyResults,
+        uiState.vocabularyLoading,
+    ) {
+        buildVocabularySearchInsight(
+            query = uiState.vocabularyQuery,
+            results = uiState.vocabularyResults,
+        )
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -1070,6 +1083,12 @@ private fun VocabularyScreen(
                     loading = uiState.vocabularyLoading,
                 )
             }
+        }
+        item {
+            VocabularySearchInsightCard(
+                insight = searchInsight,
+                loading = uiState.vocabularyLoading,
+            )
         }
         item {
             LazyRow(
@@ -1121,6 +1140,169 @@ private fun VocabularySearchStatus(query: String, resultCount: Int, loading: Boo
             fontWeight = FontWeight.Medium,
         )
     }
+}
+
+@Composable
+private fun VocabularySearchInsightCard(insight: VocabularySearchInsight, loading: Boolean) {
+    val accent = vocabularySearchInsightAccent(insight.kind)
+    val icon = when (insight.kind) {
+        VocabularySearchInsightKind.READY -> Icons.Rounded.Search
+        VocabularySearchInsightKind.EMPTY_RESULTS -> Icons.Rounded.Close
+        VocabularySearchInsightKind.TERM_MATCH -> Icons.Rounded.Check
+        VocabularySearchInsightKind.WORD_FORM_MATCH -> Icons.Rounded.Translate
+        VocabularySearchInsightKind.ROOT_CLUSTER -> Icons.Rounded.AccountTree
+        VocabularySearchInsightKind.MEANING_MATCH -> Icons.Rounded.AutoStories
+    }
+    val animated by animateFloatAsState(
+        targetValue = if (loading) 0.12f else insight.confidence.coerceIn(0f, 1f),
+        animationSpec = tween(500),
+        label = "vocabularySearchInsightConfidence",
+    )
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.18f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+                        ),
+                    ),
+                )
+                .padding(16.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(16.dp), color = accent.copy(alpha = 0.14f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(9.dp)
+                                    .size(20.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "检索洞察",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                if (loading) "正在刷新结果…" else insight.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                if (loading) "搜索和阶段筛选正在更新，稍后会重新判断命中类型。" else insight.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                            )
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            if (loading) "检索中" else insight.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { animated },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    VocabularyInsightMetric(
+                        label = insight.primaryLabel,
+                        value = if (loading) "…" else insight.primaryValue,
+                        accent = accent,
+                        modifier = Modifier.weight(1f),
+                    )
+                    VocabularyInsightMetric(
+                        label = insight.secondaryLabel,
+                        value = if (loading) "…" else insight.secondaryValue,
+                        accent = accent,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (!loading && insight.focusTerms.isNotEmpty()) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        items(insight.focusTerms, key = { it }) { term ->
+                            Surface(shape = RoundedCornerShape(14.dp), color = accent.copy(alpha = 0.10f)) {
+                                Text(
+                                    term,
+                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = accent,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VocabularyInsightMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.76f),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = accent)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun vocabularySearchInsightAccent(kind: VocabularySearchInsightKind): Color = when (kind) {
+    VocabularySearchInsightKind.READY -> MaterialTheme.colorScheme.primary
+    VocabularySearchInsightKind.EMPTY_RESULTS -> MaterialTheme.colorScheme.error
+    VocabularySearchInsightKind.TERM_MATCH -> Color(0xFF2D5B52)
+    VocabularySearchInsightKind.WORD_FORM_MATCH -> Color(0xFF3F6F8F)
+    VocabularySearchInsightKind.ROOT_CLUSTER -> Color(0xFF6E8B3D)
+    VocabularySearchInsightKind.MEANING_MATCH -> Color(0xFFC98A3D)
 }
 
 @Composable
