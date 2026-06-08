@@ -576,6 +576,89 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildRootAtlasBrief_handlesEmptyRootBooks() {
+        val brief = buildRootAtlasBrief(
+            groups = emptyList(),
+            snapshot = BookRootSnapshot(totalRoots = 0, touchedRoots = 0, totalClustered = 0, learnedClustered = 0),
+        )
+
+        assertThat(brief.kind).isEqualTo(RootAtlasBriefKind.EMPTY)
+        assertThat(brief.primaryValue).isEqualTo("0")
+        assertThat(brief.secondaryValue).isEqualTo("0")
+        assertThat(brief.progress).isEqualTo(0f)
+        assertThat(brief.focusRoots).isEmpty()
+    }
+
+    @Test
+    fun buildRootAtlasBrief_seedsUntouchedAtlas() {
+        val brief = buildRootAtlasBrief(
+            groups = listOf(
+                fakeRootGroup("spec", total = 4, learned = 0),
+                fakeRootGroup("stat", total = 2, learned = 0),
+            ),
+            snapshot = BookRootSnapshot(totalRoots = 10, touchedRoots = 0, totalClustered = 30, learnedClustered = 0),
+        )
+
+        assertThat(brief.kind).isEqualTo(RootAtlasBriefKind.SEED)
+        assertThat(brief.primaryValue).isEqualTo("0/10")
+        assertThat(brief.secondaryValue).isEqualTo("0/30")
+        assertThat(brief.focusRoots).containsExactly("spec", "stat").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("先开地基根")
+    }
+
+    @Test
+    fun buildRootAtlasBrief_expandsLowCoverageWithUntouchedLargeRoots() {
+        val brief = buildRootAtlasBrief(
+            groups = listOf(
+                fakeRootGroup("stat", total = 5, learned = 2),
+                fakeRootGroup("spect", total = 4, learned = 0),
+                fakeRootGroup("grad", total = 2, learned = 0),
+            ),
+            snapshot = BookRootSnapshot(totalRoots = 20, touchedRoots = 4, totalClustered = 100, learnedClustered = 20),
+        )
+
+        assertThat(brief.kind).isEqualTo(RootAtlasBriefKind.EXPAND)
+        assertThat(brief.primaryValue).isEqualTo("4/20")
+        assertThat(brief.focusRoots).containsExactly("spect", "grad", "stat").inOrder()
+        assertThat(brief.progress).isWithin(0.001f).of(0.2f)
+    }
+
+    @Test
+    fun buildRootAtlasBrief_consolidatesPartialRootFamilies() {
+        val brief = buildRootAtlasBrief(
+            groups = listOf(
+                fakeRootGroup("scrib", total = 4, learned = 3),
+                fakeRootGroup("tract", total = 5, learned = 2),
+                fakeRootGroup("port", total = 2, learned = 2),
+            ),
+            snapshot = BookRootSnapshot(totalRoots = 10, touchedRoots = 6, totalClustered = 40, learnedClustered = 20),
+        )
+
+        assertThat(brief.kind).isEqualTo(RootAtlasBriefKind.CONSOLIDATE)
+        assertThat(brief.primaryValue).isEqualTo("6/10")
+        assertThat(brief.secondaryValue).isEqualTo("20/40")
+        assertThat(brief.focusRoots).containsExactly("scrib", "tract").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("收束半熟根")
+    }
+
+    @Test
+    fun buildRootAtlasBrief_marksBroadlyTouchedAtlasAsMastered() {
+        val brief = buildRootAtlasBrief(
+            groups = listOf(
+                fakeRootGroup("clar", total = 2, learned = 2),
+                fakeRootGroup("spec", total = 4, learned = 4),
+                fakeRootGroup("stat", total = 5, learned = 4),
+            ),
+            snapshot = BookRootSnapshot(totalRoots = 10, touchedRoots = 10, totalClustered = 40, learnedClustered = 36),
+        )
+
+        assertThat(brief.kind).isEqualTo(RootAtlasBriefKind.MASTERED)
+        assertThat(brief.primaryValue).isEqualTo("10/10")
+        assertThat(brief.focusRoots).containsExactly("spec", "clar").inOrder()
+        assertThat(brief.progress).isEqualTo(1f)
+    }
+
+    @Test
     fun buildQuizOptions_alwaysIncludesCorrectAndFourTotal() {
         val pool = listOf(
             fakeEntry("state", "stat"),
@@ -1209,6 +1292,25 @@ class MorphologyHelpersTest {
             )
         },
     )
+
+    private fun fakeRootGroup(rootKey: String, total: Int, learned: Int): RootGroup {
+        val safeTotal = total.coerceAtLeast(0)
+        val safeLearned = learned.coerceIn(0, safeTotal)
+        val members = (1..safeTotal).map { index ->
+            fakeEntry(
+                term = "$rootKey$index",
+                rootKey = rootKey,
+                phase = if (index <= safeLearned) StudyPhase.REVIEW else StudyPhase.NEW,
+            )
+        }
+        return RootGroup(
+            rootKey = rootKey,
+            meanings = emptyList(),
+            totalWords = safeTotal,
+            learnedWords = safeLearned,
+            members = members,
+        )
+    }
 
     private fun fakeSession(
         reviewDueCount: Int = 0,

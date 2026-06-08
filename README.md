@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.23
+# Englishdemo / LexRise v0.24
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.24 亮点
+
+- **词根 Tab 新增“词根图谱简报”**
+  - 进入词根图谱后，会先判断整本词书的词根覆盖处于待生成、起步、扩展、收束还是基本铺开状态
+  - 简报结合 `BookRootSnapshot` 和当前可见根族，展示词根覆盖、聚簇词入轨数量、进度条和优先根族 chips
+  - 搜索词根时仍保留整本覆盖判断，只把焦点根族收窄到当前可见结果，避免把搜索结果误当作整本进度
+  - 逻辑由 `buildRootAtlasBrief` 纯函数派生，不新增数据库字段，不改变词根列表排序、学习顺序或 SRS 评分
 
 ## v0.23 亮点
 
@@ -282,6 +290,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.24（2026-06-08）
+- 词根 Tab 新增“词根图谱简报”，在浏览单个根族前先解释整本词根覆盖状态和下一步打法
+- 新增 `RootAtlasBrief` / `RootAtlasBriefKind` 和 `buildRootAtlasBrief` 纯函数
+- 新增 `RootAtlasBriefCard` / `RootAtlasMetric`，展示词根覆盖、聚簇词入轨、进度条和优先根族 chips
+- 应用版本元数据同步到 0.24.0
+- 测试 99 → 104
 
 ### v0.23（2026-06-08）
 - Dashboard 新增“七日节奏简报”，在 30 日热力图前解释最近一周复习节奏和下一步收口方式

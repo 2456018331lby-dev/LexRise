@@ -590,6 +590,151 @@ fun buildRootGroupInsight(group: RootGroup, focusLimit: Int = 3): RootGroupInsig
     )
 }
 
+fun buildRootAtlasBrief(
+    groups: List<RootGroup>,
+    snapshot: BookRootSnapshot,
+    focusLimit: Int = 4,
+): RootAtlasBrief {
+    val visibleGroups = groups
+        .filter { it.rootKey.isNotBlank() && it.totalWords > 0 }
+        .distinctBy { it.rootKey.lowercase() }
+    val totalRoots = if (snapshot.totalRoots > 0) snapshot.totalRoots else visibleGroups.size
+    val totalClustered = if (snapshot.totalClustered > 0) {
+        snapshot.totalClustered
+    } else {
+        visibleGroups.sumOf { it.totalWords.coerceAtLeast(0) }
+    }
+    if (totalRoots <= 0 || totalClustered <= 0) {
+        return RootAtlasBrief(
+            kind = RootAtlasBriefKind.EMPTY,
+            title = "词根图谱待生成",
+            message = "当前词书暂时没有可聚合的词根线索，先回到新词或词汇页建立基础词条。",
+            primaryLabel = "词根",
+            primaryValue = "0",
+            secondaryLabel = "词条",
+            secondaryValue = "0",
+            actionLabel = "先学新词",
+            progress = 0f,
+            focusRoots = emptyList(),
+        )
+    }
+
+    val touchedRoots = if (snapshot.totalRoots > 0) {
+        snapshot.touchedRoots.coerceIn(0, totalRoots)
+    } else {
+        visibleGroups.count { it.learnedWords.coerceAtLeast(0) > 0 }
+    }
+    val learnedClustered = if (snapshot.totalClustered > 0) {
+        snapshot.learnedClustered.coerceIn(0, totalClustered)
+    } else {
+        visibleGroups.sumOf { group -> group.learnedWords.coerceIn(0, group.totalWords.coerceAtLeast(0)) }
+    }
+    val coverage = (touchedRoots.toFloat() / totalRoots.toFloat()).coerceIn(0f, 1f)
+    val clusteredProgress = (learnedClustered.toFloat() / totalClustered.toFloat()).coerceIn(0f, 1f)
+    val partialGroups = visibleGroups.filter {
+        val total = it.totalWords.coerceAtLeast(0)
+        val learned = it.learnedWords.coerceIn(0, total)
+        learned in 1 until total
+    }
+
+    val kind = when {
+        touchedRoots == 0 || learnedClustered == 0 -> RootAtlasBriefKind.SEED
+        coverage < 0.35f -> RootAtlasBriefKind.EXPAND
+        coverage >= 0.90f && clusteredProgress >= 0.88f -> RootAtlasBriefKind.MASTERED
+        else -> RootAtlasBriefKind.CONSOLIDATE
+    }
+    val focusLimitSafe = focusLimit.coerceAtLeast(0)
+    fun RootGroup.progressRatio(): Float {
+        val total = totalWords.coerceAtLeast(0)
+        val learned = learnedWords.coerceIn(0, total)
+        return if (total == 0) 0f else learned.toFloat() / total.toFloat()
+    }
+    val focusSource = when (kind) {
+        RootAtlasBriefKind.EMPTY -> emptyList()
+        RootAtlasBriefKind.SEED -> visibleGroups
+            .filter { it.learnedWords.coerceAtMost(it.totalWords) <= 0 }
+            .sortedWith(compareByDescending<RootGroup> { it.totalWords }.thenBy { it.rootKey })
+        RootAtlasBriefKind.EXPAND -> visibleGroups
+            .filter { it.learnedWords < it.totalWords }
+            .sortedWith(
+                compareBy<RootGroup> { if (it.learnedWords > 0) 1 else 0 }
+                    .thenByDescending { it.totalWords }
+                    .thenBy { it.rootKey },
+            )
+        RootAtlasBriefKind.CONSOLIDATE -> partialGroups
+            .sortedWith(
+                compareByDescending<RootGroup> { it.progressRatio() }
+                    .thenByDescending { it.totalWords }
+                    .thenBy { it.rootKey },
+            )
+            .ifEmpty {
+                visibleGroups.sortedWith(
+                    compareByDescending<RootGroup> { it.progressRatio() }
+                        .thenByDescending { it.totalWords }
+                        .thenBy { it.rootKey },
+                )
+            }
+        RootAtlasBriefKind.MASTERED -> visibleGroups
+            .filter { it.learnedWords >= it.totalWords }
+            .sortedWith(compareByDescending<RootGroup> { it.totalWords }.thenBy { it.rootKey })
+            .ifEmpty {
+                visibleGroups.sortedWith(
+                    compareByDescending<RootGroup> { it.progressRatio() }
+                        .thenByDescending { it.totalWords }
+                        .thenBy { it.rootKey },
+                )
+            }
+    }
+    val focusRoots = focusSource
+        .map { it.rootKey }
+        .distinct()
+        .take(focusLimitSafe)
+
+    val title: String
+    val message: String
+    val action: String
+    when (kind) {
+        RootAtlasBriefKind.EMPTY -> {
+            title = "词根图谱待生成"
+            message = "当前词书暂时没有可聚合的词根线索，先回到新词或词汇页建立基础词条。"
+            action = "先学新词"
+        }
+        RootAtlasBriefKind.SEED -> {
+            title = "先给词根图谱打地基"
+            message = "整本书还没有触达词根，先从成员多的根族开局，把 rootKey 和第一批高频词绑在一起。"
+            action = "先开地基根"
+        }
+        RootAtlasBriefKind.EXPAND -> {
+            title = "词根覆盖偏低，先铺开图谱"
+            message = "已触达 $touchedRoots/$totalRoots 个词根，优先打开未触达的大根族，让后续新词不再孤立出现。"
+            action = "扩展图谱"
+        }
+        RootAtlasBriefKind.CONSOLIDATE -> {
+            title = "图谱已铺开，收束半熟根族"
+            message = "已有 $touchedRoots 个词根入轨，下一步适合补齐学习中根族，把相近词义和词形差异讲清楚。"
+            action = "收束半熟根"
+        }
+        RootAtlasBriefKind.MASTERED -> {
+            title = "词根图谱基本铺开"
+            message = "多数聚簇词已经进入学习轨道，后续靠 Review 稳住；混淆时回看强根族做横向复盘。"
+            action = "回看强根族"
+        }
+    }
+
+    return RootAtlasBrief(
+        kind = kind,
+        title = title,
+        message = message,
+        primaryLabel = "词根覆盖",
+        primaryValue = "$touchedRoots/$totalRoots",
+        secondaryLabel = "词条入轨",
+        secondaryValue = "$learnedClustered/$totalClustered",
+        actionLabel = action,
+        progress = coverage,
+        focusRoots = focusRoots,
+    )
+}
+
 /**
  * Builds a 4-option multiple-choice question. Distractors come from the
  * provided pool, prioritizing words sharing the same rootKey (higher

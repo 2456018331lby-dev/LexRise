@@ -92,13 +92,14 @@ python tools/build_wordlists.py
 
 ### 能不能避开？能避开就避开
 
-很多"新功能"其实不需要加列。本项目 v0.3-v0.23 的所有新能力（簇首、词根覆盖、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、本轮练习统计、本轮教练、复习队列预案、七日节奏简报、首页学习焦点、今日训练路线、新词记忆锚、新词批次策略）都走**派生查询、纯函数派生或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
+很多"新功能"其实不需要加列。本项目 v0.3-v0.24 的所有新能力（簇首、词根覆盖、词根图谱简报、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、本轮练习统计、本轮教练、复习队列预案、七日节奏简报、首页学习焦点、今日训练路线、新词记忆锚、新词批次策略）都走**派生查询、纯函数派生或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
 
 - 想标记"这个词是簇首"？→ 已经有 `getAnchorWordIds(bookId)` 动态算，不加 `isAnchor` 列
 - 想统计"哪个词翻车最多"？→ `getToughWordsForBook` 从 `review_logs` GROUP BY 出来
 - 想让错题本告诉用户“怎么修这个词”？→ `buildToughWordPrescription` 从 `ToughWord` + 词条线索派生处方，不写 `review_logs`
 - 想汇总这批错题先怎么打？→ `buildToughWordsBrief` 从 `ToughWord` 列表和处方派生战情台，不写 `review_logs`
 - 想知道"这本书词根覆盖率"？→ `getBookRootSnapshot` 实时聚合
+- 想先解释整本词根图谱该怎么推进？→ `buildRootAtlasBrief` 从 `RootGroup` + `BookRootSnapshot` 派生词根图谱简报，不写设置、不改 root 列表排序
 - 想让词根 Tab 告诉用户“下一步看哪组词”？→ `buildRootGroupInsight` 从 `RootGroup` 触达比例和成员 phase 派生根族路线，不加列
 - 想加新练习题型？→ 优先用 `PracticeMode` + Repository 构题 + 纯函数，评分仍回 `reviewWord`
 - 想让完形题支持派生词或优化挖空优先级？→ `buildClozeBlank` 从已有 `derivatives` 字段派生候选并排序，不加表
@@ -298,6 +299,7 @@ git ls-files .android-sdk/ app/build/   # 应为空
 | 改首页七日节奏简报 | `data/MorphologyHelpers.kt#buildStudyRhythmBrief` + `data/Models.kt#StudyRhythmBrief/StudyRhythmBriefKind` + `MainActivity.kt#StudyRhythmBriefCard/StudyRhythmMetric` + `MorphologyHelpersTest` |
 | 改新词卡记忆锚 | `data/MorphologyHelpers.kt#buildWordMemoryAnchor` + `data/Models.kt#WordMemoryAnchor/WordMemoryAnchorKind` + `MainActivity.kt#WordMemoryAnchorPanel/MemoryAnchorMetric` + `MorphologyHelpersTest` |
 | 改新词批次策略 | `data/MorphologyHelpers.kt#buildWordBatchBrief` + `data/Models.kt#WordBatchBrief/WordBatchBriefKind` + `MainActivity.kt#WordBatchBriefCard/BatchBriefMetric` + `MorphologyHelpersTest` |
+| 改词根图谱简报 | `data/MorphologyHelpers.kt#buildRootAtlasBrief` + `data/Models.kt#RootAtlasBrief/RootAtlasBriefKind` + `MainActivity.kt#RootAtlasBriefCard/RootAtlasMetric` + `MorphologyHelpersTest` |
 | 改词根 Tab 根族路线 | `data/MorphologyHelpers.kt#buildRootGroupInsight` + `data/Models.kt#RootGroupInsight/RootGroupStage` + `MainActivity.kt#RootGroupCard/RootStageBadge/RootFocusTermChip` + `MorphologyHelpersTest` |
 | 改选择题干扰项逻辑 | `data/MorphologyHelpers.kt#buildQuizOptions` + `MorphologyHelpersTest` |
 | 改完形/例句挖空 | `data/MorphologyHelpers.kt#buildClozeBlank/blankTermInExample` + `StudyRepository.kt#buildClozeQuestion` + 对应 Test；候选排序保持原词优先、派生词按例句位置优先 |

@@ -113,6 +113,8 @@ import com.study.englishdemo.data.PracticeSessionStats
 import com.study.englishdemo.data.ReviewRating
 import com.study.englishdemo.data.ReviewQueueBrief
 import com.study.englishdemo.data.ReviewQueueBriefKind
+import com.study.englishdemo.data.RootAtlasBrief
+import com.study.englishdemo.data.RootAtlasBriefKind
 import com.study.englishdemo.data.RootGroup
 import com.study.englishdemo.data.RootGroupStage
 import com.study.englishdemo.data.StudyFocusCue
@@ -134,6 +136,7 @@ import com.study.englishdemo.data.WordMemoryAnchorKind
 import com.study.englishdemo.data.buildDailyStudyRoute
 import com.study.englishdemo.data.buildPracticeSessionCoach
 import com.study.englishdemo.data.buildReviewQueueBrief
+import com.study.englishdemo.data.buildRootAtlasBrief
 import com.study.englishdemo.data.buildRootGroupInsight
 import com.study.englishdemo.data.buildStudyFocusCue
 import com.study.englishdemo.data.buildStudyRhythmBrief
@@ -3088,6 +3091,9 @@ private fun RootsScreen(
     onSpeak: (String) -> Unit,
     onQuery: (String) -> Unit,
 ) {
+    val atlasBrief = remember(uiState.rootGroups, uiState.rootSnapshot) {
+        buildRootAtlasBrief(uiState.rootGroups, uiState.rootSnapshot)
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -3109,6 +3115,9 @@ private fun RootsScreen(
                 label = { Text("搜索词根（如 spec / 看见）") },
             )
         }
+        item {
+            RootAtlasBriefCard(atlasBrief)
+        }
         if (uiState.rootsLoading && uiState.rootGroups.isEmpty()) {
             item { EmptyStateCard("正在整理词根…") }
         } else if (uiState.rootGroups.isEmpty()) {
@@ -3119,6 +3128,154 @@ private fun RootsScreen(
             }
         }
     }
+}
+
+@Composable
+private fun RootAtlasBriefCard(brief: RootAtlasBrief) {
+    val accent = rootAtlasBriefAccent(brief.kind)
+    val icon = when (brief.kind) {
+        RootAtlasBriefKind.EMPTY -> Icons.Rounded.AutoStories
+        RootAtlasBriefKind.SEED -> Icons.Rounded.AccountTree
+        RootAtlasBriefKind.EXPAND -> Icons.Rounded.Insights
+        RootAtlasBriefKind.CONSOLIDATE -> Icons.Rounded.PsychologyAlt
+        RootAtlasBriefKind.MASTERED -> Icons.Rounded.Check
+    }
+    val progress by animateFloatAsState(
+        targetValue = brief.progress.coerceIn(0f, 1f),
+        animationSpec = tween(500),
+        label = "rootAtlasProgress",
+    )
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.20f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f),
+                        ),
+                    ),
+                )
+                .padding(18.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(18.dp), color = accent.copy(alpha = 0.16f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(10.dp)
+                                    .size(22.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "词根图谱简报",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(brief.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            brief.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                Text(
+                    brief.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.74f),
+                )
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(7.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    RootAtlasMetric(brief.primaryLabel, brief.primaryValue, accent, Modifier.weight(1f))
+                    RootAtlasMetric(brief.secondaryLabel, brief.secondaryValue, accent, Modifier.weight(1f))
+                }
+                if (brief.focusRoots.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Text(
+                            "优先根族",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
+                        )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(brief.focusRoots, key = { it }) { root ->
+                                Surface(
+                                    shape = RoundedCornerShape(999.dp),
+                                    color = accent.copy(alpha = 0.10f),
+                                ) {
+                                    Text(
+                                        root,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = accent,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RootAtlasMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = accent)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun rootAtlasBriefAccent(kind: RootAtlasBriefKind): Color = when (kind) {
+    RootAtlasBriefKind.EMPTY -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.60f)
+    RootAtlasBriefKind.SEED -> Color(0xFFC98A3D)
+    RootAtlasBriefKind.EXPAND -> MaterialTheme.colorScheme.primary
+    RootAtlasBriefKind.CONSOLIDATE -> Color(0xFF2D5B52)
+    RootAtlasBriefKind.MASTERED -> Color(0xFF6E8B3D)
 }
 
 @Composable

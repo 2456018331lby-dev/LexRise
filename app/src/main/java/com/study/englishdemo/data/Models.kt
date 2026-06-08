@@ -281,6 +281,21 @@ data class RootGroupInsight(
     val focusTerms: List<String>,
 )
 
+enum class RootAtlasBriefKind { EMPTY, SEED, EXPAND, CONSOLIDATE, MASTERED }
+
+data class RootAtlasBrief(
+    val kind: RootAtlasBriefKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val progress: Float,
+    val focusRoots: List<String>,
+)
+
 data class BookRootSnapshot(
     val totalRoots: Int,
     val touchedRoots: Int,
