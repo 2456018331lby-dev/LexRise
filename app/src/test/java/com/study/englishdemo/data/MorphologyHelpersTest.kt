@@ -702,6 +702,105 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildToughWordsBrief_handlesEmptyPool() {
+        val brief = buildToughWordsBrief(emptyList())
+
+        assertThat(brief.dominantKind).isEqualTo(ToughWordPrescriptionKind.STABILIZE)
+        assertThat(brief.totalCount).isEqualTo(0)
+        assertThat(brief.highRiskCount).isEqualTo(0)
+        assertThat(brief.actionLabel).isEqualTo("保持节奏")
+        assertThat(brief.intensity).isEqualTo(0f)
+    }
+
+    @Test
+    fun buildToughWordsBrief_surfacesRebuildPressure() {
+        val brief = buildToughWordsBrief(
+            listOf(
+                ToughWord(
+                    word = fakeEntry("clarify", "clar", StudyPhase.LEARNING),
+                    againCount = 5,
+                    lapses = 3,
+                    lastReviewedAt = null,
+                ),
+                ToughWord(
+                    word = fakeEntry("collapse", "", StudyPhase.REVIEW),
+                    againCount = 6,
+                    lapses = 0,
+                    lastReviewedAt = null,
+                ),
+                ToughWord(
+                    word = fakeEntry("statement", "stat", StudyPhase.LEARNING),
+                    againCount = 2,
+                    lapses = 0,
+                    lastReviewedAt = null,
+                ),
+            ),
+        )
+
+        assertThat(brief.dominantKind).isEqualTo(ToughWordPrescriptionKind.REBUILD)
+        assertThat(brief.dominantLabel).isEqualTo("重建")
+        assertThat(brief.totalCount).isEqualTo(3)
+        assertThat(brief.highRiskCount).isEqualTo(2)
+        assertThat(brief.peakAgainCount).isEqualTo(6)
+        assertThat(brief.actionLabel).isEqualTo("先重建")
+    }
+
+    @Test
+    fun buildToughWordsBrief_breaksTiesTowardRootTrace() {
+        val brief = buildToughWordsBrief(
+            listOf(
+                ToughWord(
+                    word = fakeEntry("statement", "stat", StudyPhase.LEARNING),
+                    againCount = 2,
+                    lapses = 0,
+                    lastReviewedAt = null,
+                ),
+                ToughWord(
+                    word = fakeEntry(
+                        term = "benefit",
+                        rootKey = "",
+                        phase = StudyPhase.REVIEW,
+                        example = "Daily practice brings benefit.",
+                    ),
+                    againCount = 2,
+                    lapses = 0,
+                    lastReviewedAt = null,
+                ),
+            ),
+        )
+
+        assertThat(brief.dominantKind).isEqualTo(ToughWordPrescriptionKind.ROOT_TRACE)
+        assertThat(brief.dominantLabel).isEqualTo("词根")
+        assertThat(brief.actionLabel).isEqualTo("按词根修")
+    }
+
+    @Test
+    fun buildToughWordsBrief_stabilizesLightMistakes() {
+        val brief = buildToughWordsBrief(
+            listOf(
+                ToughWord(
+                    word = fakeEntry("focus", "", StudyPhase.REVIEW),
+                    againCount = 1,
+                    lapses = 0,
+                    lastReviewedAt = null,
+                ),
+                ToughWord(
+                    word = fakeEntry("plain", "", StudyPhase.NEW),
+                    againCount = 1,
+                    lapses = 0,
+                    lastReviewedAt = null,
+                ),
+            ),
+        )
+
+        assertThat(brief.dominantKind).isEqualTo(ToughWordPrescriptionKind.STABILIZE)
+        assertThat(brief.totalCount).isEqualTo(2)
+        assertThat(brief.highRiskCount).isEqualTo(0)
+        assertThat(brief.actionLabel).isEqualTo("快扫一轮")
+        assertThat(brief.intensity).isWithin(0.001f).of(0.125f)
+    }
+
+    @Test
     fun normalizedEditDistance_exactMatchIsZero() {
         assertThat(normalizedEditDistance("focus", "focus")).isEqualTo(0.0)
         assertThat(normalizedEditDistance("Focus", "focus")).isEqualTo(0.0)

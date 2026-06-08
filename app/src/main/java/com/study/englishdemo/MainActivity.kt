@@ -118,6 +118,7 @@ import com.study.englishdemo.data.StudyFocusKind
 import com.study.englishdemo.data.StudyPhase
 import com.study.englishdemo.data.ToughWordPrescription
 import com.study.englishdemo.data.ToughWordPrescriptionKind
+import com.study.englishdemo.data.ToughWordsBrief
 import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
 import com.study.englishdemo.data.WordMemoryAnchor
@@ -127,6 +128,7 @@ import com.study.englishdemo.data.buildPracticeSessionCoach
 import com.study.englishdemo.data.buildRootGroupInsight
 import com.study.englishdemo.data.buildStudyFocusCue
 import com.study.englishdemo.data.buildToughWordPrescription
+import com.study.englishdemo.data.buildToughWordsBrief
 import com.study.englishdemo.data.buildWordMemoryAnchor
 import com.study.englishdemo.data.decomposeWord
 import com.study.englishdemo.data.matchingWordForms
@@ -3152,6 +3154,9 @@ private fun ToughWordsScreen(
     onRefresh: () -> Unit,
 ) {
     LaunchedEffect(uiState.selectedBookId) { onRefresh() }
+    val toughBrief = remember(uiState.toughWords) {
+        buildToughWordsBrief(uiState.toughWords)
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -3168,6 +3173,7 @@ private fun ToughWordsScreen(
         } else if (uiState.toughWords.isEmpty()) {
             item { EmptyStateCard("还没有翻车过的词，保持住") }
         } else {
+            item { ToughWordsBriefCard(toughBrief) }
             items(uiState.toughWords, key = { it.word.id }) { tough ->
                 ToughWordCard(
                     tough = tough,
@@ -3178,6 +3184,105 @@ private fun ToughWordsScreen(
                     onMnemonic = onMnemonic,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ToughWordsBriefCard(brief: ToughWordsBrief) {
+    val accent = toughPrescriptionAccent(brief.dominantKind)
+    val animated by animateFloatAsState(
+        targetValue = brief.intensity.coerceIn(0f, 1f),
+        animationSpec = tween(500),
+        label = "toughWordsBriefIntensity",
+    )
+    Card(
+        shape = RoundedCornerShape(30.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.18f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f),
+                        ),
+                    ),
+                )
+                .padding(18.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.weight(1f)) {
+                        Text("错题战情台", style = MaterialTheme.typography.labelMedium, color = accent)
+                        Text(brief.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(
+                            brief.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                        )
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.14f)) {
+                        Text(
+                            brief.dominantLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { animated },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(7.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ToughBriefMetric("错题", brief.totalCount.toString(), accent, Modifier.weight(1f))
+                    ToughBriefMetric("高风险", brief.highRiskCount.toString(), accent, Modifier.weight(1f))
+                    ToughBriefMetric("最高重来", brief.peakAgainCount.toString(), accent, Modifier.weight(1f))
+                }
+                Surface(shape = RoundedCornerShape(18.dp), color = accent.copy(alpha = 0.10f)) {
+                    Text(
+                        brief.actionLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = accent,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToughBriefMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = accent.copy(alpha = 0.09f),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = accent)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+            )
         }
     }
 }

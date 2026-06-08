@@ -371,3 +371,15 @@ data class ToughWordPrescription(
     val actionLabel: String,
     val intensity: Float,
 )
+
+data class ToughWordsBrief(
+    val title: String,
+    val message: String,
+    val dominantKind: ToughWordPrescriptionKind,
+    val dominantLabel: String,
+    val totalCount: Int,
+    val highRiskCount: Int,
+    val peakAgainCount: Int,
+    val actionLabel: String,
+    val intensity: Float,
+)

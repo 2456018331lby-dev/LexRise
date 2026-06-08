@@ -673,6 +673,87 @@ fun buildToughWordPrescription(tough: ToughWord): ToughWordPrescription {
     }
 }
 
+fun buildToughWordsBrief(toughWords: List<ToughWord>): ToughWordsBrief {
+    if (toughWords.isEmpty()) {
+        return ToughWordsBrief(
+            title = "错题池很干净",
+            message = "目前没有需要专攻的 AGAIN 记录，可以把时间放在新词或常规复习上。",
+            dominantKind = ToughWordPrescriptionKind.STABILIZE,
+            dominantLabel = "清空",
+            totalCount = 0,
+            highRiskCount = 0,
+            peakAgainCount = 0,
+            actionLabel = "保持节奏",
+            intensity = 0f,
+        )
+    }
+    val prescriptions = toughWords.map { buildToughWordPrescription(it) }
+    val dominantKind = prescriptions
+        .groupingBy { it.kind }
+        .eachCount()
+        .maxWithOrNull(
+            compareBy<Map.Entry<ToughWordPrescriptionKind, Int>> { it.value }
+                .thenBy { toughKindPriority(it.key) },
+        )?.key ?: ToughWordPrescriptionKind.STABILIZE
+    val highRiskCount = prescriptions.count { it.intensity >= 0.75f }
+    val peakAgain = toughWords.maxOfOrNull { it.againCount.coerceAtLeast(0) } ?: 0
+    val averageIntensity = prescriptions.map { it.intensity }.average().takeIf { !it.isNaN() }?.toFloat() ?: 0f
+    val total = toughWords.size
+    return when (dominantKind) {
+        ToughWordPrescriptionKind.REBUILD -> ToughWordsBrief(
+            title = "先处理高风险断点",
+            message = "错题池里重建型最多，先慢速拆词、读例句，再评分；不要连续快点“会了”。",
+            dominantKind = dominantKind,
+            dominantLabel = "重建",
+            totalCount = total,
+            highRiskCount = highRiskCount,
+            peakAgainCount = peakAgain,
+            actionLabel = "先重建",
+            intensity = maxOf(averageIntensity, highRiskCount.toFloat() / total.toFloat()).coerceIn(0f, 1f),
+        )
+        ToughWordPrescriptionKind.ROOT_TRACE -> ToughWordsBrief(
+            title = "错因集中在词根线索",
+            message = "多数难词需要回到 rootKey，同根对照比单词孤刷更有效。",
+            dominantKind = dominantKind,
+            dominantLabel = "词根",
+            totalCount = total,
+            highRiskCount = highRiskCount,
+            peakAgainCount = peakAgain,
+            actionLabel = "按词根修",
+            intensity = averageIntensity.coerceIn(0f, 1f),
+        )
+        ToughWordPrescriptionKind.CONTEXT -> ToughWordsBrief(
+            title = "先用语境修复提取",
+            message = "错题更适合放回例句，先读句子再遮词回想，避免只记中文释义。",
+            dominantKind = dominantKind,
+            dominantLabel = "语境",
+            totalCount = total,
+            highRiskCount = highRiskCount,
+            peakAgainCount = peakAgain,
+            actionLabel = "读例句",
+            intensity = averageIntensity.coerceIn(0f, 1f),
+        )
+        ToughWordPrescriptionKind.STABILIZE -> ToughWordsBrief(
+            title = "错题压力可控",
+            message = "当前多是轻量错题，短频快扫即可；连续 GOOD 后它们会自然退出压力区。",
+            dominantKind = dominantKind,
+            dominantLabel = "巩固",
+            totalCount = total,
+            highRiskCount = highRiskCount,
+            peakAgainCount = peakAgain,
+            actionLabel = "快扫一轮",
+            intensity = averageIntensity.coerceIn(0f, 1f),
+        )
+    }
+}
+
+private fun toughKindPriority(kind: ToughWordPrescriptionKind): Int = when (kind) {
+    ToughWordPrescriptionKind.REBUILD -> 4
+    ToughWordPrescriptionKind.ROOT_TRACE -> 3
+    ToughWordPrescriptionKind.CONTEXT -> 2
+    ToughWordPrescriptionKind.STABILIZE -> 1
+}
+
 private fun studyPhaseLabel(phase: StudyPhase?): String = when (phase) {
     StudyPhase.NEW -> "新词"
     StudyPhase.LEARNING -> "学习中"
