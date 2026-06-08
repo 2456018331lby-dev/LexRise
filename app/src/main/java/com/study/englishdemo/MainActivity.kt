@@ -118,6 +118,8 @@ import com.study.englishdemo.data.RootGroupStage
 import com.study.englishdemo.data.StudyFocusCue
 import com.study.englishdemo.data.StudyFocusKind
 import com.study.englishdemo.data.StudyPhase
+import com.study.englishdemo.data.StudyRhythmBrief
+import com.study.englishdemo.data.StudyRhythmBriefKind
 import com.study.englishdemo.data.ToughWordPrescription
 import com.study.englishdemo.data.ToughWordPrescriptionKind
 import com.study.englishdemo.data.ToughWordsBrief
@@ -134,6 +136,7 @@ import com.study.englishdemo.data.buildPracticeSessionCoach
 import com.study.englishdemo.data.buildReviewQueueBrief
 import com.study.englishdemo.data.buildRootGroupInsight
 import com.study.englishdemo.data.buildStudyFocusCue
+import com.study.englishdemo.data.buildStudyRhythmBrief
 import com.study.englishdemo.data.buildToughWordPrescription
 import com.study.englishdemo.data.buildToughWordsBrief
 import com.study.englishdemo.data.buildVocabularySearchInsight
@@ -401,6 +404,12 @@ private fun DashboardScreen(
             toughWordCount = uiState.toughWords.size,
         )
     }
+    val rhythmBrief = remember(uiState.recentReviewCounts, session.overview) {
+        buildStudyRhythmBrief(
+            counts = uiState.recentReviewCounts,
+            overview = session.overview,
+        )
+    }
     var pendingDelete by remember { mutableStateOf<WordBook?>(null) }
     var pendingRename by remember { mutableStateOf<WordBook?>(null) }
     LazyColumn(
@@ -455,6 +464,9 @@ private fun DashboardScreen(
         }
         item {
             SectionTitle("最近 30 日复习")
+        }
+        item {
+            StudyRhythmBriefCard(rhythmBrief)
         }
         item {
             ReviewHeatmap(uiState.recentReviewCounts)
@@ -635,6 +647,172 @@ private fun ReviewHeatmap(counts: List<DailyReviewCount>) {
             }
         }
     }
+}
+
+@Composable
+private fun StudyRhythmBriefCard(brief: StudyRhythmBrief) {
+    val accent = studyRhythmAccent(brief.kind)
+    val icon = when (brief.kind) {
+        StudyRhythmBriefKind.QUIET -> Icons.Rounded.AutoStories
+        StudyRhythmBriefKind.RECOVERY -> Icons.Rounded.PsychologyAlt
+        StudyRhythmBriefKind.BALANCE -> Icons.Rounded.Insights
+        StudyRhythmBriefKind.STEADY -> Icons.Rounded.Check
+        StudyRhythmBriefKind.SURGE -> Icons.Rounded.LocalFireDepartment
+    }
+    val maxCount = (brief.recentCounts.maxOrNull() ?: 0).coerceAtLeast(1)
+    val momentum by animateFloatAsState(
+        targetValue = brief.momentum.coerceIn(0f, 1f),
+        animationSpec = tween(500),
+        label = "studyRhythmMomentum",
+    )
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.20f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f),
+                        ),
+                    ),
+                )
+                .padding(18.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(18.dp), color = accent.copy(alpha = 0.16f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(10.dp)
+                                    .size(22.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "七日节奏简报",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(brief.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            brief.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                Text(
+                    brief.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.74f),
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(68.dp),
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    brief.recentCounts.forEachIndexed { index, count ->
+                        val ratio = count.toFloat() / maxCount.toFloat()
+                        val animated by animateFloatAsState(
+                            targetValue = ratio.coerceIn(0f, 1f),
+                            animationSpec = tween(durationMillis = 420 + index * 35),
+                            label = "studyRhythmBar$index",
+                        )
+                        val barHeight = (46.dp.value * animated.coerceAtLeast(if (count == 0) 0.08f else 0.16f)).dp
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Bottom,
+                        ) {
+                            Text(
+                                count.toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f),
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(barHeight)
+                                    .background(
+                                        if (count == 0) {
+                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                        } else {
+                                            accent.copy(alpha = 0.35f + 0.65f * animated)
+                                        },
+                                        RoundedCornerShape(8.dp),
+                                    ),
+                            )
+                        }
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { momentum },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(7.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    StudyRhythmMetric(brief.primaryLabel, brief.primaryValue, accent, Modifier.weight(1f))
+                    StudyRhythmMetric(brief.secondaryLabel, brief.secondaryValue, accent, Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StudyRhythmMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = accent)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun studyRhythmAccent(kind: StudyRhythmBriefKind): Color = when (kind) {
+    StudyRhythmBriefKind.QUIET -> Color(0xFFC98A3D)
+    StudyRhythmBriefKind.RECOVERY -> Color(0xFFB65245)
+    StudyRhythmBriefKind.BALANCE -> MaterialTheme.colorScheme.secondary
+    StudyRhythmBriefKind.STEADY -> Color(0xFF2D5B52)
+    StudyRhythmBriefKind.SURGE -> Color(0xFF6E8B3D)
 }
 
 @Composable

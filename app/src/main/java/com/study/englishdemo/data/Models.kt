@@ -242,6 +242,21 @@ data class DailyReviewCount(
     val count: Int,
 )
 
+enum class StudyRhythmBriefKind { QUIET, RECOVERY, BALANCE, STEADY, SURGE }
+
+data class StudyRhythmBrief(
+    val kind: StudyRhythmBriefKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val momentum: Float,
+    val recentCounts: List<Int>,
+)
+
 data class RootGroup(
     val rootKey: String,
     val meanings: List<String>,

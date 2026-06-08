@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.22
+# Englishdemo / LexRise v0.23
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.23 亮点
+
+- **Dashboard 新增“七日节奏简报”**
+  - 首页会在 30 日热力图前先判断最近 7 天复习节奏是安静期、恢复、平衡、稳态还是冲刺
+  - 简报结合最近复习记录、今日完成数和当前负载，提示“先点亮今天 / 恢复节奏 / 稳步推进 / 保持节奏 / 收口复盘”
+  - 卡片展示 7 日微型节奏柱、动量条、关键指标和行动标签，让用户先看懂节奏再看热力图
+  - 逻辑由 `buildStudyRhythmBrief` 纯函数派生，不新增数据库字段，不改变复习记录、任务路线或 SRS 评分
 
 ## v0.22 亮点
 
@@ -274,6 +282,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.23（2026-06-08）
+- Dashboard 新增“七日节奏简报”，在 30 日热力图前解释最近一周复习节奏和下一步收口方式
+- 新增 `StudyRhythmBrief` / `StudyRhythmBriefKind` 和 `buildStudyRhythmBrief` 纯函数
+- 新增 `StudyRhythmBriefCard` / `StudyRhythmMetric`，展示 7 日节奏柱、动量条、指标和行动标签
+- 应用版本元数据同步到 0.23.0
+- 测试 94 → 99
 
 ### v0.22（2026-06-08）
 - Review Tab 新增“复习队列预案”，在本轮统计前提示到期词应先轻量回温、按词根修复、读语境、主动提取或混合清债

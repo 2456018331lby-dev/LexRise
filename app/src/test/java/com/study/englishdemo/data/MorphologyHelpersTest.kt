@@ -242,6 +242,96 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildStudyRhythmBrief_handlesQuietWeeks() {
+        val brief = buildStudyRhythmBrief(
+            counts = emptyList(),
+            overview = fakeSession().overview,
+        )
+
+        assertThat(brief.kind).isEqualTo(StudyRhythmBriefKind.QUIET)
+        assertThat(brief.primaryValue).isEqualTo("0")
+        assertThat(brief.secondaryValue).isEqualTo("20")
+        assertThat(brief.actionLabel).isEqualTo("先点亮今天")
+        assertThat(brief.recentCounts).containsExactly(0, 0, 0, 0, 0, 0, 0).inOrder()
+    }
+
+    @Test
+    fun buildStudyRhythmBrief_surfacesRecoveryWhenReviewDebtIsActive() {
+        val today = LocalDate.of(2026, 6, 7)
+        val brief = buildStudyRhythmBrief(
+            counts = listOf(
+                DailyReviewCount(today.minusDays(6), 4),
+                DailyReviewCount(today.minusDays(1), 3),
+            ),
+            overview = fakeSession(reviewDueCount = 18, studiedToday = 0).overview,
+        )
+
+        assertThat(brief.kind).isEqualTo(StudyRhythmBriefKind.RECOVERY)
+        assertThat(brief.primaryValue).isEqualTo("2/7")
+        assertThat(brief.secondaryValue).isEqualTo("18")
+        assertThat(brief.actionLabel).isEqualTo("恢复节奏")
+    }
+
+    @Test
+    fun buildStudyRhythmBrief_usesTodayOverviewForSurge() {
+        val today = LocalDate.of(2026, 6, 7)
+        val brief = buildStudyRhythmBrief(
+            counts = listOf(
+                DailyReviewCount(today.minusDays(4), 6),
+                DailyReviewCount(today.minusDays(2), 8),
+                DailyReviewCount(today.minusDays(1), 4),
+                DailyReviewCount(today, 3),
+            ),
+            overview = fakeSession(
+                reviewDueCount = 5,
+                newWordTarget = 20,
+                studiedToday = 27,
+                completionRatio = 1f,
+            ).overview,
+        )
+
+        assertThat(brief.kind).isEqualTo(StudyRhythmBriefKind.SURGE)
+        assertThat(brief.primaryValue).isEqualTo("27")
+        assertThat(brief.secondaryValue).isEqualTo("45")
+        assertThat(brief.actionLabel).isEqualTo("收口复盘")
+        assertThat(brief.recentCounts.last()).isEqualTo(27)
+    }
+
+    @Test
+    fun buildStudyRhythmBrief_marksSteadyFiveDayWeeks() {
+        val today = LocalDate.of(2026, 6, 7)
+        val brief = buildStudyRhythmBrief(
+            counts = (0..4).map { offset ->
+                DailyReviewCount(today.minusDays(offset.toLong()), 5 + offset)
+            },
+            overview = fakeSession(studiedToday = 5, completionRatio = 0.25f).overview,
+        )
+
+        assertThat(brief.kind).isEqualTo(StudyRhythmBriefKind.STEADY)
+        assertThat(brief.primaryValue).isEqualTo("5/7")
+        assertThat(brief.secondaryValue).isEqualTo("9")
+        assertThat(brief.actionLabel).isEqualTo("保持节奏")
+    }
+
+    @Test
+    fun buildStudyRhythmBrief_balancesPartialWeeks() {
+        val today = LocalDate.of(2026, 6, 7)
+        val brief = buildStudyRhythmBrief(
+            counts = listOf(
+                DailyReviewCount(today.minusDays(3), 6),
+                DailyReviewCount(today.minusDays(1), 5),
+                DailyReviewCount(today, 4),
+            ),
+            overview = fakeSession(studiedToday = 4, completionRatio = 0.2f).overview,
+        )
+
+        assertThat(brief.kind).isEqualTo(StudyRhythmBriefKind.BALANCE)
+        assertThat(brief.primaryValue).isEqualTo("15")
+        assertThat(brief.secondaryValue).isEqualTo("3/7")
+        assertThat(brief.actionLabel).isEqualTo("稳步推进")
+    }
+
+    @Test
     fun buildWordMemoryAnchor_prefersRootFamilyClues() {
         val anchor = buildWordMemoryAnchor(
             word = fakeEntry(

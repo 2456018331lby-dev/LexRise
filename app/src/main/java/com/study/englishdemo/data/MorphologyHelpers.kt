@@ -244,6 +244,93 @@ fun buildDailyStudyRoute(
     )
 }
 
+fun buildStudyRhythmBrief(
+    counts: List<DailyReviewCount>,
+    overview: DailyOverview,
+    windowDays: Int = 7,
+): StudyRhythmBrief {
+    val window = windowDays.coerceAtLeast(1)
+    val countsByDate = counts.associateBy { it.date }
+    val recentCounts = (window - 1 downTo 0).map { offset ->
+        val date = overview.today.minusDays(offset.toLong())
+        val storedCount = countsByDate[date]?.count ?: 0
+        if (date == overview.today) maxOf(storedCount, overview.studiedToday) else storedCount
+    }
+    val total = recentCounts.sum()
+    val activeDays = recentCounts.count { it > 0 }
+    val peak = recentCounts.maxOrNull() ?: 0
+    val todayCount = recentCounts.lastOrNull() ?: 0
+    val dailyLoad = (overview.newWordTarget + overview.reviewDueCount).coerceAtLeast(1)
+    val todayProgress = (todayCount.toFloat() / dailyLoad.toFloat()).coerceIn(0f, 1f)
+    val consistency = activeDays.toFloat() / window.toFloat()
+    val baseMomentum = (overview.completionRatio.coerceIn(0f, 1f) * 0.45f) +
+        (todayProgress * 0.35f) +
+        (consistency * 0.20f)
+
+    return when {
+        total == 0 -> StudyRhythmBrief(
+            kind = StudyRhythmBriefKind.QUIET,
+            title = "七日节奏还没启动",
+            message = "最近一周没有复习记录，先做一轮低压回温，让热力图重新亮起来。",
+            primaryLabel = "7日复习",
+            primaryValue = "0",
+            secondaryLabel = "今日负载",
+            secondaryValue = dailyLoad.toString(),
+            actionLabel = "先点亮今天",
+            momentum = 0f,
+            recentCounts = recentCounts,
+        )
+        overview.reviewDueCount > 0 && activeDays <= 2 -> StudyRhythmBrief(
+            kind = StudyRhythmBriefKind.RECOVERY,
+            title = "先恢复复习连续性",
+            message = "过去 $window 天只有 $activeDays 天有复习，到期词还有 ${overview.reviewDueCount} 个；今天先清旧词，不急着加新负载。",
+            primaryLabel = "活跃天",
+            primaryValue = "$activeDays/$window",
+            secondaryLabel = "待复习",
+            secondaryValue = overview.reviewDueCount.toString(),
+            actionLabel = "恢复节奏",
+            momentum = baseMomentum.coerceIn(0.18f, 0.62f),
+            recentCounts = recentCounts,
+        )
+        todayCount >= dailyLoad && activeDays >= 3 -> StudyRhythmBrief(
+            kind = StudyRhythmBriefKind.SURGE,
+            title = "今天已经拉起冲刺",
+            message = "今日完成 $todayCount 词，已经覆盖当前负载；后半程适合收口复盘，别再盲目叠加新词。",
+            primaryLabel = "今日",
+            primaryValue = todayCount.toString(),
+            secondaryLabel = "7日总量",
+            secondaryValue = total.toString(),
+            actionLabel = "收口复盘",
+            momentum = maxOf(baseMomentum, 0.68f).coerceIn(0f, 1f),
+            recentCounts = recentCounts,
+        )
+        activeDays >= 5 -> StudyRhythmBrief(
+            kind = StudyRhythmBriefKind.STEADY,
+            title = "七日节奏稳定",
+            message = "最近 $window 天里 $activeDays 天都有复习，节奏已经成形；保持小步清债，再推进新词最稳。",
+            primaryLabel = "活跃天",
+            primaryValue = "$activeDays/$window",
+            secondaryLabel = "峰值",
+            secondaryValue = peak.toString(),
+            actionLabel = "保持节奏",
+            momentum = baseMomentum.coerceIn(0.48f, 1f),
+            recentCounts = recentCounts,
+        )
+        else -> StudyRhythmBrief(
+            kind = StudyRhythmBriefKind.BALANCE,
+            title = "节奏正在回稳",
+            message = "七日内累计复习 $total 词，已经有 $activeDays 天动起来；今天按路线做完一组，把间隔补齐。",
+            primaryLabel = "7日总量",
+            primaryValue = total.toString(),
+            secondaryLabel = "活跃天",
+            secondaryValue = "$activeDays/$window",
+            actionLabel = "稳步推进",
+            momentum = baseMomentum.coerceIn(0.24f, 0.78f),
+            recentCounts = recentCounts,
+        )
+    }
+}
+
 fun buildWordMemoryAnchor(
     word: WordEntry,
     rootRef: RootReference?,
