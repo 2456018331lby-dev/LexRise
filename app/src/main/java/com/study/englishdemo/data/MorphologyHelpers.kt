@@ -1431,10 +1431,12 @@ private data class ClozeCandidate(
 private data class ClozeCandidateMatch(
     val candidate: ClozeCandidate,
     val match: MatchResult,
+    val segment: String,
+    val segmentOrder: Int,
 )
 
 fun buildClozeBlank(example: String, term: String, variants: List<String> = emptyList()): ClozeBlank? {
-    val cleanExample = example.trim()
+    val segments = clozeExampleSegments(example)
     val candidates = (
         listOf(ClozeCandidate(term, isLemma = true, order = 0)) +
             variants.mapIndexed { index, variant ->
@@ -1444,27 +1446,85 @@ fun buildClozeBlank(example: String, term: String, variants: List<String> = empt
         .map { it.copy(text = it.text.trim()) }
         .filter { it.text.isNotEmpty() }
         .distinctBy { it.text.lowercase() }
-    if (cleanExample.isEmpty() || candidates.isEmpty()) return null
+    if (segments.isEmpty() || candidates.isEmpty()) return null
 
-    val bestMatch = candidates
-        .asSequence()
-        .mapNotNull { candidate ->
-            val pattern = Regex(
-                "(?i)(?<![A-Za-z])${Regex.escape(candidate.text)}(?![A-Za-z])",
-            )
-            pattern.find(cleanExample)?.let { match -> ClozeCandidateMatch(candidate, match) }
+    val bestMatch = segments
+        .mapIndexedNotNull { index, segment ->
+            bestClozeMatchInSegment(segment = segment, candidates = candidates, segmentOrder = index)
         }
-        .minWithOrNull(
-            compareBy<ClozeCandidateMatch> { if (it.candidate.isLemma) 0 else 1 }
-                .thenBy { it.match.range.first }
-                .thenByDescending { it.candidate.text.length }
-                .thenBy { it.candidate.order },
+        .maxWithOrNull(
+            compareBy<ClozeCandidateMatch> { clozeMatchQualityScore(it) }
+                .thenBy { if (it.candidate.isLemma) 1 else 0 }
+                .thenBy { -it.segmentOrder }
+                .thenBy { -it.match.range.first }
+                .thenBy { it.candidate.text.length }
+                .thenBy { -it.candidate.order },
         ) ?: return null
 
     return ClozeBlank(
-        prompt = cleanExample.replaceRange(bestMatch.match.range, "____"),
+        prompt = bestMatch.segment.replaceRange(bestMatch.match.range, "____"),
         answer = bestMatch.match.value,
     )
+}
+
+private fun bestClozeMatchInSegment(
+    segment: String,
+    candidates: List<ClozeCandidate>,
+    segmentOrder: Int,
+): ClozeCandidateMatch? = candidates
+    .asSequence()
+    .mapNotNull { candidate ->
+        val pattern = Regex(
+            "(?i)(?<![A-Za-z])${Regex.escape(candidate.text)}(?![A-Za-z])",
+        )
+        pattern.find(segment)?.let { match ->
+            ClozeCandidateMatch(
+                candidate = candidate,
+                match = match,
+                segment = segment,
+                segmentOrder = segmentOrder,
+            )
+        }
+    }
+    .minWithOrNull(
+        compareBy<ClozeCandidateMatch> { if (it.candidate.isLemma) 0 else 1 }
+            .thenBy { it.match.range.first }
+            .thenByDescending { it.candidate.text.length }
+            .thenBy { it.candidate.order },
+    )
+
+private fun clozeExampleSegments(example: String): List<String> {
+    val hardParts = example
+        .trim()
+        .split(Regex("[\\r\\n|]+"))
+        .flatMap { part ->
+            part.split(Regex("(?<=[.!?。！？])\\s+"))
+        }
+        .map { it.trim().replace(Regex("\\s+"), " ") }
+        .filter { it.isNotEmpty() }
+        .distinct()
+    return hardParts
+}
+
+private fun clozeMatchQualityScore(match: ClozeCandidateMatch): Int {
+    val words = Regex("[A-Za-z]+").findAll(match.segment).count()
+    val segmentLength = match.segment.length.coerceAtLeast(1)
+    val blankCenter = (match.match.range.first + match.match.range.last + 1).toFloat() / 2f
+    val blankRatio = blankCenter / segmentLength.toFloat()
+    val lengthScore = when {
+        words in 6..18 -> 24
+        words in 4..24 -> 16
+        words in 3..28 -> 8
+        else -> -12
+    }
+    val positionScore = when {
+        blankRatio in 0.18f..0.82f -> 12
+        blankRatio in 0.08f..0.92f -> 5
+        else -> -6
+    }
+    val punctuationScore = if (match.segment.lastOrNull() in listOf('.', '?', '!', '。', '？', '！')) 4 else 0
+    val answerScore = if (match.candidate.isLemma) 34 else 26
+    return answerScore + lengthScore + positionScore + punctuationScore
 }
 
 fun buildClozeContextGuide(question: ClozeQuestion, focusLimit: Int = 4): ClozeContextGuide {

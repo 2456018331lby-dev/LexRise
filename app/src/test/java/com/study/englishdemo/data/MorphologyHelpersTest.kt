@@ -1161,6 +1161,31 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildClozeBlank_selectsBetterSentenceFromMultiSentenceExamples() {
+        val blank = buildClozeBlank(
+            example = "Clarify. The team should clarify the final goal before launch.",
+            term = "clarify",
+        )
+
+        assertThat(blank).isNotNull()
+        assertThat(blank!!.prompt).isEqualTo("The team should ____ the final goal before launch.")
+        assertThat(blank.answer).isEqualTo("clarify")
+    }
+
+    @Test
+    fun buildClozeBlank_ranksDerivativeSentencesByQualityAcrossExamples() {
+        val blank = buildClozeBlank(
+            example = "Clarifies first. The note clarified the final goal for everyone.",
+            term = "clarify",
+            variants = listOf("clarified", "clarifies"),
+        )
+
+        assertThat(blank).isNotNull()
+        assertThat(blank!!.prompt).isEqualTo("The note ____ the final goal for everyone.")
+        assertThat(blank.answer).isEqualTo("clarified")
+    }
+
+    @Test
     fun blankTermInExample_doesNotReplaceInsideLongerWords() {
         val prompt = blankTermInExample("The statement was clear.", "state")
 

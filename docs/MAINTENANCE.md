@@ -117,7 +117,7 @@ describe,de + scrib：把看到的写下来就是 describe 描述
 
 ### 能不能避开？能避开就避开
 
-很多"新功能"其实不需要加列。本项目 v0.3-v0.35 的所有新能力（簇首、词根覆盖、词根图谱简报、根族巧记补给、词根详情导读、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、完形语境导读、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、空结果救援、结果分诊、练习模式阶梯、本轮练习统计、本轮教练、本轮收口建议、复习队列预案、七日节奏简报、首页学习焦点、今日负载简报、今日训练路线、新词记忆锚、新词批次策略、新词巧记覆盖简报、新词闭环计划、离线巧记 seed 注入）都走**派生查询、纯函数派生、构建期资源生成或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题、在构建脚本里生成资源，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
+很多"新功能"其实不需要加列。本项目 v0.3-v0.36 的所有新能力（簇首、词根覆盖、词根图谱简报、根族巧记补给、词根详情导读、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、完形语境导读、派生词挖空、完形候选排序、完形多句例句质量排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、空结果救援、结果分诊、练习模式阶梯、本轮练习统计、本轮教练、本轮收口建议、复习队列预案、七日节奏简报、首页学习焦点、今日负载简报、今日训练路线、新词记忆锚、新词批次策略、新词巧记覆盖简报、新词闭环计划、离线巧记 seed 注入）都走**派生查询、纯函数派生、构建期资源生成或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题、在构建脚本里生成资源，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
 
 - 想标记"这个词是簇首"？→ 已经有 `getAnchorWordIds(bookId)` 动态算，不加 `isAnchor` 列
 - 想统计"哪个词翻车最多"？→ `getToughWordsForBook` 从 `review_logs` GROUP BY 出来
@@ -130,7 +130,7 @@ describe,de + scrib：把看到的写下来就是 describe 描述
 - 想让词根 Tab 告诉用户“下一步看哪组词”？→ `buildRootGroupInsight` 从 `RootGroup` 触达比例和成员 phase 派生根族路线，不加列
 - 想加新练习题型？→ 优先用 `PracticeMode` + Repository 构题 + 纯函数，评分仍回 `reviewWord`
 - 想解释当前练习模式该怎么用、何时升降档？→ `buildPracticeModeBrief` 从 `PracticeMode` + `PracticeSessionStats` + 剩余到期词数派生练习模式阶梯，不改模式切换、不写评分
-- 想让完形题支持派生词或优化挖空优先级？→ `buildClozeBlank` 从已有 `derivatives` 字段派生候选并排序，不加表
+- 想让完形题支持派生词、优化挖空优先级或筛掉多句例句里的噪声句？→ `buildClozeBlank` 从已有 `example/derivatives` 字段派生候选句和候选词形并排序，不加表
 - 想让完形题先提示用户该抓什么线索？→ `buildClozeContextGuide` 从 `ClozeQuestion` 派生完形语境导读，不改构题、不泄露答案、不写评分
 - 想让词汇搜索支持复数/时态/派生形，或解释“为什么命中这个词”？→ `searchInBook` 查已有 `derivatives` 列，`searchWords` 用 `fuzzyWordFormMatchDistance` 做 fallback，UI 用 `matchingWordForms` 展示命中词形，不加表
 - 想在结果列表前解释“这次搜索质量如何”？→ `buildVocabularySearchInsight` 从当前 query 和结果列表派生检索洞察，不改 DAO、不改排序、不写搜索日志
@@ -344,7 +344,7 @@ git ls-files .android-sdk/ app/build/   # 应为空
 | 改新词闭环计划 | `data/Models.kt#LearningLoopBrief/LearningLoopStep` + `data/MorphologyHelpers.kt#buildLearningLoopBrief` + `MainActivity.kt#LearningLoopBriefCard/WordQueueScreen` + `MorphologyHelpersTest` |
 | 改词根 Tab 根族路线 | `data/MorphologyHelpers.kt#buildRootGroupInsight` + `data/Models.kt#RootGroupInsight/RootGroupStage` + `MainActivity.kt#RootGroupCard/RootStageBadge/RootFocusTermChip` + `MorphologyHelpersTest` |
 | 改选择题干扰项逻辑 | `data/MorphologyHelpers.kt#buildQuizOptions` + `MorphologyHelpersTest` |
-| 改完形/例句挖空 | `data/MorphologyHelpers.kt#buildClozeBlank/blankTermInExample` + `StudyRepository.kt#buildClozeQuestion` + 对应 Test；候选排序保持原词优先、派生词按例句位置优先 |
+| 改完形/例句挖空 | `data/MorphologyHelpers.kt#buildClozeBlank/blankTermInExample` + `StudyRepository.kt#buildClozeQuestion` + 对应 Test；多句例句先按质量排序，单句内保持原词优先、派生词按例句位置优先 |
 | 改完形语境导读 | `data/MorphologyHelpers.kt#buildClozeContextGuide` + `data/Models.kt#ClozeContextGuide/ClozeContextGuideKind` + `MainActivity.kt#ClozeContextGuidePanel/ClozePracticePager` + `MorphologyHelpersTest` |
 | 改词汇搜索/拼写容错 | `data/Dao.kt#searchInBook` + `data/MorphologyHelpers.kt#fuzzyTermMatchDistance/fuzzyWordFormMatchDistance/matchingWordForms` + `StudyRepository.kt#searchWords` + `MainActivity.kt#VocabularyRow/VocabularyMatchRail` + 对应 Test |
 | 改本轮练习统计 | `data/Models.kt#PracticeSessionStats` + `data/MorphologyHelpers.kt#recordPracticeAttempt` + `ui/AppViewModel.kt#reviewPracticeWord` + `MainActivity.kt#PracticeSessionStatsCard` |
