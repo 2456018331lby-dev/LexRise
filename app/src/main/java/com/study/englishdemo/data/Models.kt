@@ -217,6 +217,22 @@ data class LearningLoopBrief(
     val focusTerms: List<String>,
 )
 
+enum class RootWordPracticePlanKind { ROOT_LOOP, FORM_LOOP, MEMORY_LOOP, CONTEXT_LOOP, QUICK_LOOP }
+
+data class RootWordPracticePlan(
+    val kind: RootWordPracticePlanKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val progress: Float,
+    val steps: List<LearningLoopStep>,
+    val focusTerms: List<String>,
+)
+
 data class WordProgress(
     val phase: StudyPhase,
     val familiarity: Int,
