@@ -19,4 +19,4 @@
 
 - No Room schema change in v0.25.0.
 - `buildRootWordGuide` is a JVM-testable pure function used by the root preview UI.
-- No remote push should be performed from this workspace until GitHub auth is configured safely.
+- GitHub public repository is initialized at `https://github.com/2456018331lby-dev/LexRise`; the current `main` snapshot was uploaded through GitHub API because direct `git push` to `github.com:443` failed from this machine.
