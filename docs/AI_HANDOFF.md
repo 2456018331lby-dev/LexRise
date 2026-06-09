@@ -402,9 +402,10 @@ curl -fL -o tools/raw/roots_raw.md \
 - GitHub 仓库：`https://github.com/2456018331lby-dev/LexRise`
 - 本地 remote：`origin https://github.com/2456018331lby-dev/LexRise.git`
 - 当前 GitHub `main` 是通过 GitHub API 上传的项目快照，因为本机 `git push` 连接 `github.com:443` 时曾超时/重置；`gh api` 正常可用
+- v0.29 GitHub API 快照提交：`953703dfaab2d4dbdf721cceb68cf7bbbb5e1e35`（来自本地提交 `05d7c40`）
 - v0.28 GitHub API 快照提交：`1d458eca4d27e47876ee978d90d5dc95664ffde2`（来自本地提交 `9f0a5ce`）
 - v0.28 GitHub 词库 blob 对齐提交：`b7ec540c2683631d75501c6fab72c7772b199f8d`（把 3 个 CSV 远端 blob 对齐本地 Git 对象；校验结果为 81/81 文件、0 mismatch）
-- GitHub 快照包含 81 个 Git 跟踪文件，不包含 `.android-sdk/`、`local.properties`、`tools/raw/`、`app/build/`、`build/`、`.gradle/`、`.kotlin/`
+- GitHub 快照包含 82 个 Git 跟踪文件，不包含 `.android-sdk/`、`local.properties`、`tools/raw/`、`app/build/`、`build/`、`.gradle/`、`.kotlin/`
 - GitHub MCP 在 2026-06-09 仍返回 `Bad credentials`，所以本轮没有用 MCP 完成上传；不要通过清空本地 token 来“修复”，需要用户侧更新 MCP 凭据
 
 仍然需要注意：
@@ -413,6 +414,9 @@ curl -fL -o tools/raw/roots_raw.md \
 
 这个独立仓库当前分支 `main`，最新提交以 `git log --oneline -1` 为准；近期历史提交包括：
 ```
+05d7c40 Let root study expose mnemonic supply gaps
+0fd637a Record GitHub blob alignment repair
+8fce002 Record v0.28 GitHub snapshot state
 9f0a5ce Expose mnemonic coverage before new-word study
 dd310f7 Let built-in wordlists carry offline memory hints
 f30c994 Record v0.27 GitHub snapshot state
