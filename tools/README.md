@@ -11,6 +11,13 @@
 
 这些原始文件**不入仓**（体积过大 + 遵循各自 license 即可），放在 `tools/raw/`，已在 `.gitignore` 中忽略。
 
+## 离线巧记数据
+
+- `tools/mnemonics_seed.csv` 入仓，保存少量高频词的可复现巧记 seed。
+- `tools/raw/mnemonics.csv` 不入仓，适合放后续离线批量生成的大稿。
+- 两个文件都使用 `term,mnemonic` 列；脚本先读 seed，再读 raw，所以 raw 可以覆盖 seed。
+- 不需要也不允许在构建脚本里调用在线 LLM/API。要扩充巧记，先离线生成 CSV，再运行脚本。
+
 ## 一次性准备
 
 ```bash
@@ -39,16 +46,18 @@ python tools/build_wordlists.py
 每个 CSV 列顺序：
 
 ```
-term,phonetic,definition,translation,example,tags,rootKey,derivatives,frq,pos
+term,phonetic,definition,translation,example,tags,rootKey,derivatives,frq,pos,mnemonic
 ```
 
-`rootKey` 为空表示没有可靠聚簇（按高频继续排）。当前约 21–25% 的词能被稳定聚簇；其余保持 ECDICT 频率序。
+`rootKey` 为空表示没有可靠聚簇（按高频继续排）。`mnemonic` 为空表示还没有内置巧记，用户仍可在 App 内本地编辑。当前约 21–25% 的词能被稳定聚簇；其余保持 ECDICT 频率序。
 
 ## 为什么不用 WordNet / 红宝书 / 闪过
 
 - 墨墨、不背单词、百词斩、红宝书、考研闪过 都是商业内容，**不可嵌入**。
-- Open English WordNet（CC-BY 4.0，同义反义）体积大且 XML 结构复杂，第一版先不集成；`mnemonic`/`synonyms`/`antonyms` 列在 schema 已预留，后续版本补。
+- Open English WordNet（CC-BY 4.0，同义反义）体积大且 XML 结构复杂，第一版先不集成；`synonyms`/`antonyms` 列在 schema 已预留，后续版本补。
 
 ## 脚本调优点
 
 短前缀（`ab/re/ad` 等）聚在一起反而误导学习，脚本已在 `NOISY_SHORT_PREFIXES` 列表过滤；前缀匹配仅在 ≥ 4 字母词根上开启。如果你手动添加更多词根，按 `example_to_root` 精确例词映射即可，避免增加 2–3 字母长度的前缀。
+
+巧记调优只改 `tools/mnemonics_seed.csv` 或 `tools/raw/mnemonics.csv`。不要把巧记写死进 Kotlin，也不要自动覆盖用户已经在 App 内编辑过的 `mnemonic`。

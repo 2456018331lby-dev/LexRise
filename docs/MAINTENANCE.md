@@ -13,6 +13,9 @@ cd c:/Users/24560/Desktop/study/Englishdemo
 # 跑单测（每次小改完就跑，<60s）
 ./gradlew.bat :app:testDebugUnitTest
 
+# 如果改了 tools/build_wordlists.py 或 mnemonic seed/raw 规则
+python -m unittest discover -s tools -p "test_*.py"
+
 # 构建可装手机的 APK（~4 min 首次，~30s 增量）
 ./gradlew.bat :app:assembleDebug
 # 产物：app/build/outputs/apk/debug/app-debug.apk
@@ -43,7 +46,7 @@ cd c:/Users/24560/Desktop/study/Englishdemo
 
 最快路径：直接改 `app/src/main/assets/books/*.csv` 的对应行。
 
-- CSV 10 列格式：`term, phonetic, definition, translation, example, tags, rootKey, derivatives, frq, pos`
+- CSV 11 列格式：`term, phonetic, definition, translation, example, tags, rootKey, derivatives, frq, pos, mnemonic`
 - 保持 UTF-8 无 BOM
 - 改完跑 `./gradlew.bat :app:assembleDebug`，重装 APK 后**首启会清库重建**（因为 Room `fallbackToDestructiveMigration`，内置词书的 builtin source 会重新导入）
 
@@ -61,10 +64,25 @@ curl -fL -o tools/raw/roots_raw.md \
 
 # 重建词库资源（幂等）
 python tools/build_wordlists.py
+python -m unittest discover -s tools -p "test_*.py"
 
 # 再构建 APK
 ./gradlew.bat :app:assembleDebug
 ```
+
+**场景 C：离线批量补巧记**
+
+最小格式：
+
+```csv
+term,mnemonic
+describe,de + scrib：把看到的写下来就是 describe 描述
+```
+
+- 少量可复现 seed：改 `tools/mnemonics_seed.csv`（入仓）
+- 大批量离线生成稿：放 `tools/raw/mnemonics.csv`（不入仓，且会覆盖 seed 同名 term）
+- 然后运行 `python tools/build_wordlists.py` 重建三本内置词书
+- 不要在脚本里调用在线 API，也不要在 App 启动时自动覆盖用户已经编辑过的 `mnemonic`
 
 **警告**：不要手动改 `positionInBook`，它由脚本按聚簇顺序生成，人为打乱会破坏"同根词连着出现"的学习节奏。
 
@@ -92,7 +110,7 @@ python tools/build_wordlists.py
 
 ### 能不能避开？能避开就避开
 
-很多"新功能"其实不需要加列。本项目 v0.3-v0.26 的所有新能力（簇首、词根覆盖、词根图谱简报、词根详情导读、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、完形语境导读、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、本轮练习统计、本轮教练、复习队列预案、七日节奏简报、首页学习焦点、今日训练路线、新词记忆锚、新词批次策略）都走**派生查询、纯函数派生或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
+很多"新功能"其实不需要加列。本项目 v0.3-v0.27 的所有新能力（簇首、词根覆盖、词根图谱简报、词根详情导读、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、完形语境导读、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、本轮练习统计、本轮教练、复习队列预案、七日节奏简报、首页学习焦点、今日训练路线、新词记忆锚、新词批次策略、离线巧记 seed 注入）都走**派生查询、纯函数派生、构建期资源生成或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题、在构建脚本里生成资源，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
 
 - 想标记"这个词是簇首"？→ 已经有 `getAnchorWordIds(bookId)` 动态算，不加 `isAnchor` 列
 - 想统计"哪个词翻车最多"？→ `getToughWordsForBook` 从 `review_logs` GROUP BY 出来
@@ -115,6 +133,7 @@ python tools/build_wordlists.py
 - 想把今天拆成多步路线？→ `buildDailyStudyRoute` 从 session / rootSnapshot / pace / toughWords 数量派生 1–3 个行动步骤；`MainActivity` 只负责跳 Tab，不写设置、不写 Room
 - 想让新词卡先提示“抓什么线索”？→ `buildWordMemoryAnchor` 从词条、词根引用和同根词数量派生记忆锚；UI 只展示，不覆盖用户 `mnemonic`
 - 想让一批新词先给整体打法？→ `buildWordBatchBrief` 从当前 `recommendedNewWords` 派生词根/词形/语境/混合策略，不改学习顺序、不写队列表
+- 想批量补默认巧记？→ 改 `tools/mnemonics_seed.csv` 或 `tools/raw/mnemonics.csv`，用 `tools/build_wordlists.py` 写入内置 CSV 的 `mnemonic` 列；不要改 Room，不要启动时覆盖用户编辑
 
 ### 如果确实要升级 schema
 
@@ -243,7 +262,7 @@ Windows 杀软或文件索引锁住了 Gradle 的 transform 目录。**重跑一
 
 - CSV 必须 UTF-8 无 BOM。Excel 保存出来的默认带 BOM，要用 VS Code / Sublime / PowerShell `Out-File -Encoding utf8NoBOM` 重存
 - 不要含 ASCII 以外的引号（全角 `“”`）——只认 ASCII 双引号
-- 测试解析：单独跑 `WordBookParserTest`（里面覆盖 CSV 10 列 + 6 列兼容 + TXT 三种分隔符）
+- 测试解析：单独跑 `WordBookParserTest`（里面覆盖 CSV 11 列 mnemonic + 旧 6/10 列兼容 + TXT 三种分隔符）
 
 ### 症状 6：单测 `org.junit.runners.model.InvalidTestClassError: Method X() should be void`
 

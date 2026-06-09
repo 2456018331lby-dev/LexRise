@@ -21,6 +21,19 @@ class WordBookParserTest {
     }
 
     @Test
+    fun parseCsv_readsMnemonicWhenPresentInExtendedRows() {
+        val csv = """
+            term,phonetic,definition,translation,example,tags,rootKey,derivatives,frq,pos,mnemonic
+            describe,/dɪˈskraɪb/,write down,描述,Describe the picture.,cet4|scrib,scrib,described|describes,1200,v.,de + scrib：把看到的写下来就是 describe 描述
+        """.trimIndent().byteInputStream()
+
+        val preview = parser.parseCsv(csv, "CSV 词书")
+
+        assertThat(preview.words.first().mnemonic)
+            .isEqualTo("de + scrib：把看到的写下来就是 describe 描述")
+    }
+
+    @Test
     fun parseText_supportsSimpleSeparator() {
         val txt = """
             abandon :: 放弃 :: Never abandon your plan.

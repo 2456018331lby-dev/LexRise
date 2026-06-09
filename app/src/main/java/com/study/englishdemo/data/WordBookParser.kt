@@ -38,6 +38,7 @@ class WordBookParser {
                     .filter { it.isNotEmpty() },
                 frq = cols.getOrElse(8) { "" }.trim().toIntOrNull() ?: 0,
                 pos = cols.getOrElse(9) { "" }.trim(),
+                mnemonic = cols.getOrElse(10) { "" }.trim(),
             )
         })
 

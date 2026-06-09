@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.26
+# Englishdemo / LexRise v0.27
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.27 亮点
+
+- **内置词库接入离线“巧记”注入链路**
+  - CSV 格式扩展为第 11 列 `mnemonic`，旧 6/10 列仍能导入，Room schema 不变
+  - `tools/build_wordlists.py` 会先读取仓库内 `tools/mnemonics_seed.csv`，再读取不入仓的 `tools/raw/mnemonics.csv`；后者可覆盖前者，适合以后离线批量生成更多巧记
+  - 三本内置词书已重建：CET4 94 条、CET6 89 条、考研 90 条高频巧记 seed 命中
+  - 翻卡和难词卡里的巧记展示升级为“巧记线索”卡片，用户仍可本地编辑自己的版本
 
 ## v0.26 亮点
 
@@ -223,7 +231,7 @@ LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用
 
 ## 内容合法性
 
-LexRise 不打包以下任何商业词书的原文：墨墨背单词、不背单词、百词斩、新东方红宝书、考研闪过、有道词典精选等。词本体来自 MIT 协议的 [skywind3000/ECDICT](https://github.com/skywind3000/ECDICT)，词根来自 [WithEnglishWeCan/generated-english-roots-list](https://github.com/WithEnglishWeCan/generated-english-roots-list)。巧记/口诀字段默认留空，由用户本地编辑。
+LexRise 不打包以下任何商业词书的原文：墨墨背单词、不背单词、百词斩、新东方红宝书、考研闪过、有道词典精选等。词本体来自 MIT 协议的 [skywind3000/ECDICT](https://github.com/skywind3000/ECDICT)，词根来自 [WithEnglishWeCan/generated-english-roots-list](https://github.com/WithEnglishWeCan/generated-english-roots-list)。内置巧记 seed 是项目本地生成/维护的简短线索，用户仍可在 App 内覆盖编辑自己的巧记。
 
 ## 技术栈
 
@@ -244,14 +252,14 @@ LexRise 不打包以下任何商业词书的原文：墨墨背单词、不背单
 
 ## 自定义词书导入
 
-### CSV（新 10 列格式）
+### CSV（新 11 列格式）
 
 ```csv
-term,phonetic,definition,translation,example,tags,rootKey,derivatives,frq,pos
-clarify,/ˈklærəfaɪ/,make easy to understand,澄清,Please clarify the goal.,cet4|core,clar,clarified|clarifies,1200,vt.
+term,phonetic,definition,translation,example,tags,rootKey,derivatives,frq,pos,mnemonic
+clarify,/ˈklærəfaɪ/,make easy to understand,澄清,Please clarify the goal.,cet4|core,clar,clarified|clarifies,1200,vt.,clar 像 clear：把意思 clear 起来就是 clarify
 ```
 
-后四列可留空以兼容旧 6 列格式，不会报错。
+后五列可留空以兼容旧 6/10 列格式，不会报错。
 
 ### TXT
 
@@ -295,6 +303,7 @@ python tools/build_wordlists.py
 ```
 
 脚本会重建 `app/src/main/assets/books/*.csv` 和 `app/src/main/assets/reference/roots.json`。
+如需离线批量补巧记，把 `term,mnemonic` 格式的 CSV 放到 `tools/raw/mnemonics.csv`，再运行脚本；该文件被 `.gitignore` 忽略，适合放大批量生成稿。
 
 ## 发布
 
@@ -306,6 +315,14 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.27（2026-06-09）
+- 内置词书 CSV 扩展为 11 列 `mnemonic`，旧 6/10 列导入兼容不变
+- 新增 `tools/mnemonics_seed.csv`，构建脚本支持 seed + `tools/raw/mnemonics.csv` 离线注入和覆盖
+- 三本内置词书重建并写入高频巧记 seed：CET4 94 条、CET6 89 条、考研 90 条
+- 翻卡和难词卡把巧记升级为“巧记线索”卡片
+- 应用版本元数据同步到 0.27.0
+- Android 单测 112 → 113，新增 3 个 Python 脚本单测
 
 ### v0.26（2026-06-09）
 - 完形模式新增“语境导读”，在题干和选项之间提示先抓词根、词形、语义或快速扫句
