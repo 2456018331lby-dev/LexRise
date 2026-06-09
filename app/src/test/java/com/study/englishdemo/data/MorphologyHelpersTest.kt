@@ -1375,6 +1375,130 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildVocabularyResultTriage_staysIdleWithoutAQuery() {
+        val triage = buildVocabularyResultTriage(
+            query = " ",
+            results = listOf(fakeEntry("clarify", "clar")),
+            phaseFilter = null,
+        )
+
+        assertThat(triage.kind).isEqualTo(VocabularyResultTriageKind.IDLE)
+        assertThat(triage.primaryValue).isEqualTo("0")
+        assertThat(triage.lanes).isEmpty()
+        assertThat(triage.focusTerms).isEmpty()
+    }
+
+    @Test
+    fun buildVocabularyResultTriage_prioritizesActivePhaseFilters() {
+        val triage = buildVocabularyResultTriage(
+            query = "state",
+            results = listOf(
+                fakeEntry("state", "stat", StudyPhase.REVIEW),
+                fakeEntry("statement", "stat", StudyPhase.REVIEW),
+                fakeEntry("status", "stat", StudyPhase.LEARNING),
+            ),
+            phaseFilter = StudyPhase.REVIEW,
+        )
+
+        assertThat(triage.kind).isEqualTo(VocabularyResultTriageKind.PHASE_FOCUS)
+        assertThat(triage.primaryValue).isEqualTo("复习")
+        assertThat(triage.secondaryValue).isEqualTo("3")
+        assertThat(triage.lanes.last().label).isEqualTo("复习")
+        assertThat(triage.lanes.last().value).isEqualTo("2")
+    }
+
+    @Test
+    fun buildVocabularyResultTriage_routesRootClustersBeforeMeaningScans() {
+        val triage = buildVocabularyResultTriage(
+            query = "说",
+            results = listOf(
+                fakeEntry(term = "describe", rootKey = "scrib", translation = "描述，说清楚"),
+                fakeEntry(term = "prescribe", rootKey = "scrib", translation = "规定，开处方"),
+                fakeEntry(term = "announce", rootKey = "", translation = "宣布，说出"),
+            ),
+            phaseFilter = null,
+        )
+
+        assertThat(triage.kind).isEqualTo(VocabularyResultTriageKind.ROOT_LANE)
+        assertThat(triage.primaryValue).isEqualTo("2")
+        assertThat(triage.secondaryValue).isEqualTo("scrib")
+        assertThat(triage.focusTerms).containsExactly("describe", "prescribe").inOrder()
+    }
+
+    @Test
+    fun buildVocabularyResultTriage_guidesDerivativeOrTypoResults() {
+        val triage = buildVocabularyResultTriage(
+            query = "clarifed",
+            results = listOf(
+                fakeEntry(
+                    term = "clarify",
+                    rootKey = "clar",
+                    derivatives = listOf("clarified", "clarifies"),
+                ),
+            ),
+            phaseFilter = null,
+        )
+
+        assertThat(triage.kind).isEqualTo(VocabularyResultTriageKind.WORD_FORM)
+        assertThat(triage.primaryValue).isEqualTo("1")
+        assertThat(triage.actionLabel).isEqualTo("折回原词")
+        assertThat(triage.focusTerms).containsExactly("clarified", "clarifies", "clarify").inOrder()
+    }
+
+    @Test
+    fun buildVocabularyResultTriage_guidesDirectTermSweeps() {
+        val triage = buildVocabularyResultTriage(
+            query = "focus",
+            results = listOf(
+                fakeEntry("focus", ""),
+                fakeEntry("refocus", ""),
+                fakeEntry("benefit", ""),
+            ),
+            phaseFilter = null,
+        )
+
+        assertThat(triage.kind).isEqualTo(VocabularyResultTriageKind.TERM_SWEEP)
+        assertThat(triage.primaryValue).isEqualTo("2")
+        assertThat(triage.secondaryValue).isEqualTo("3")
+        assertThat(triage.focusTerms).containsExactly("focus", "refocus").inOrder()
+    }
+
+    @Test
+    fun buildVocabularyResultTriage_guidesMeaningScansWhenNoStrongerLaneExists() {
+        val triage = buildVocabularyResultTriage(
+            query = "解释",
+            results = listOf(
+                fakeEntry(term = "clarify", rootKey = "clar", translation = "解释，说明", example = "Please clarify the plan."),
+                fakeEntry(term = "explain", rootKey = "", translation = "解释", example = "Explain the idea."),
+            ),
+            phaseFilter = null,
+        )
+
+        assertThat(triage.kind).isEqualTo(VocabularyResultTriageKind.MEANING_SCAN)
+        assertThat(triage.primaryValue).isEqualTo("2")
+        assertThat(triage.secondaryValue).isEqualTo("2")
+        assertThat(triage.actionLabel).isEqualTo("对照释义")
+    }
+
+    @Test
+    fun buildVocabularyResultTriage_fallsBackToMixedBrowsing() {
+        val triage = buildVocabularyResultTriage(
+            query = "zzzz",
+            results = listOf(
+                fakeEntry("focus", ""),
+                fakeEntry("benefit", "bene", example = "Daily practice brings benefit."),
+                fakeEntry("plain", ""),
+            ),
+            phaseFilter = null,
+        )
+
+        assertThat(triage.kind).isEqualTo(VocabularyResultTriageKind.MIXED)
+        assertThat(triage.primaryValue).isEqualTo("3")
+        assertThat(triage.actionLabel).isEqualTo("分批浏览")
+        assertThat(triage.focusTerms).containsExactly("focus", "benefit", "plain").inOrder()
+    }
+
+    @Test
     fun recordPracticeAttempt_countsStableAndNeedsPracticeRatings() {
         val stats = listOf(
             ReviewRating.GOOD,

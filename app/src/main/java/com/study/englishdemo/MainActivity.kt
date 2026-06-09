@@ -140,6 +140,9 @@ import com.study.englishdemo.data.StudyRhythmBriefKind
 import com.study.englishdemo.data.ToughWordPrescription
 import com.study.englishdemo.data.ToughWordPrescriptionKind
 import com.study.englishdemo.data.ToughWordsBrief
+import com.study.englishdemo.data.VocabularyResultLane
+import com.study.englishdemo.data.VocabularyResultTriage
+import com.study.englishdemo.data.VocabularyResultTriageKind
 import com.study.englishdemo.data.VocabularySearchInsight
 import com.study.englishdemo.data.VocabularySearchInsightKind
 import com.study.englishdemo.data.VocabularySearchRescuePlan
@@ -164,6 +167,7 @@ import com.study.englishdemo.data.buildStudyFocusCue
 import com.study.englishdemo.data.buildStudyRhythmBrief
 import com.study.englishdemo.data.buildToughWordPrescription
 import com.study.englishdemo.data.buildToughWordsBrief
+import com.study.englishdemo.data.buildVocabularyResultTriage
 import com.study.englishdemo.data.buildVocabularySearchInsight
 import com.study.englishdemo.data.buildVocabularySearchRescuePlan
 import com.study.englishdemo.data.buildWordBatchBrief
@@ -1732,6 +1736,17 @@ private fun VocabularyScreen(
             phaseFilter = uiState.vocabularyPhaseFilter,
         )
     }
+    val resultTriage = remember(
+        uiState.vocabularyQuery,
+        uiState.vocabularyResults,
+        uiState.vocabularyPhaseFilter,
+    ) {
+        buildVocabularyResultTriage(
+            query = uiState.vocabularyQuery,
+            results = uiState.vocabularyResults,
+            phaseFilter = uiState.vocabularyPhaseFilter,
+        )
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -1779,6 +1794,11 @@ private fun VocabularyScreen(
                 item { PhaseChip("学习中", uiState.vocabularyPhaseFilter == StudyPhase.LEARNING) { onPhase(StudyPhase.LEARNING) } }
                 item { PhaseChip("复习", uiState.vocabularyPhaseFilter == StudyPhase.REVIEW) { onPhase(StudyPhase.REVIEW) } }
                 item { PhaseChip("掌握", uiState.vocabularyPhaseFilter == StudyPhase.MASTERED) { onPhase(StudyPhase.MASTERED) } }
+            }
+        }
+        if (!uiState.vocabularyLoading && resultTriage.kind != VocabularyResultTriageKind.IDLE) {
+            item {
+                VocabularyResultTriageCard(triage = resultTriage)
             }
         }
         if (uiState.vocabularyLoading && uiState.vocabularyResults.isEmpty()) {
@@ -2093,6 +2113,188 @@ private fun VocabularySearchRescueCard(plan: VocabularySearchRescuePlan, modifie
 }
 
 @Composable
+private fun VocabularyResultTriageCard(triage: VocabularyResultTriage, modifier: Modifier = Modifier) {
+    val accent = vocabularyResultTriageAccent(triage.kind)
+    val icon = when (triage.kind) {
+        VocabularyResultTriageKind.IDLE -> Icons.Rounded.Search
+        VocabularyResultTriageKind.TERM_SWEEP -> Icons.Rounded.Check
+        VocabularyResultTriageKind.WORD_FORM -> Icons.Rounded.Translate
+        VocabularyResultTriageKind.ROOT_LANE -> Icons.Rounded.AccountTree
+        VocabularyResultTriageKind.PHASE_FOCUS -> Icons.Rounded.EventAvailable
+        VocabularyResultTriageKind.MEANING_SCAN -> Icons.Rounded.AutoStories
+        VocabularyResultTriageKind.MIXED -> Icons.Rounded.Insights
+    }
+    val animated by animateFloatAsState(
+        targetValue = triage.intensity.coerceIn(0f, 1f),
+        animationSpec = tween(520),
+        label = "vocabularyResultTriageIntensity",
+    )
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.26f),
+                            MaterialTheme.colorScheme.surface,
+                            accent.copy(alpha = 0.16f),
+                        ),
+                        start = Offset(0f, 0f),
+                        end = Offset(900f, 420f),
+                    ),
+                )
+                .padding(16.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(16.dp), color = accent.copy(alpha = 0.14f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(9.dp)
+                                    .size(20.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "结果分诊",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(triage.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                triage.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                            )
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            triage.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { animated },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    VocabularyInsightMetric(
+                        label = triage.primaryLabel,
+                        value = triage.primaryValue,
+                        accent = accent,
+                        modifier = Modifier.weight(1f),
+                    )
+                    VocabularyInsightMetric(
+                        label = triage.secondaryLabel,
+                        value = triage.secondaryValue,
+                        accent = accent,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    triage.lanes.forEach { lane ->
+                        VocabularyResultLaneRow(lane = lane, accent = accent)
+                    }
+                }
+                if (triage.focusTerms.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Text(
+                            "优先查看",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        ) {
+                            items(triage.focusTerms, key = { it }) { term ->
+                                Surface(shape = RoundedCornerShape(14.dp), color = accent.copy(alpha = 0.10f)) {
+                                    Text(
+                                        term,
+                                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = accent,
+                                        fontWeight = FontWeight.Medium,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VocabularyResultLaneRow(lane: VocabularyResultLane, accent: Color) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.74f),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                lane.label,
+                modifier = Modifier.width(42.dp),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
+                fontWeight = FontWeight.Medium,
+            )
+            LinearProgressIndicator(
+                progress = { lane.weight.coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(5.dp),
+                color = accent,
+                trackColor = accent.copy(alpha = 0.10f),
+            )
+            Text(
+                lane.value,
+                style = MaterialTheme.typography.labelMedium,
+                color = accent,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
+
+@Composable
 private fun VocabularyInsightMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
@@ -2121,6 +2323,17 @@ private fun vocabularySearchInsightAccent(kind: VocabularySearchInsightKind): Co
     VocabularySearchInsightKind.WORD_FORM_MATCH -> Color(0xFF3F6F8F)
     VocabularySearchInsightKind.ROOT_CLUSTER -> Color(0xFF6E8B3D)
     VocabularySearchInsightKind.MEANING_MATCH -> Color(0xFFC98A3D)
+}
+
+@Composable
+private fun vocabularyResultTriageAccent(kind: VocabularyResultTriageKind): Color = when (kind) {
+    VocabularyResultTriageKind.IDLE -> MaterialTheme.colorScheme.primary
+    VocabularyResultTriageKind.TERM_SWEEP -> Color(0xFF2D5B52)
+    VocabularyResultTriageKind.WORD_FORM -> Color(0xFF3F6F8F)
+    VocabularyResultTriageKind.ROOT_LANE -> Color(0xFF6E8B3D)
+    VocabularyResultTriageKind.PHASE_FOCUS -> Color(0xFF7A6742)
+    VocabularyResultTriageKind.MEANING_SCAN -> Color(0xFFC98A3D)
+    VocabularyResultTriageKind.MIXED -> Color(0xFF54616D)
 }
 
 @Composable

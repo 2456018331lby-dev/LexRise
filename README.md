@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.32
+# Englishdemo / LexRise v0.33
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.33 亮点
+
+- **词汇搜索新增“结果分诊”**
+  - 当搜索已有结果时，在阶段筛选下方新增分诊卡，把当前结果拆成原词、词形、词根、例句或阶段筛选路线
+  - 自动判断先核对阶段、先走同根线、先把派生词/typo 折回原词、先扫原词、先对照释义，还是分批浏览混合结果
+  - 卡片展示行动标签、结果强度、两项关键指标、四条线索轨道和优先查看 chips，让有结果页从“列出来”升级为“知道先怎么看”
+  - 逻辑由 `buildVocabularyResultTriage` 纯函数派生，不新增数据库字段，不改变搜索排序、阶段筛选、词形容错或用户设置
 
 ## v0.32 亮点
 
@@ -355,6 +363,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.33（2026-06-09）
+- 词汇搜索新增“结果分诊”，在有结果时提示先按阶段、同根线、词形、原词、释义或混合路线浏览
+- 新增 `VocabularyResultTriage` / `VocabularyResultLane` / `VocabularyResultTriageKind` 和 `buildVocabularyResultTriage` 纯函数
+- 新增 `VocabularyResultTriageCard`，展示行动标签、结果强度、四条线索轨道和优先查看 chips
+- 应用版本元数据同步到 0.33.0
+- Android 单测 141 → 148
 
 ### v0.32（2026-06-09）
 - 词汇搜索新增“空结果救援”，在无结果时给出取消阶段筛选、补足词干、换回原形、换中文近义词等改查步骤
