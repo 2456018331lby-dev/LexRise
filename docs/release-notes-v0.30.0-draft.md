@@ -20,3 +20,4 @@
 - `buildDailyLoadBrief` is a JVM-testable pure function.
 - The UI only reads `LearningSession`, `BookRootSnapshot`, `PaceRecommendation`, and current tough-word count.
 - GitHub MCP credentials still need separate repair before MCP-based remote publishing can work.
+- GitHub main was refreshed through GitHub API snapshot commit `e3a9ee730f83ec66741e1663c4ee0d776c1371ac`; GitHub MCP still returned `Bad credentials` in this environment.
