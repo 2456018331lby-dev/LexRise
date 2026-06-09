@@ -569,3 +569,25 @@ data class VocabularySearchRescuePlan(
     val steps: List<VocabularySearchRescueStep>,
     val intensity: Float,
 )
+
+enum class VocabularyResultTriageKind { IDLE, TERM_SWEEP, WORD_FORM, ROOT_LANE, PHASE_FOCUS, MEANING_SCAN, MIXED }
+
+data class VocabularyResultLane(
+    val label: String,
+    val value: String,
+    val weight: Float,
+)
+
+data class VocabularyResultTriage(
+    val kind: VocabularyResultTriageKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val intensity: Float,
+    val lanes: List<VocabularyResultLane>,
+    val focusTerms: List<String>,
+)

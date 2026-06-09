@@ -1622,6 +1622,193 @@ fun buildVocabularySearchRescuePlan(
     )
 }
 
+fun buildVocabularyResultTriage(
+    query: String,
+    results: List<WordEntry>,
+    phaseFilter: StudyPhase?,
+    focusLimit: Int = 4,
+): VocabularyResultTriage {
+    val trimmed = query.trim()
+    val cleanResults = results.distinctBy { it.id }
+    val total = cleanResults.size
+    val cappedFocus = focusLimit.coerceAtLeast(0)
+    if (trimmed.isEmpty() || total == 0) {
+        return VocabularyResultTriage(
+            kind = VocabularyResultTriageKind.IDLE,
+            title = "结果分诊待命",
+            message = "有检索结果后，这里会把它们拆成原词、词形、词根和例句路线，提示先看哪一类。",
+            primaryLabel = "结果",
+            primaryValue = "0",
+            secondaryLabel = "状态",
+            secondaryValue = if (trimmed.isEmpty()) "待输入" else "无命中",
+            actionLabel = "等待结果",
+            intensity = 0f,
+            lanes = emptyList(),
+            focusTerms = emptyList(),
+        )
+    }
+
+    val directTermHits = cleanResults.filter { it.term.contains(trimmed, ignoreCase = true) }
+    val formHits = cleanResults
+        .map { word ->
+            word to matchingWordForms(
+                query = trimmed,
+                term = word.term,
+                variants = word.derivatives,
+                limit = 3,
+            )
+        }
+        .filter { (_, forms) -> forms.isNotEmpty() }
+    val meaningHits = cleanResults.filter { word ->
+        word.translation.contains(trimmed, ignoreCase = true) ||
+            word.definition.contains(trimmed, ignoreCase = true)
+    }
+    val rootedCount = cleanResults.count { it.rootKey.isNotBlank() }
+    val exampleCount = cleanResults.count { it.example.isNotBlank() }
+    val phaseCount = phaseFilter?.let { phase -> cleanResults.count { it.progress?.phase == phase } } ?: 0
+    val rootCluster = cleanResults
+        .mapNotNull { word -> word.rootKey.takeIf { it.isNotBlank() } }
+        .groupingBy { it }
+        .eachCount()
+        .filterValues { it >= 2 }
+        .maxWithOrNull(
+            compareBy<Map.Entry<String, Int>> { it.value }
+                .thenBy { it.key.length },
+        )
+    val rootShare = rootCluster?.value?.toFloat()?.div(total.toFloat()) ?: 0f
+    val directShare = directTermHits.size.toFloat() / total.toFloat()
+    val formShare = formHits.size.toFloat() / total.toFloat()
+    val meaningShare = meaningHits.size.toFloat() / total.toFloat()
+    val phaseShare = if (phaseFilter == null) 0f else phaseCount.toFloat() / total.toFloat()
+
+    fun lane(label: String, count: Int): VocabularyResultLane {
+        val safeCount = count.coerceAtLeast(0)
+        val weight = if (safeCount == 0) 0.04f else safeCount.toFloat() / total.toFloat()
+        return VocabularyResultLane(
+            label = label,
+            value = safeCount.toString(),
+            weight = weight.coerceIn(0.04f, 1f),
+        )
+    }
+
+    val lanes = listOf(
+        lane("原词", directTermHits.size),
+        lane("词形", formHits.size),
+        lane("词根", rootedCount),
+        if (phaseFilter == null) lane("例句", exampleCount) else lane(studyPhaseLabel(phaseFilter), phaseCount),
+    )
+    val kind = when {
+        phaseFilter != null -> VocabularyResultTriageKind.PHASE_FOCUS
+        rootCluster != null && rootShare >= 0.34f -> VocabularyResultTriageKind.ROOT_LANE
+        formHits.isNotEmpty() && directTermHits.isEmpty() -> VocabularyResultTriageKind.WORD_FORM
+        directTermHits.isNotEmpty() -> VocabularyResultTriageKind.TERM_SWEEP
+        meaningHits.isNotEmpty() -> VocabularyResultTriageKind.MEANING_SCAN
+        rootCluster != null -> VocabularyResultTriageKind.ROOT_LANE
+        else -> VocabularyResultTriageKind.MIXED
+    }
+    val formFocusTerms = formHits.flatMap { (word, forms) ->
+        forms.map { form -> if (form.equals(word.term, ignoreCase = true)) word.term else form }
+    }
+    val focusTerms = when (kind) {
+        VocabularyResultTriageKind.PHASE_FOCUS -> cleanResults.map { it.term }
+        VocabularyResultTriageKind.ROOT_LANE -> cleanResults.filter { it.rootKey == rootCluster?.key }.map { it.term }
+        VocabularyResultTriageKind.WORD_FORM -> formFocusTerms
+        VocabularyResultTriageKind.TERM_SWEEP -> directTermHits.map { it.term }
+        VocabularyResultTriageKind.MEANING_SCAN -> meaningHits.map { it.term }
+        VocabularyResultTriageKind.MIXED -> cleanResults.map { it.term }
+        VocabularyResultTriageKind.IDLE -> emptyList()
+    }
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .distinctBy { it.lowercase() }
+        .take(cappedFocus)
+
+    return when (kind) {
+        VocabularyResultTriageKind.PHASE_FOCUS -> {
+            val phaseLabel = studyPhaseLabel(phaseFilter)
+            VocabularyResultTriage(
+                kind = kind,
+                title = "先核对${phaseLabel}阶段结果",
+                message = "当前结果已被阶段筛选收窄；先确认这批词是否正处在${phaseLabel}，再决定是否切回全部阶段看完整命中。",
+                primaryLabel = "阶段",
+                primaryValue = phaseLabel,
+                secondaryLabel = "结果",
+                secondaryValue = total.toString(),
+                actionLabel = "核对阶段",
+                intensity = phaseShare.coerceIn(0.18f, 1f),
+                lanes = lanes,
+                focusTerms = focusTerms,
+            )
+        }
+        VocabularyResultTriageKind.ROOT_LANE -> VocabularyResultTriage(
+            kind = kind,
+            title = "先走 ${rootCluster?.key ?: "同根"} 这条线",
+            message = "这批结果里有 ${rootCluster?.value ?: 0} 个同根词，先比较共同词根和差异词缀，比逐条孤立浏览更省力。",
+            primaryLabel = "同根结果",
+            primaryValue = (rootCluster?.value ?: 0).toString(),
+            secondaryLabel = "词根",
+            secondaryValue = rootCluster?.key ?: "混合",
+            actionLabel = "按词根整理",
+            intensity = rootShare.coerceIn(0.18f, 1f),
+            lanes = lanes,
+            focusTerms = focusTerms,
+        )
+        VocabularyResultTriageKind.WORD_FORM -> VocabularyResultTriage(
+            kind = kind,
+            title = "先把词形折回原词",
+            message = "这次结果主要靠派生形或轻微 typo 命中；先看词形雷达，再回到原词、词根和例句建立记忆。",
+            primaryLabel = "词形命中",
+            primaryValue = formHits.size.toString(),
+            secondaryLabel = "总结果",
+            secondaryValue = total.toString(),
+            actionLabel = "折回原词",
+            intensity = formShare.coerceIn(0.18f, 1f),
+            lanes = lanes,
+            focusTerms = focusTerms,
+        )
+        VocabularyResultTriageKind.TERM_SWEEP -> VocabularyResultTriage(
+            kind = kind,
+            title = "原词结果先扫首屏",
+            message = "结果里有 ${directTermHits.size} 个原词直接含有“$trimmed”；先确认这些词，再用词形和同根 chips 扩展相关词。",
+            primaryLabel = "原词命中",
+            primaryValue = directTermHits.size.toString(),
+            secondaryLabel = "总结果",
+            secondaryValue = total.toString(),
+            actionLabel = "先扫原词",
+            intensity = directShare.coerceIn(0.18f, 1f),
+            lanes = lanes,
+            focusTerms = focusTerms,
+        )
+        VocabularyResultTriageKind.MEANING_SCAN -> VocabularyResultTriage(
+            kind = kind,
+            title = "释义命中要二次确认",
+            message = "这批更像中文释义或英文解释命中；先看前几条翻译，再用例句和词根判断是不是你真正要找的词。",
+            primaryLabel = "释义命中",
+            primaryValue = meaningHits.size.toString(),
+            secondaryLabel = "有例句",
+            secondaryValue = exampleCount.toString(),
+            actionLabel = "对照释义",
+            intensity = meaningShare.coerceIn(0.14f, 1f),
+            lanes = lanes,
+            focusTerms = focusTerms,
+        )
+        VocabularyResultTriageKind.MIXED -> VocabularyResultTriage(
+            kind = kind,
+            title = "结果线索分散，分两步看",
+            message = "这批结果没有明显单一路线；先扫前几条高频词，再按词根、词形或例句 chips 分批确认。",
+            primaryLabel = "总结果",
+            primaryValue = total.toString(),
+            secondaryLabel = if (rootedCount > 0) "有词根" else "有例句",
+            secondaryValue = if (rootedCount > 0) rootedCount.toString() else exampleCount.toString(),
+            actionLabel = "分批浏览",
+            intensity = (total.toFloat() / 12f).coerceIn(0.18f, 0.72f),
+            lanes = lanes,
+            focusTerms = focusTerms,
+        )
+        VocabularyResultTriageKind.IDLE -> error("IDLE triage is returned before branch selection")
+    }
+}
+
 private fun vocabularyBaseFormProbe(letters: String): String? = when {
     letters.length > 4 && letters.endsWith("ied") -> letters.dropLast(3) + "y"
     letters.length > 4 && letters.endsWith("ies") -> letters.dropLast(3) + "y"
