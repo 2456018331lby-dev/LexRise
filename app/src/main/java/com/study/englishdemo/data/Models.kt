@@ -179,6 +179,21 @@ data class WordBatchBrief(
     val focusTerms: List<String>,
 )
 
+enum class MnemonicBatchBriefKind { READY, SEED_GAP, ROOT_BRIDGE, QUICK_START, EMPTY }
+
+data class MnemonicBatchBrief(
+    val kind: MnemonicBatchBriefKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val coverage: Float,
+    val focusTerms: List<String>,
+)
+
 data class WordProgress(
     val phase: StudyPhase,
     val familiarity: Int,

@@ -110,6 +110,8 @@ import com.study.englishdemo.data.DailyStudyRoute
 import com.study.englishdemo.data.DailyStudyRouteStep
 import com.study.englishdemo.data.DailyStudyRouteTarget
 import com.study.englishdemo.data.Morpheme
+import com.study.englishdemo.data.MnemonicBatchBrief
+import com.study.englishdemo.data.MnemonicBatchBriefKind
 import com.study.englishdemo.data.PracticeMode
 import com.study.englishdemo.data.PracticeSessionCoach
 import com.study.englishdemo.data.PracticeSessionCoachKind
@@ -139,6 +141,7 @@ import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
 import com.study.englishdemo.data.WordMemoryAnchor
 import com.study.englishdemo.data.WordMemoryAnchorKind
+import com.study.englishdemo.data.buildMnemonicBatchBrief
 import com.study.englishdemo.data.buildClozeContextGuide
 import com.study.englishdemo.data.buildDailyStudyRoute
 import com.study.englishdemo.data.buildPracticeSessionCoach
@@ -952,12 +955,14 @@ private fun LearnScreen(
 ) {
     val words = uiState.session?.recommendedNewWords.orEmpty()
     val batchBrief = remember(words) { buildWordBatchBrief(words) }
+    val mnemonicBrief = remember(words) { buildMnemonicBatchBrief(words) }
     WordQueueScreen(
         title = "新词学习",
         subtitle = "当前词书：${uiState.selectedBookTitle}。按词根聚簇出词——同根词连着记，比字母序高效。",
         words = words,
         uiState = uiState,
         batchBrief = batchBrief,
+        mnemonicBrief = mnemonicBrief,
         onRate = onRate,
         onSpeak = onSpeak,
         onMnemonic = onMnemonic,
@@ -1917,6 +1922,7 @@ private fun WordQueueScreen(
     words: List<WordEntry>,
     uiState: AppUiState,
     batchBrief: WordBatchBrief? = null,
+    mnemonicBrief: MnemonicBatchBrief? = null,
     onRate: (Long, ReviewRating) -> Unit,
     onSpeak: (String) -> Unit,
     onMnemonic: (Long, String) -> Unit,
@@ -1932,6 +1938,11 @@ private fun WordQueueScreen(
         batchBrief?.let { brief ->
             item {
                 WordBatchBriefCard(brief)
+            }
+        }
+        mnemonicBrief?.let { brief ->
+            item {
+                MnemonicBatchBriefCard(brief)
             }
         }
         if (words.isEmpty()) {
@@ -2072,6 +2083,123 @@ private fun WordBatchBriefCard(brief: WordBatchBrief) {
 }
 
 @Composable
+private fun MnemonicBatchBriefCard(brief: MnemonicBatchBrief) {
+    val accent = mnemonicBatchBriefAccent(brief.kind)
+    val icon = when (brief.kind) {
+        MnemonicBatchBriefKind.READY -> Icons.Rounded.Star
+        MnemonicBatchBriefKind.SEED_GAP -> Icons.Rounded.Edit
+        MnemonicBatchBriefKind.ROOT_BRIDGE -> Icons.Rounded.AccountTree
+        MnemonicBatchBriefKind.QUICK_START -> Icons.Rounded.PsychologyAlt
+        MnemonicBatchBriefKind.EMPTY -> Icons.Rounded.Check
+    }
+    val animated by animateFloatAsState(
+        targetValue = brief.coverage.coerceIn(0f, 1f),
+        animationSpec = tween(520),
+        label = "mnemonicBatchBriefCoverage",
+    )
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.22f),
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                            accent.copy(alpha = 0.07f),
+                        ),
+                    ),
+                )
+                .padding(17.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(16.dp), color = accent.copy(alpha = 0.15f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(9.dp)
+                                    .size(21.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "巧记覆盖简报",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(brief.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                brief.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                            )
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            brief.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { animated },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    BatchBriefMetric(brief.primaryLabel, brief.primaryValue, accent, Modifier.weight(1f))
+                    BatchBriefMetric(brief.secondaryLabel, brief.secondaryValue, accent, Modifier.weight(1f))
+                }
+                if (brief.focusTerms.isNotEmpty()) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        items(brief.focusTerms, key = { it }) { term ->
+                            Surface(shape = RoundedCornerShape(14.dp), color = accent.copy(alpha = 0.10f)) {
+                                Text(
+                                    term,
+                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = accent,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun BatchBriefMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
@@ -2090,6 +2218,15 @@ private fun BatchBriefMetric(label: String, value: String, accent: Color, modifi
             )
         }
     }
+}
+
+@Composable
+private fun mnemonicBatchBriefAccent(kind: MnemonicBatchBriefKind): Color = when (kind) {
+    MnemonicBatchBriefKind.READY -> Color(0xFFC98A3D)
+    MnemonicBatchBriefKind.SEED_GAP -> Color(0xFF9A6B3A)
+    MnemonicBatchBriefKind.ROOT_BRIDGE -> Color(0xFF2D5B52)
+    MnemonicBatchBriefKind.QUICK_START -> Color(0xFF3F6F8F)
+    MnemonicBatchBriefKind.EMPTY -> Color(0xFF6E8B3D)
 }
 
 @Composable

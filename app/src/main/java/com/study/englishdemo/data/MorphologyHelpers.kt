@@ -586,6 +586,94 @@ fun buildWordBatchBrief(words: List<WordEntry>, focusLimit: Int = 4): WordBatchB
     }
 }
 
+fun buildMnemonicBatchBrief(words: List<WordEntry>, focusLimit: Int = 4): MnemonicBatchBrief {
+    val cleanWords = words.distinctBy { it.id }
+    val total = cleanWords.size
+    val cappedFocus = focusLimit.coerceAtLeast(0)
+    if (total == 0) {
+        return MnemonicBatchBrief(
+            kind = MnemonicBatchBriefKind.EMPTY,
+            title = "巧记队列暂时清空",
+            message = "当前没有待学新词，先去 Review 或难词专攻保持主动回忆。",
+            primaryLabel = "待学",
+            primaryValue = "0",
+            secondaryLabel = "巧记",
+            secondaryValue = "0",
+            actionLabel = "去巩固",
+            coverage = 0f,
+            focusTerms = emptyList(),
+        )
+    }
+
+    val mnemonicWords = cleanWords.filter { it.mnemonic.isNotBlank() }
+    val blankMnemonicWords = cleanWords.filter { it.mnemonic.isBlank() }
+    val rootedWords = cleanWords.filter { it.rootKey.isNotBlank() }
+    val derivativeWords = cleanWords.filter { word ->
+        word.derivatives.any { it.isNotBlank() && !it.equals(word.term, ignoreCase = true) }
+    }
+    val coverage = mnemonicWords.size.toFloat() / total.toFloat()
+    val rootShare = rootedWords.size.toFloat() / total.toFloat()
+    val formShare = derivativeWords.size.toFloat() / total.toFloat()
+    val coverageLabel = "${(coverage * 100f).toInt()}%"
+
+    fun focusFrom(source: List<WordEntry>): List<String> = source
+        .map { it.term.trim() }
+        .filter { it.isNotEmpty() }
+        .distinctBy { it.lowercase() }
+        .take(cappedFocus)
+
+    return when {
+        mnemonicWords.isNotEmpty() && coverage >= 0.5f -> MnemonicBatchBrief(
+            kind = MnemonicBatchBriefKind.READY,
+            title = "先用现成巧记开局",
+            message = "这批有 ${mnemonicWords.size} 个词已经带巧记，先读线索再翻卡，能把第一印象压得更稳。",
+            primaryLabel = "有巧记",
+            primaryValue = mnemonicWords.size.toString(),
+            secondaryLabel = "覆盖",
+            secondaryValue = coverageLabel,
+            actionLabel = "先读巧记",
+            coverage = coverage.coerceIn(0f, 1f),
+            focusTerms = focusFrom(mnemonicWords),
+        )
+        rootedWords.size >= 2 && mnemonicWords.isEmpty() -> MnemonicBatchBrief(
+            kind = MnemonicBatchBriefKind.ROOT_BRIDGE,
+            title = "先用词根桥接空白巧记",
+            message = "这批暂时没有巧记，但有 ${rootedWords.size} 个词带 rootKey；先借词根成组，再给难记词补个人口诀。",
+            primaryLabel = "可桥接",
+            primaryValue = rootedWords.size.toString(),
+            secondaryLabel = "覆盖",
+            secondaryValue = "${(rootShare * 100f).toInt()}%",
+            actionLabel = "先借词根",
+            coverage = rootShare.coerceIn(0.12f, 1f),
+            focusTerms = focusFrom(rootedWords),
+        )
+        mnemonicWords.isNotEmpty() && blankMnemonicWords.size >= 2 -> MnemonicBatchBrief(
+            kind = MnemonicBatchBriefKind.SEED_GAP,
+            title = "这批适合补个人巧记",
+            message = "已有巧记覆盖 $coverageLabel，还有 ${blankMnemonicWords.size} 个词是空白；遇到卡顿词时补一句自己的线索，不要一次性硬编全批。",
+            primaryLabel = "待补",
+            primaryValue = blankMnemonicWords.size.toString(),
+            secondaryLabel = "已有",
+            secondaryValue = mnemonicWords.size.toString(),
+            actionLabel = "边学边补",
+            coverage = coverage.coerceIn(0f, 1f),
+            focusTerms = focusFrom(blankMnemonicWords),
+        )
+        else -> MnemonicBatchBrief(
+            kind = MnemonicBatchBriefKind.QUICK_START,
+            title = "先做最小速记起步",
+            message = "这批巧记和词根线索都不密集，先靠发音、释义和词形建立第一印象；真正卡住的词再补巧记。",
+            primaryLabel = "待学",
+            primaryValue = total.toString(),
+            secondaryLabel = "词形线索",
+            secondaryValue = derivativeWords.size.toString(),
+            actionLabel = "先翻卡",
+            coverage = maxOf(coverage, formShare * 0.6f).coerceIn(0.10f, 0.55f),
+            focusTerms = focusFrom(cleanWords),
+        )
+    }
+}
+
 fun buildRootGroupInsight(group: RootGroup, focusLimit: Int = 3): RootGroupInsight {
     val total = group.totalWords.coerceAtLeast(0)
     val learned = group.learnedWords.coerceIn(0, total)

@@ -563,6 +563,83 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildMnemonicBatchBrief_handlesEmptyBatch() {
+        val brief = buildMnemonicBatchBrief(emptyList())
+
+        assertThat(brief.kind).isEqualTo(MnemonicBatchBriefKind.EMPTY)
+        assertThat(brief.primaryValue).isEqualTo("0")
+        assertThat(brief.coverage).isEqualTo(0f)
+        assertThat(brief.actionLabel).isEqualTo("去巩固")
+    }
+
+    @Test
+    fun buildMnemonicBatchBrief_usesReadyPlanWhenMnemonicCoverageIsHigh() {
+        val brief = buildMnemonicBatchBrief(
+            listOf(
+                fakeEntry("state", "stat", mnemonic = "stat 站住就是状态"),
+                fakeEntry("statement", "stat", mnemonic = "state + ment 是陈述"),
+                fakeEntry("plain", ""),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(MnemonicBatchBriefKind.READY)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.secondaryValue).isEqualTo("66%")
+        assertThat(brief.focusTerms).containsExactly("state", "statement").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("先读巧记")
+    }
+
+    @Test
+    fun buildMnemonicBatchBrief_usesSeedGapWhenCoverageIsPartial() {
+        val brief = buildMnemonicBatchBrief(
+            listOf(
+                fakeEntry("state", "stat", mnemonic = "stat 站住就是状态"),
+                fakeEntry("plain", ""),
+                fakeEntry("single", ""),
+                fakeEntry("solo", ""),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(MnemonicBatchBriefKind.SEED_GAP)
+        assertThat(brief.primaryValue).isEqualTo("3")
+        assertThat(brief.secondaryValue).isEqualTo("1")
+        assertThat(brief.focusTerms).containsExactly("plain", "single", "solo").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("边学边补")
+    }
+
+    @Test
+    fun buildMnemonicBatchBrief_bridgesWithRootsWhenMnemonicIsMissing() {
+        val brief = buildMnemonicBatchBrief(
+            listOf(
+                fakeEntry("inspect", "spec"),
+                fakeEntry("respect", "spec"),
+                fakeEntry("plain", ""),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(MnemonicBatchBriefKind.ROOT_BRIDGE)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.focusTerms).containsExactly("inspect", "respect").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("先借词根")
+    }
+
+    @Test
+    fun buildMnemonicBatchBrief_fallsBackToQuickStart() {
+        val brief = buildMnemonicBatchBrief(
+            listOf(
+                fakeEntry("plain", ""),
+                fakeEntry("form", "", derivatives = listOf("formed")),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(MnemonicBatchBriefKind.QUICK_START)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.secondaryValue).isEqualTo("1")
+        assertThat(brief.focusTerms).containsExactly("plain", "form").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("先翻卡")
+    }
+
+    @Test
     fun buildRootGroupInsight_seedsUntouchedRootFamilies() {
         val insight = buildRootGroupInsight(
             RootGroup(
@@ -1424,6 +1501,7 @@ class MorphologyHelpersTest {
         example: String = "",
         derivatives: List<String> = emptyList(),
         translation: String = "",
+        mnemonic: String = "",
         pos: String = "",
         frq: Int = 0,
     ): WordEntry = WordEntry(
@@ -1436,6 +1514,7 @@ class MorphologyHelpersTest {
         tags = emptyList(),
         rootKey = rootKey,
         derivatives = derivatives,
+        mnemonic = mnemonic,
         pos = pos,
         frq = frq,
         progress = phase?.let {
