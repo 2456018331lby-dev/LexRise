@@ -14,7 +14,7 @@ and produces:
 
 Each book CSV has this header (extended format — the app parses old 6-col
 format too):
-    term,phonetic,definition,translation,example,tags,rootKey,derivatives,frq,pos
+    term,phonetic,definition,translation,example,tags,rootKey,derivatives,frq,pos,mnemonic
 
 Run from repo root:
     python tools/build_wordlists.py
@@ -31,6 +31,8 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW_DIR = ROOT / "tools" / "raw"
 ASSETS_BOOKS = ROOT / "app" / "src" / "main" / "assets" / "books"
 ASSETS_REF = ROOT / "app" / "src" / "main" / "assets" / "reference"
+MNEMONIC_SEED = ROOT / "tools" / "mnemonics_seed.csv"
+RAW_MNEMONICS = RAW_DIR / "mnemonics.csv"
 
 EXAM_SPECS = {
     "cet4": {
@@ -61,6 +63,7 @@ CSV_HEADER = [
     "derivatives",
     "frq",
     "pos",
+    "mnemonic",
 ]
 
 
@@ -120,6 +123,47 @@ def clean_translation(raw: str) -> str:
     return "； ".join(keep)[:140]
 
 
+def clean_mnemonic(raw: str) -> str:
+    """Keep built-in mnemonic hints short enough for phone cards."""
+    text = re.sub(r"\s+", " ", (raw or "").strip())
+    return text[:120]
+
+
+def load_mnemonics(paths) -> dict:
+    """Load offline mnemonic rows keyed by lowercase term.
+
+    Later files override earlier files, so tools/raw/mnemonics.csv can replace
+    the committed seed without requiring online API calls.
+    """
+    mnemonics = {}
+    for path in paths:
+        if not path.exists():
+            continue
+        with path.open("r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            fieldnames = {name.strip().lower(): name for name in (reader.fieldnames or [])}
+            term_col = fieldnames.get("term") or fieldnames.get("word")
+            mnemonic_col = fieldnames.get("mnemonic") or fieldnames.get("note")
+            if not term_col or not mnemonic_col:
+                raise ValueError(f"{path} must contain term,mnemonic columns")
+            for row in reader:
+                term = (row.get(term_col) or "").strip().lower()
+                mnemonic = clean_mnemonic(row.get(mnemonic_col) or "")
+                if term and mnemonic:
+                    mnemonics[term] = mnemonic
+    return mnemonics
+
+
+def apply_mnemonics(words: list, mnemonics: dict) -> int:
+    count = 0
+    for w in words:
+        mnemonic = mnemonics.get(w["term"].lower(), "")
+        w["mnemonic"] = mnemonic
+        if mnemonic:
+            count += 1
+    return count
+
+
 def derive_derivatives(exchange: str) -> str:
     """ECDICT exchange column like 'p:abided/i:abiding/s:abides'"""
     if not exchange:
@@ -175,6 +219,7 @@ def select_exam(rows, tag_key: str, spec) -> list:
             "frq": frq,
             "exchange": r.get("exchange") or "",
             "pos": (r.get("pos") or "").strip().replace(":", "/"),
+            "mnemonic": "",
         })
     # ECDICT frq: smaller = more common; cap total
     selected.sort(key=lambda x: (0 if x["frq"] > 0 else 1, x["frq"] or 10_000_000, x["term"].lower()))
@@ -241,6 +286,7 @@ def write_book(words: list, out_path: Path, exam_tag: str):
                 derive_derivatives(w["exchange"]),
                 w["frq"],
                 w["pos"],
+                w.get("mnemonic", ""),
             ])
 
 
@@ -260,6 +306,9 @@ def main():
     roots_sorted_keys = sorted({r["key"] for r in roots}, key=lambda k: -len(k))
     print(f"  {len(roots)} roots, {len(example_to_root)} tagged example words")
 
+    mnemonics = load_mnemonics([MNEMONIC_SEED, RAW_MNEMONICS])
+    print(f"Loaded {len(mnemonics)} offline mnemonic hints")
+
     print("Reading ECDICT...")
     rows = []
     with (RAW_DIR / "ecdict.csv").open("r", encoding="utf-8", newline="") as f:
@@ -275,6 +324,8 @@ def main():
         words = order_by_root(words, example_to_root, roots_sorted_keys)
         with_root = sum(1 for w in words if w["rootKey"])
         print(f"  {with_root} words mapped to a root ({100*with_root/max(len(words),1):.1f}%)")
+        with_mnemonic = apply_mnemonics(words, mnemonics)
+        print(f"  {with_mnemonic} words received a mnemonic hint")
         out = ASSETS_BOOKS / spec["filename"]
         write_book(words, out, tag)
         print(f"  wrote {out} ({out.stat().st_size//1024} KB)")

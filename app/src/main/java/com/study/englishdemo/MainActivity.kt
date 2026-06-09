@@ -2213,11 +2213,7 @@ private fun FlipWordCard(
                         }
                     }
                     if (word.mnemonic.isNotBlank() && !mnemonicEditorOpen) {
-                        Text(
-                            "巧记：${word.mnemonic}",
-                            color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                        MnemonicSignalCard(word.mnemonic)
                     }
                     if (mnemonicEditorOpen) {
                         OutlinedTextField(
@@ -2260,6 +2256,58 @@ private fun FlipWordCard(
                 RatingButton("困难", ReviewRating.HARD, word.id, enabled = revealed, onRate = onRate)
                 RatingButton("掌握", ReviewRating.GOOD, word.id, enabled = revealed, onRate = onRate)
                 RatingButton("秒会", ReviewRating.EASY, word.id, enabled = revealed, onRate = onRate)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MnemonicSignalCard(mnemonic: String, modifier: Modifier = Modifier) {
+    val accent = Color(0xFFC98A3D)
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color.Transparent,
+    ) {
+        Row(
+            modifier = Modifier
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.16f),
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                        ),
+                    ),
+                )
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Surface(shape = RoundedCornerShape(14.dp), color = accent.copy(alpha = 0.14f)) {
+                Icon(
+                    imageVector = Icons.Rounded.Star,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier
+                        .padding(7.dp)
+                        .size(18.dp),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    "巧记线索",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = accent,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    mnemonic,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f),
+                )
             }
         }
     }
@@ -4498,11 +4546,7 @@ private fun ToughWordCard(
                             )
                         }
                         if (!editing && word.mnemonic.isNotBlank()) {
-                            Text(
-                                "巧记：${word.mnemonic}",
-                                color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
+                            MnemonicSignalCard(word.mnemonic)
                         }
                         if (editing) {
                             OutlinedTextField(
