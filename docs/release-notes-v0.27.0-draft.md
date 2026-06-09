@@ -20,3 +20,4 @@
 
 - No online API is used by the wordlist builder.
 - Existing installed databases are not force-updated with new built-in mnemonics, because the app cannot distinguish an intentionally cleared user mnemonic from a previously blank imported value.
+- GitHub main was refreshed through GitHub API snapshot commit `ef9c3e6393e389f13f880085b668cda497025a78`; GitHub MCP still returned `Bad credentials` in this environment.
