@@ -106,6 +106,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.study.englishdemo.data.ClozeContextGuide
 import com.study.englishdemo.data.ClozeContextGuideKind
 import com.study.englishdemo.data.DailyReviewCount
+import com.study.englishdemo.data.DailyLoadBrief
+import com.study.englishdemo.data.DailyLoadBriefKind
+import com.study.englishdemo.data.DailyLoadLane
 import com.study.englishdemo.data.DailyStudyRoute
 import com.study.englishdemo.data.DailyStudyRouteStep
 import com.study.englishdemo.data.DailyStudyRouteTarget
@@ -145,6 +148,7 @@ import com.study.englishdemo.data.WordMemoryAnchor
 import com.study.englishdemo.data.WordMemoryAnchorKind
 import com.study.englishdemo.data.buildMnemonicBatchBrief
 import com.study.englishdemo.data.buildClozeContextGuide
+import com.study.englishdemo.data.buildDailyLoadBrief
 import com.study.englishdemo.data.buildDailyStudyRoute
 import com.study.englishdemo.data.buildPracticeSessionCoach
 import com.study.englishdemo.data.buildReviewQueueBrief
@@ -413,6 +417,14 @@ private fun DashboardScreen(
     val focusCue = remember(session, uiState.rootSnapshot, uiState.pace) {
         buildStudyFocusCue(session, uiState.rootSnapshot, uiState.pace)
     }
+    val loadBrief = remember(session, uiState.rootSnapshot, uiState.pace, uiState.toughWords.size) {
+        buildDailyLoadBrief(
+            session = session,
+            rootSnapshot = uiState.rootSnapshot,
+            pace = uiState.pace,
+            toughWordCount = uiState.toughWords.size,
+        )
+    }
     val dailyRoute = remember(session, uiState.rootSnapshot, uiState.pace, uiState.toughWords.size) {
         buildDailyStudyRoute(
             session = session,
@@ -471,6 +483,7 @@ private fun DashboardScreen(
                 MetricCard("完成率", "${(session.overview.completionRatio * 100).toInt()}%", Modifier.weight(1f))
             }
         }
+        item { DailyLoadBriefCard(loadBrief) }
         item { StudyFocusCueCard(focusCue, onAction = { onFocusAction(focusCue) }) }
         item { DailyStudyRouteCard(dailyRoute, onStepAction = onRouteAction) }
         if (uiState.settings.examDate != null || uiState.pace.isAuto) {
@@ -606,6 +619,161 @@ private fun DashboardScreen(
             },
         )
     }
+}
+
+@Composable
+private fun DailyLoadBriefCard(brief: DailyLoadBrief) {
+    val accent = dailyLoadBriefAccent(brief.kind)
+    val icon = when (brief.kind) {
+        DailyLoadBriefKind.REVIEW_DEBT -> Icons.Rounded.PsychologyAlt
+        DailyLoadBriefKind.TOUGH_REPAIR -> Icons.Rounded.LocalFireDepartment
+        DailyLoadBriefKind.ROOT_GAP -> Icons.Rounded.AccountTree
+        DailyLoadBriefKind.PACE_PUSH -> Icons.Rounded.EventAvailable
+        DailyLoadBriefKind.BALANCED -> Icons.Rounded.Insights
+        DailyLoadBriefKind.CLEAR -> Icons.Rounded.Check
+    }
+    val intensity by animateFloatAsState(
+        targetValue = brief.intensity.coerceIn(0f, 1f),
+        animationSpec = tween(520),
+        label = "dailyLoadIntensity",
+    )
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.20f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+                        ),
+                        start = Offset(0f, 0f),
+                        end = Offset(850f, 360f),
+                    ),
+                )
+                .padding(18.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(18.dp), color = accent.copy(alpha = 0.16f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(10.dp)
+                                    .size(22.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "今日负载简报",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(brief.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            brief.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                Text(
+                    brief.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.74f),
+                )
+                LinearProgressIndicator(
+                    progress = { intensity },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(7.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    FocusMetricPill(brief.primaryLabel, brief.primaryValue, accent, Modifier.weight(1f))
+                    FocusMetricPill(brief.secondaryLabel, brief.secondaryValue, accent, Modifier.weight(1f))
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    brief.lanes.forEach { lane ->
+                        DailyLoadLaneRow(lane = lane, accent = accent)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DailyLoadLaneRow(lane: DailyLoadLane, accent: Color) {
+    val weight by animateFloatAsState(
+        targetValue = lane.weight.coerceIn(0f, 1f),
+        animationSpec = tween(420),
+        label = "dailyLoadLane${lane.label}",
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                lane.label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.64f),
+            )
+            Text(
+                lane.value,
+                style = MaterialTheme.typography.labelMedium,
+                color = accent,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .background(accent.copy(alpha = 0.10f), RoundedCornerShape(999.dp)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(weight)
+                    .height(8.dp)
+                    .background(accent, RoundedCornerShape(999.dp)),
+            )
+        }
+    }
+}
+
+@Composable
+private fun dailyLoadBriefAccent(kind: DailyLoadBriefKind): Color = when (kind) {
+    DailyLoadBriefKind.REVIEW_DEBT -> MaterialTheme.colorScheme.primary
+    DailyLoadBriefKind.TOUGH_REPAIR -> Color(0xFFB65245)
+    DailyLoadBriefKind.ROOT_GAP -> Color(0xFF2D5B52)
+    DailyLoadBriefKind.PACE_PUSH -> Color(0xFFC98A3D)
+    DailyLoadBriefKind.BALANCED -> MaterialTheme.colorScheme.secondary
+    DailyLoadBriefKind.CLEAR -> Color(0xFF6E8B3D)
 }
 
 @Composable

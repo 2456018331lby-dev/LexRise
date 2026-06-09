@@ -145,6 +145,142 @@ fun buildStudyFocusCue(
     }
 }
 
+fun buildDailyLoadBrief(
+    session: LearningSession,
+    rootSnapshot: BookRootSnapshot,
+    pace: PaceRecommendation,
+    toughWordCount: Int,
+): DailyLoadBrief {
+    val overview = session.overview
+    val plannedNewWords = if (pace.isAuto && pace.remainingWords > 0 && pace.target > overview.newWordTarget) {
+        pace.target
+    } else {
+        overview.newWordTarget
+    }.coerceAtLeast(0)
+    val newWordsToday = plannedNewWords
+        .coerceAtMost(overview.newWordsRemaining.coerceAtLeast(0))
+        .coerceAtLeast(0)
+    val reviewDue = overview.reviewDueCount.coerceAtLeast(0)
+    val toughCount = toughWordCount.coerceAtLeast(0)
+    val rootProgress = if (rootSnapshot.totalRoots > 0) {
+        (rootSnapshot.touchedRoots.toFloat() / rootSnapshot.totalRoots.toFloat()).coerceIn(0f, 1f)
+    } else {
+        1f
+    }
+    val rootGap = if (rootSnapshot.totalRoots > 0) 1f - rootProgress else 0f
+
+    val reviewLoad = (reviewDue.toFloat() / 24f).coerceIn(0f, 1f)
+    val toughLoad = (toughCount.toFloat() / 12f).coerceIn(0f, 1f)
+    val newLoad = (newWordsToday.toFloat() / 40f).coerceIn(0f, 1f)
+    val rootLoad = rootGap.coerceIn(0f, 1f)
+    val intensity = maxOf(reviewLoad, toughLoad, newLoad, rootLoad, overview.completionRatio.coerceIn(0f, 1f))
+        .coerceIn(0.08f, 1f)
+
+    fun laneWeight(load: Float): Float = if (load == 0f) 0.04f else load.coerceIn(0.10f, 1f)
+
+    val lanes = listOf(
+        DailyLoadLane(label = "复习", value = reviewDue.toString(), weight = laneWeight(reviewLoad)),
+        DailyLoadLane(label = "新词", value = newWordsToday.toString(), weight = laneWeight(newLoad)),
+        DailyLoadLane(label = "难词", value = toughCount.toString(), weight = laneWeight(toughLoad)),
+        DailyLoadLane(
+            label = "词根",
+            value = if (rootSnapshot.totalRoots > 0) {
+                "${rootSnapshot.touchedRoots.coerceAtLeast(0)}/${rootSnapshot.totalRoots}"
+            } else {
+                "无"
+            },
+            weight = laneWeight(rootLoad),
+        ),
+    )
+
+    val kind = when {
+        reviewDue >= 12 -> DailyLoadBriefKind.REVIEW_DEBT
+        toughCount >= 6 -> DailyLoadBriefKind.TOUGH_REPAIR
+        rootSnapshot.totalRoots > 0 && rootProgress < 0.35f -> DailyLoadBriefKind.ROOT_GAP
+        pace.isAuto && pace.remainingWords > 0 && pace.target > overview.newWordTarget -> DailyLoadBriefKind.PACE_PUSH
+        reviewDue == 0 && overview.newWordsRemaining <= 0 && toughCount == 0 -> DailyLoadBriefKind.CLEAR
+        else -> DailyLoadBriefKind.BALANCED
+    }
+
+    val title: String
+    val message: String
+    val primaryLabel: String
+    val primaryValue: String
+    val secondaryLabel: String
+    val secondaryValue: String
+    val actionLabel: String
+    when (kind) {
+        DailyLoadBriefKind.REVIEW_DEBT -> {
+            title = "今天先给记忆减压"
+            message = "到期复习已经堆到 $reviewDue 个，先清旧词再开新内容；新词可以少量推进，但不要让复习债继续滚大。"
+            primaryLabel = "复习债"
+            primaryValue = reviewDue.toString()
+            secondaryLabel = "建议新词"
+            secondaryValue = newWordsToday.toString()
+            actionLabel = "先清债"
+        }
+        DailyLoadBriefKind.TOUGH_REPAIR -> {
+            title = "错题压力偏高，先修漏点"
+            message = "当前难词池有 $toughCount 个高频翻车词；先做一轮难词修复，再用新词或复习维持节奏。"
+            primaryLabel = "难词"
+            primaryValue = toughCount.toString()
+            secondaryLabel = "到期"
+            secondaryValue = reviewDue.toString()
+            actionLabel = "先修漏点"
+        }
+        DailyLoadBriefKind.ROOT_GAP -> {
+            title = "词根网偏薄，先补结构"
+            message = "已触达词根只有 ${rootSnapshot.touchedRoots}/${rootSnapshot.totalRoots}，先看词根图谱，把孤立新词接进构词网络。"
+            primaryLabel = "词根触达"
+            primaryValue = "${rootSnapshot.touchedRoots}/${rootSnapshot.totalRoots}"
+            secondaryLabel = "今日新词"
+            secondaryValue = newWordsToday.toString()
+            actionLabel = "补词根网"
+        }
+        DailyLoadBriefKind.PACE_PUSH -> {
+            title = "考试节奏要求加速"
+            val days = pace.remainingDays?.let { "剩 $it 天，" } ?: ""
+            message = "${days}自动配速建议今天推进 $newWordsToday 个新词；复习债可控时按配速走，避免尾段堆积。"
+            primaryLabel = "推荐新词"
+            primaryValue = newWordsToday.toString()
+            secondaryLabel = "剩余"
+            secondaryValue = pace.remainingWords.toString()
+            actionLabel = "按配速走"
+        }
+        DailyLoadBriefKind.BALANCED -> {
+            title = "负载均衡，可以稳步推进"
+            message = "复习、新词、错题和词根压力都在可控范围；按路线卡走一轮，保持今天的推进感。"
+            primaryLabel = "今日目标"
+            primaryValue = newWordsToday.toString()
+            secondaryLabel = "到期复习"
+            secondaryValue = reviewDue.toString()
+            actionLabel = "稳步推进"
+        }
+        DailyLoadBriefKind.CLEAR -> {
+            title = "核心负载已清，做收口复盘"
+            message = "今天没有新词和到期债务，可以轻复习或抽查难词，重点保持手感而不是硬加量。"
+            primaryLabel = "连续"
+            primaryValue = overview.streakDays.toString()
+            secondaryLabel = "今日完成"
+            secondaryValue = overview.studiedToday.toString()
+            actionLabel = "收口复盘"
+        }
+    }
+
+    return DailyLoadBrief(
+        kind = kind,
+        title = title,
+        message = message,
+        primaryLabel = primaryLabel,
+        primaryValue = primaryValue,
+        secondaryLabel = secondaryLabel,
+        secondaryValue = secondaryValue,
+        actionLabel = actionLabel,
+        intensity = intensity,
+        lanes = lanes,
+    )
+}
+
 fun buildDailyStudyRoute(
     session: LearningSession,
     rootSnapshot: BookRootSnapshot,

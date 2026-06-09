@@ -230,6 +230,27 @@ data class LearningSession(
     val recommendedNewWords: List<WordEntry>,
 )
 
+enum class DailyLoadBriefKind { REVIEW_DEBT, TOUGH_REPAIR, ROOT_GAP, PACE_PUSH, BALANCED, CLEAR }
+
+data class DailyLoadLane(
+    val label: String,
+    val value: String,
+    val weight: Float,
+)
+
+data class DailyLoadBrief(
+    val kind: DailyLoadBriefKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val intensity: Float,
+    val lanes: List<DailyLoadLane>,
+)
+
 data class ImportedBookResult(
     val bookId: Long,
     val preview: ImportPreview,
