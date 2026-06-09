@@ -142,6 +142,7 @@ import com.study.englishdemo.data.ToughWordPrescriptionKind
 import com.study.englishdemo.data.ToughWordsBrief
 import com.study.englishdemo.data.VocabularySearchInsight
 import com.study.englishdemo.data.VocabularySearchInsightKind
+import com.study.englishdemo.data.VocabularySearchRescuePlan
 import com.study.englishdemo.data.WordBatchBrief
 import com.study.englishdemo.data.WordBatchBriefKind
 import com.study.englishdemo.data.WordBook
@@ -164,6 +165,7 @@ import com.study.englishdemo.data.buildStudyRhythmBrief
 import com.study.englishdemo.data.buildToughWordPrescription
 import com.study.englishdemo.data.buildToughWordsBrief
 import com.study.englishdemo.data.buildVocabularySearchInsight
+import com.study.englishdemo.data.buildVocabularySearchRescuePlan
 import com.study.englishdemo.data.buildWordBatchBrief
 import com.study.englishdemo.data.buildWordMemoryAnchor
 import com.study.englishdemo.data.decomposeWord
@@ -1718,6 +1720,18 @@ private fun VocabularyScreen(
             results = uiState.vocabularyResults,
         )
     }
+    val rescuePlan = remember(
+        uiState.vocabularyQuery,
+        uiState.vocabularyResults.size,
+        uiState.vocabularyPhaseFilter,
+        uiState.vocabularyLoading,
+    ) {
+        buildVocabularySearchRescuePlan(
+            query = uiState.vocabularyQuery,
+            resultCount = uiState.vocabularyResults.size,
+            phaseFilter = uiState.vocabularyPhaseFilter,
+        )
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -1749,6 +1763,11 @@ private fun VocabularyScreen(
                 insight = searchInsight,
                 loading = uiState.vocabularyLoading,
             )
+        }
+        if (!uiState.vocabularyLoading && rescuePlan.steps.isNotEmpty()) {
+            item {
+                VocabularySearchRescueCard(plan = rescuePlan)
+            }
         }
         item {
             LazyRow(
@@ -1925,6 +1944,145 @@ private fun VocabularySearchInsightCard(insight: VocabularySearchInsight, loadin
                                     color = accent,
                                     fontWeight = FontWeight.Medium,
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VocabularySearchRescueCard(plan: VocabularySearchRescuePlan, modifier: Modifier = Modifier) {
+    val accent = Color(0xFFB65245)
+    val animated by animateFloatAsState(
+        targetValue = plan.intensity.coerceIn(0f, 1f),
+        animationSpec = tween(500),
+        label = "vocabularySearchRescueIntensity",
+    )
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.16f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
+                        ),
+                    ),
+                )
+                .padding(16.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(16.dp), color = accent.copy(alpha = 0.14f)) {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(9.dp)
+                                    .size(20.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "空结果救援",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(plan.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                plan.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                            )
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            plan.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { animated },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    plan.steps.forEachIndexed { index, step ->
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.14f)) {
+                                    Text(
+                                        (index + 1).toString(),
+                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = accent,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            step.label,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                        Text(
+                                            step.example,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = accent,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                    }
+                                    Text(
+                                        step.reason,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.66f),
+                                    )
+                                }
                             }
                         }
                     }

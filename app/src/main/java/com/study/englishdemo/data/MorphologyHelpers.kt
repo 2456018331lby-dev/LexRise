@@ -1514,6 +1514,123 @@ fun buildVocabularySearchInsight(
     }
 }
 
+fun buildVocabularySearchRescuePlan(
+    query: String,
+    resultCount: Int,
+    phaseFilter: StudyPhase?,
+    stepLimit: Int = 4,
+): VocabularySearchRescuePlan {
+    val trimmed = query.trim()
+    val cappedLimit = stepLimit.coerceAtLeast(0)
+    if (trimmed.isEmpty()) {
+        return VocabularySearchRescuePlan(
+            title = "检索救援待命",
+            message = "先输入一个英文词、派生词、中文释义或词根线索；没有结果时这里会给出改查路径。",
+            actionLabel = "等待输入",
+            steps = emptyList(),
+            intensity = 0f,
+        )
+    }
+    if (resultCount > 0) {
+        return VocabularySearchRescuePlan(
+            title = "已有可用结果",
+            message = "当前检索已经命中词条；优先看检索洞察和词形雷达，不需要额外救援。",
+            actionLabel = "已有结果",
+            steps = emptyList(),
+            intensity = 0f,
+        )
+    }
+
+    val normalizedLetters = trimmed
+        .lowercase()
+        .filter { it in 'a'..'z' }
+    val hasEnglish = normalizedLetters.isNotEmpty()
+    val hasChinese = trimmed.any { it.code in 0x4E00..0x9FFF }
+    val steps = mutableListOf<VocabularySearchRescueStep>()
+
+    if (phaseFilter != null) {
+        val phaseLabel = studyPhaseLabel(phaseFilter)
+        steps += VocabularySearchRescueStep(
+            label = "先取消阶段筛选",
+            example = "全部阶段",
+            reason = "当前只看$phaseLabel，命中词可能在其他学习阶段里。",
+        )
+    }
+
+    if (hasEnglish) {
+        if (normalizedLetters.length < 4) {
+            steps += VocabularySearchRescueStep(
+                label = "补到 4 个字母",
+                example = "stat / clar",
+                reason = "太短的英文线索会关闭大部分拼写容错，补足词干能减少噪声。",
+            )
+        } else {
+            vocabularyBaseFormProbe(normalizedLetters)?.takeIf { it != normalizedLetters }?.let { base ->
+                steps += VocabularySearchRescueStep(
+                    label = "换回原形",
+                    example = base,
+                    reason = "词库按原词归档，先用原形更容易触发原词和派生词命中。",
+                )
+            }
+            steps += VocabularySearchRescueStep(
+                label = "缩短到词干",
+                example = normalizedLetters.take(if (normalizedLetters.length >= 6) 5 else 4),
+                reason = "保留核心词干能同时召回同根词和常见派生形。",
+            )
+            steps += VocabularySearchRescueStep(
+                label = "只改一个字母",
+                example = "clarify / state",
+                reason = "当前容错适合轻微 typo；如果差太远，先手动校准一处拼写。",
+            )
+        }
+    }
+
+    if (hasChinese) {
+        steps += VocabularySearchRescueStep(
+            label = "换一个中文近义词",
+            example = "解释 / 说明 / 规定",
+            reason = "中文释义不一定收录同一个字面词，换近义表达更容易命中。",
+        )
+        steps += VocabularySearchRescueStep(
+            label = "试一个英文核心词",
+            example = "clarify / state",
+            reason = "如果中文线索太宽，换成英文原词或词根能更快收窄范围。",
+        )
+    }
+
+    if (steps.isEmpty()) {
+        steps += VocabularySearchRescueStep(
+            label = "拆开检索线索",
+            example = "原词 / 中文 / 词根",
+            reason = "混合符号或数字不适合词库检索，先拆成一个可读线索再查。",
+        )
+    }
+
+    val limitedSteps = steps.distinctBy { it.label }.take(cappedLimit)
+    val actionLabel = when {
+        phaseFilter != null -> "先放宽筛选"
+        hasChinese -> "换释义线索"
+        hasEnglish && normalizedLetters.length < 4 -> "扩关键词"
+        else -> "按步骤改搜"
+    }
+    return VocabularySearchRescuePlan(
+        title = "空结果救援路线",
+        message = "没有命中不一定代表词书没有这个词；按下面顺序放宽筛选或改写关键词，通常能找回原词、派生词或释义线索。",
+        actionLabel = actionLabel,
+        steps = limitedSteps,
+        intensity = (limitedSteps.size.toFloat() / cappedLimit.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f),
+    )
+}
+
+private fun vocabularyBaseFormProbe(letters: String): String? = when {
+    letters.length > 4 && letters.endsWith("ied") -> letters.dropLast(3) + "y"
+    letters.length > 4 && letters.endsWith("ies") -> letters.dropLast(3) + "y"
+    letters.length > 5 && letters.endsWith("ing") -> letters.dropLast(3)
+    letters.length > 4 && letters.endsWith("ed") -> letters.dropLast(2)
+    letters.length > 4 && letters.endsWith("s") -> letters.dropLast(1)
+    else -> null
+}
+
 fun recordPracticeAttempt(
     stats: PracticeSessionStats,
     rating: ReviewRating,

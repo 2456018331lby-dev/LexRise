@@ -117,7 +117,7 @@ describe,de + scrib：把看到的写下来就是 describe 描述
 
 ### 能不能避开？能避开就避开
 
-很多"新功能"其实不需要加列。本项目 v0.3-v0.31 的所有新能力（簇首、词根覆盖、词根图谱简报、根族巧记补给、词根详情导读、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、完形语境导读、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、本轮练习统计、本轮教练、本轮收口建议、复习队列预案、七日节奏简报、首页学习焦点、今日负载简报、今日训练路线、新词记忆锚、新词批次策略、新词巧记覆盖简报、离线巧记 seed 注入）都走**派生查询、纯函数派生、构建期资源生成或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题、在构建脚本里生成资源，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
+很多"新功能"其实不需要加列。本项目 v0.3-v0.32 的所有新能力（簇首、词根覆盖、词根图谱简报、根族巧记补给、词根详情导读、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、完形语境导读、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、空结果救援、本轮练习统计、本轮教练、本轮收口建议、复习队列预案、七日节奏简报、首页学习焦点、今日负载简报、今日训练路线、新词记忆锚、新词批次策略、新词巧记覆盖简报、离线巧记 seed 注入）都走**派生查询、纯函数派生、构建期资源生成或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题、在构建脚本里生成资源，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
 
 - 想标记"这个词是簇首"？→ 已经有 `getAnchorWordIds(bookId)` 动态算，不加 `isAnchor` 列
 - 想统计"哪个词翻车最多"？→ `getToughWordsForBook` 从 `review_logs` GROUP BY 出来
@@ -133,6 +133,7 @@ describe,de + scrib：把看到的写下来就是 describe 描述
 - 想让完形题先提示用户该抓什么线索？→ `buildClozeContextGuide` 从 `ClozeQuestion` 派生完形语境导读，不改构题、不泄露答案、不写评分
 - 想让词汇搜索支持复数/时态/派生形，或解释“为什么命中这个词”？→ `searchInBook` 查已有 `derivatives` 列，`searchWords` 用 `fuzzyWordFormMatchDistance` 做 fallback，UI 用 `matchingWordForms` 展示命中词形，不加表
 - 想在结果列表前解释“这次搜索质量如何”？→ `buildVocabularySearchInsight` 从当前 query 和结果列表派生检索洞察，不改 DAO、不改排序、不写搜索日志
+- 想让空结果告诉用户怎么改查？→ `buildVocabularySearchRescuePlan` 从 query、结果数和阶段筛选派生救援路线，不改 DAO、不自动改 query、不改阶段筛选
 - 想统计"这轮 Review 做得怎么样"？→ `PracticeSessionStats` 是 UI session 状态，`recordPracticeAttempt` 纯函数计数，不写 Room
 - 想根据本轮表现提示“该降速还是加难”？→ `buildPracticeSessionCoach` 从 `PracticeSessionStats` + `PracticeMode` 派生本轮教练，不写设置、不写 Room
 - 想判断这轮该继续、修错、加难还是收口？→ `buildReviewExitBrief` 从 `PracticeSessionStats` + `PracticeMode` + 剩余到期词数派生本轮收口建议，不写设置、不改队列、不改评分
@@ -349,6 +350,7 @@ git ls-files .android-sdk/ app/build/   # 应为空
 | 改难词错题处方 | `data/Models.kt#ToughWordPrescription/ToughWordPrescriptionKind` + `data/MorphologyHelpers.kt#buildToughWordPrescription` + `MainActivity.kt#ToughWordCard/ToughPrescriptionPanel` + `MorphologyHelpersTest` |
 | 改难词错题战情台 | `data/Models.kt#ToughWordsBrief` + `data/MorphologyHelpers.kt#buildToughWordsBrief` + `MainActivity.kt#ToughWordsBriefCard/ToughBriefMetric` + `MorphologyHelpersTest` |
 | 改词汇检索洞察 | `data/Models.kt#VocabularySearchInsight` + `data/MorphologyHelpers.kt#buildVocabularySearchInsight` + `MainActivity.kt#VocabularySearchInsightCard/VocabularyInsightMetric` + `MorphologyHelpersTest` |
+| 改词汇空结果救援 | `data/Models.kt#VocabularySearchRescuePlan/VocabularySearchRescueStep` + `data/MorphologyHelpers.kt#buildVocabularySearchRescuePlan` + `MainActivity.kt#VocabularySearchRescueCard/VocabularyScreen` + `MorphologyHelpersTest` |
 | 改拼写判分 | `data/MorphologyHelpers.kt#normalizedEditDistance` + `ratingFromEditDistance` |
 | 加新复习模式 | `data/Models.kt#PracticeMode` 枚举 + `MainActivity.kt#ReviewScreen` when 分支 |
 | 加新底栏 Tab | `MainActivity.kt#HomeTab` 枚举 + NavigationBar item + when 分支 |

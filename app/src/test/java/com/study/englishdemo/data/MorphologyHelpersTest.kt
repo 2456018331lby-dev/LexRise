@@ -1297,6 +1297,84 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildVocabularySearchRescuePlan_staysIdleForBlankQueries() {
+        val plan = buildVocabularySearchRescuePlan(
+            query = " ",
+            resultCount = 0,
+            phaseFilter = null,
+        )
+
+        assertThat(plan.steps).isEmpty()
+        assertThat(plan.actionLabel).isEqualTo("等待输入")
+        assertThat(plan.intensity).isEqualTo(0f)
+    }
+
+    @Test
+    fun buildVocabularySearchRescuePlan_staysIdleWhenResultsExist() {
+        val plan = buildVocabularySearchRescuePlan(
+            query = "clarify",
+            resultCount = 3,
+            phaseFilter = StudyPhase.REVIEW,
+        )
+
+        assertThat(plan.steps).isEmpty()
+        assertThat(plan.actionLabel).isEqualTo("已有结果")
+    }
+
+    @Test
+    fun buildVocabularySearchRescuePlan_prioritizesRemovingPhaseFilters() {
+        val plan = buildVocabularySearchRescuePlan(
+            query = "state",
+            resultCount = 0,
+            phaseFilter = StudyPhase.MASTERED,
+        )
+
+        assertThat(plan.steps.first().label).isEqualTo("先取消阶段筛选")
+        assertThat(plan.steps.first().example).isEqualTo("全部阶段")
+        assertThat(plan.steps.first().reason).contains("掌握")
+        assertThat(plan.actionLabel).isEqualTo("先放宽筛选")
+    }
+
+    @Test
+    fun buildVocabularySearchRescuePlan_guidesShortEnglishQueries() {
+        val plan = buildVocabularySearchRescuePlan(
+            query = "st",
+            resultCount = 0,
+            phaseFilter = null,
+        )
+
+        assertThat(plan.steps.map { it.label }).contains("补到 4 个字母")
+        assertThat(plan.steps.first().example).isEqualTo("stat / clar")
+        assertThat(plan.actionLabel).isEqualTo("扩关键词")
+    }
+
+    @Test
+    fun buildVocabularySearchRescuePlan_guidesDerivativeEnglishQueries() {
+        val plan = buildVocabularySearchRescuePlan(
+            query = "clarified",
+            resultCount = 0,
+            phaseFilter = null,
+        )
+
+        assertThat(plan.steps.map { it.label }).contains("换回原形")
+        assertThat(plan.steps.map { it.example }).contains("clarify")
+        assertThat(plan.steps.map { it.label }).contains("缩短到词干")
+    }
+
+    @Test
+    fun buildVocabularySearchRescuePlan_guidesChineseMeaningQueries() {
+        val plan = buildVocabularySearchRescuePlan(
+            query = "解释",
+            resultCount = 0,
+            phaseFilter = null,
+        )
+
+        assertThat(plan.steps.map { it.label }).contains("换一个中文近义词")
+        assertThat(plan.steps.map { it.label }).contains("试一个英文核心词")
+        assertThat(plan.actionLabel).isEqualTo("换释义线索")
+    }
+
+    @Test
     fun recordPracticeAttempt_countsStableAndNeedsPracticeRatings() {
         val stats = listOf(
             ReviewRating.GOOD,
