@@ -433,6 +433,7 @@ curl -fL -o tools/raw/roots_raw.md \
 - GitHub 仓库：`https://github.com/2456018331lby-dev/LexRise`
 - 本地 remote：`origin https://github.com/2456018331lby-dev/LexRise.git`
 - 当前 GitHub `main` 是通过 GitHub API 上传的项目快照，因为本机 `git push` 连接 `github.com:443` 时曾超时/重置；`gh api` 正常可用
+- v0.35 GitHub API 快照提交：`a5c9df980cb97cfc3cbdc5519218572d217ed32a`（来自本地提交 `81fa293`；校验 56/56 文件、0 missing、0 extra、0 mismatch）
 - v0.34 GitHub API 快照提交：`6971529d68ddeca88e9eb0a6ce9ea1df7b7cc748`（来自本地提交 `d4efa84`；校验 56/56 文件、0 missing、0 extra、0 mismatch）
 - v0.33 GitHub API 快照提交：`8bdb0ed81c1abe1a7bc2867ad154b422c9cef15d`（来自本地提交 `a5f9f2b`；校验 57/57 文件、0 missing、0 extra、0 mismatch）
 - v0.32 GitHub API 快照提交：`a3102ca1da7e6c31f900b20ea140ad40af7a9efa`（来自本地提交 `f22219e`；校验 57/57 文件、0 missing、0 extra、0 mismatch）
@@ -442,7 +443,7 @@ curl -fL -o tools/raw/roots_raw.md \
 - v0.29 GitHub API 快照提交：`953703dfaab2d4dbdf721cceb68cf7bbbb5e1e35`（来自本地提交 `05d7c40`）
 - v0.28 GitHub API 快照提交：`1d458eca4d27e47876ee978d90d5dc95664ffde2`（来自本地提交 `9f0a5ce`）
 - v0.28 GitHub 词库 blob 对齐提交：`b7ec540c2683631d75501c6fab72c7772b199f8d`（把 3 个 CSV 远端 blob 对齐本地 Git 对象；校验结果为 81/81 文件、0 mismatch）
-- GitHub v0.34 快照包含 56 个 Git 跟踪文件，不包含 `.android-sdk/`、`local.properties`、`tools/raw/`、`app/build/`、`build/`、`.gradle/`、`.kotlin/`
+- GitHub v0.35 快照包含 56 个 Git 跟踪文件，不包含 `.android-sdk/`、`local.properties`、`tools/raw/`、`app/build/`、`build/`、`.gradle/`、`.kotlin/`
 - GitHub MCP 在 2026-06-09 仍返回 `Bad credentials`，所以本轮没有用 MCP 完成上传；不要通过清空本地 token 来“修复”，需要用户侧更新 MCP 凭据
 
 仍然需要注意：
@@ -451,6 +452,8 @@ curl -fL -o tools/raw/roots_raw.md \
 
 这个独立仓库当前分支 `main`，最新提交以 `git log --oneline -1` 为准；近期历史提交包括：
 ```
+81fa293 Close new-word batches with a learning loop
+25f8511 Record the v0.34 GitHub snapshot boundary
 d4efa84 Make review mode choices explain their training rung
 20d1b0a Record the v0.33 GitHub snapshot boundary
 a5f9f2b Make vocabulary hits easier to act on
