@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.25
+# Englishdemo / LexRise v0.26
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.26 亮点
+
+- **完形模式新增“语境导读”**
+  - 完形题题干和选项之间新增导读卡，先判断这题应抓词根、词形、语义还是快速扫句
+  - 派生词挖空时会提示“先判词形”，但不泄露正确答案；词根题会提示先用 rootKey 锚定空格
+  - 卡片展示行动标签、线索强度、两项指标和空格附近焦点词，让用户不只是猜选项，而是按句子线索作答
+  - 逻辑由 `buildClozeContextGuide` 纯函数派生，不新增数据库字段，不改变完形构题、选项排序或 SRS 评分
 
 ## v0.25 亮点
 
@@ -298,6 +306,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.26（2026-06-09）
+- 完形模式新增“语境导读”，在题干和选项之间提示先抓词根、词形、语义或快速扫句
+- 新增 `ClozeContextGuide` / `ClozeContextGuideKind` 和 `buildClozeContextGuide` 纯函数
+- 新增 `ClozeContextGuidePanel` / `ClozeGuideMetric`，展示行动标签、线索强度、指标和焦点词 chips
+- 应用版本元数据同步到 0.26.0
+- 测试 108 → 112
 
 ### v0.25（2026-06-08）
 - 词根详情 BottomSheet 新增“词根详情导读”，点击同根词或根族成员后先解释当前词应按词根、词形、语境还是速览复盘

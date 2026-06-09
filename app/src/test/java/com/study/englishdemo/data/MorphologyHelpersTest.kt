@@ -821,6 +821,85 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildClozeContextGuide_prioritizesWordFormWithoutLeakingAnswer() {
+        val guide = buildClozeContextGuide(
+            ClozeQuestion(
+                word = fakeEntry(
+                    term = "clarify",
+                    rootKey = "",
+                    translation = "澄清",
+                    derivatives = listOf("clarified", "clarifies"),
+                ),
+                prompt = "The note ____ the final goal.",
+                options = listOf("clarified", "state", "include", "remain"),
+                correct = "clarified",
+            ),
+        )
+
+        assertThat(guide.kind).isEqualTo(ClozeContextGuideKind.WORD_FORM)
+        assertThat(guide.primaryValue).isEqualTo("派生形")
+        assertThat(guide.secondaryValue).isEqualTo("4")
+        assertThat(guide.actionLabel).isEqualTo("先判词形")
+        assertThat(guide.title).doesNotContain("clarified")
+        assertThat(guide.message).doesNotContain("clarified")
+        assertThat(guide.focusTerms).containsExactly("The", "note", "final", "goal").inOrder()
+    }
+
+    @Test
+    fun buildClozeContextGuide_usesRootTraceForLemmaQuestions() {
+        val guide = buildClozeContextGuide(
+            ClozeQuestion(
+                word = fakeEntry(term = "state", rootKey = "stat", translation = "状态"),
+                prompt = "The ____ of the project is stable.",
+                options = listOf("state", "include", "floor", "banana"),
+                correct = "state",
+            ),
+        )
+
+        assertThat(guide.kind).isEqualTo(ClozeContextGuideKind.ROOT_TRACE)
+        assertThat(guide.primaryValue).isEqualTo("stat")
+        assertThat(guide.secondaryValue).isEqualTo("6")
+        assertThat(guide.actionLabel).isEqualTo("先抓词根")
+        assertThat(guide.focusTerms).containsExactly("The", "project", "stable").inOrder()
+    }
+
+    @Test
+    fun buildClozeContextGuide_usesMeaningWhenNoRootOrDerivativeSignal() {
+        val guide = buildClozeContextGuide(
+            ClozeQuestion(
+                word = fakeEntry(term = "abandon", rootKey = "", translation = "放弃", pos = "vt."),
+                prompt = "Never ____ your plan.",
+                options = listOf("abandon", "inspect", "include", "remain"),
+                correct = "abandon",
+            ),
+        )
+
+        assertThat(guide.kind).isEqualTo(ClozeContextGuideKind.MEANING)
+        assertThat(guide.primaryValue).isEqualTo("可参考")
+        assertThat(guide.secondaryValue).isEqualTo("vt.")
+        assertThat(guide.actionLabel).isEqualTo("先读语境")
+        assertThat(guide.confidence).isWithin(0.001f).of(0.56f)
+    }
+
+    @Test
+    fun buildClozeContextGuide_fallsBackToQuickScan() {
+        val guide = buildClozeContextGuide(
+            ClozeQuestion(
+                word = fakeEntry(term = "plain", rootKey = ""),
+                prompt = "Choose ____ fast.",
+                options = listOf("plain", "state", "include", "remain"),
+                correct = "plain",
+            ),
+        )
+
+        assertThat(guide.kind).isEqualTo(ClozeContextGuideKind.QUICK_SCAN)
+        assertThat(guide.primaryValue).isEqualTo("4")
+        assertThat(guide.secondaryValue).isEqualTo("2")
+        assertThat(guide.actionLabel).isEqualTo("快速判断")
+        assertThat(guide.focusTerms).containsExactly("Choose", "fast").inOrder()
+    }
+
+    @Test
     fun fuzzyTermMatchDistance_acceptsLikelyTypos() {
         val distance = fuzzyTermMatchDistance("clarfy", "clarify")
 

@@ -426,6 +426,22 @@ data class ClozeBlank(
     val answer: String,
 )
 
+enum class ClozeContextGuideKind { ROOT_TRACE, WORD_FORM, MEANING, QUICK_SCAN }
+
+data class ClozeContextGuide(
+    val kind: ClozeContextGuideKind,
+    val badgeLabel: String,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val confidence: Float,
+    val focusTerms: List<String>,
+)
+
 data class ToughWord(
     val word: WordEntry,
     val againCount: Int,
