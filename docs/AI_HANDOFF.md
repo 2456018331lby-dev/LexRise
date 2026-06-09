@@ -402,7 +402,7 @@ curl -fL -o tools/raw/roots_raw.md \
 
 ---
 
-## 10. APK 与 GitHub 当前状态（v0.31 本地验证后）
+## 10. APK 与 GitHub 当前状态（v0.31 GitHub API 快照后）
 
 **APK**  
 - 最近一次 `assembleDebug` 验证生成：`app/build/outputs/apk/debug/app-debug.apk`，64.60 MB，未签名 debug 包；清理构建产物后可重跑命令再生成
@@ -413,12 +413,13 @@ curl -fL -o tools/raw/roots_raw.md \
 - GitHub 仓库：`https://github.com/2456018331lby-dev/LexRise`
 - 本地 remote：`origin https://github.com/2456018331lby-dev/LexRise.git`
 - 当前 GitHub `main` 是通过 GitHub API 上传的项目快照，因为本机 `git push` 连接 `github.com:443` 时曾超时/重置；`gh api` 正常可用
+- v0.31 GitHub API 快照提交：`a18fef17f915fd16599bbc6849a9e34eefc830e0`（来自本地提交 `537d9d9`；校验 57/57 文件、0 missing、0 extra、0 mismatch）
 - v0.30 cleanup GitHub API 快照提交：`c1bc25d0b86e583f95991dc51c261d9ba60603a6`（来自本地提交 `53a166a`）
 - v0.30 GitHub API 快照提交：`e3a9ee730f83ec66741e1663c4ee0d776c1371ac`（来自本地提交 `5d17cdd`）
 - v0.29 GitHub API 快照提交：`953703dfaab2d4dbdf721cceb68cf7bbbb5e1e35`（来自本地提交 `05d7c40`）
 - v0.28 GitHub API 快照提交：`1d458eca4d27e47876ee978d90d5dc95664ffde2`（来自本地提交 `9f0a5ce`）
 - v0.28 GitHub 词库 blob 对齐提交：`b7ec540c2683631d75501c6fab72c7772b199f8d`（把 3 个 CSV 远端 blob 对齐本地 Git 对象；校验结果为 81/81 文件、0 mismatch）
-- GitHub cleanup 快照包含 57 个 Git 跟踪文件，不包含 `.android-sdk/`、`local.properties`、`tools/raw/`、`app/build/`、`build/`、`.gradle/`、`.kotlin/`；v0.31 同步完成后仍应保持这个边界
+- GitHub v0.31 快照包含 57 个 Git 跟踪文件，不包含 `.android-sdk/`、`local.properties`、`tools/raw/`、`app/build/`、`build/`、`.gradle/`、`.kotlin/`
 - GitHub MCP 在 2026-06-09 仍返回 `Bad credentials`，所以本轮没有用 MCP 完成上传；不要通过清空本地 token 来“修复”，需要用户侧更新 MCP 凭据
 
 仍然需要注意：
@@ -427,6 +428,8 @@ curl -fL -o tools/raw/roots_raw.md \
 
 这个独立仓库当前分支 `main`，最新提交以 `git log --oneline -1` 为准；近期历史提交包括：
 ```
+537d9d9 Let review sessions decide when to close the round
+33a131a Record the cleanup snapshot for future maintainers
 53a166a Keep the workspace lean enough to maintain
 5d17cdd Show daily study load before choosing a route
 2527756 Record v0.29 GitHub snapshot state
