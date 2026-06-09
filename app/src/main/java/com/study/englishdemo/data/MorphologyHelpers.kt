@@ -1704,6 +1704,98 @@ fun buildReviewQueueBrief(
     }
 }
 
+fun buildReviewExitBrief(
+    stats: PracticeSessionStats,
+    mode: PracticeMode,
+    remainingDueCount: Int,
+): ReviewExitBrief {
+    val answered = stats.answered.coerceAtLeast(0)
+    val stable = stats.stable.coerceIn(0, answered)
+    val needsPractice = stats.needsPractice.coerceIn(0, answered)
+    val remaining = remainingDueCount.coerceAtLeast(0)
+    val stabilityPercent = if (answered == 0) 0 else (stable * 100) / answered
+    val stabilityProgress = (stabilityPercent / 100f).coerceIn(0f, 1f)
+    val modeLabel = practiceModeLabel(mode)
+
+    return when {
+        remaining == 0 -> ReviewExitBrief(
+            kind = ReviewExitBriefKind.CLEAR,
+            title = "到期队列已清完",
+            message = if (answered == 0) {
+                "现在没有需要清的复习债，适合去新词页推进一小组，或到难词专攻做轻量维护。"
+            } else {
+                "本轮已经没有剩余到期词，先收口保存节奏；如果还想继续，可以去新词页补一小组。"
+            },
+            primaryLabel = "剩余",
+            primaryValue = "0",
+            secondaryLabel = if (answered == 0) "模式" else "稳定率",
+            secondaryValue = if (answered == 0) modeLabel else "$stabilityPercent%",
+            actionLabel = "本轮收口",
+            progress = 1f,
+        )
+        answered == 0 -> ReviewExitBrief(
+            kind = ReviewExitBriefKind.START,
+            title = "先拿第一题校准",
+            message = "本轮还有 $remaining 个到期词，先用${modeLabel}完成第一题，再根据稳定率决定继续、加难或修复。",
+            primaryLabel = "剩余",
+            primaryValue = remaining.toString(),
+            secondaryLabel = "模式",
+            secondaryValue = modeLabel,
+            actionLabel = "先做首题",
+            progress = 0f,
+        )
+        needsPractice >= 3 && (needsPractice > stable || stabilityPercent < 55) -> ReviewExitBrief(
+            kind = ReviewExitBriefKind.REPAIR,
+            title = "先把错题口子收住",
+            message = "再练数已经明显偏高，继续冲题会堆债；先停在${modeLabel}慢速复盘，或转到难词专攻修最高频错误。",
+            primaryLabel = "再练",
+            primaryValue = needsPractice.toString(),
+            secondaryLabel = "稳定率",
+            secondaryValue = "$stabilityPercent%",
+            actionLabel = "转修错题",
+            progress = stabilityProgress,
+        )
+        answered >= 8 && stabilityPercent >= 85 && remaining >= 4 -> ReviewExitBrief(
+            kind = ReviewExitBriefKind.LEVEL_UP,
+            title = "本轮可以加难继续",
+            message = "${modeLabel}已经稳定，可以切到${practiceModeUpgradeLabel(mode)}继续清剩余到期词，把识别推进到主动提取。",
+            primaryLabel = "稳定率",
+            primaryValue = "$stabilityPercent%",
+            secondaryLabel = "剩余",
+            secondaryValue = remaining.toString(),
+            actionLabel = "加难继续",
+            progress = stabilityProgress,
+        )
+        remaining <= 3 -> ReviewExitBrief(
+            kind = ReviewExitBriefKind.WRAP_UP,
+            title = "剩余不多，直接收尾",
+            message = "这轮只剩 $remaining 个到期词，保持当前${modeLabel}节奏清完；错的词再交给难词专攻，不要临时换模式。",
+            primaryLabel = "剩余",
+            primaryValue = remaining.toString(),
+            secondaryLabel = "稳定率",
+            secondaryValue = "$stabilityPercent%",
+            actionLabel = when (remaining) {
+                1 -> "收尾一题"
+                2 -> "收尾两题"
+                3 -> "收尾三题"
+                else -> "继续收尾"
+            },
+            progress = ((answered.toFloat()) / (answered + remaining).toFloat()).coerceIn(0f, 1f),
+        )
+        else -> ReviewExitBrief(
+            kind = ReviewExitBriefKind.CONTINUE,
+            title = "继续完成这一组",
+            message = "本轮表现还在可控区间，先保持${modeLabel}节奏；做到 8–10 题后再判断要加难还是收口。",
+            primaryLabel = "已做",
+            primaryValue = answered.toString(),
+            secondaryLabel = "剩余",
+            secondaryValue = remaining.toString(),
+            actionLabel = "继续本组",
+            progress = ((answered.toFloat()) / (answered + remaining).toFloat()).coerceIn(0f, 1f),
+        )
+    }
+}
+
 private fun practiceModeLabel(mode: PracticeMode): String = when (mode) {
     PracticeMode.FLIP -> "翻卡"
     PracticeMode.CHOICE -> "选择"
