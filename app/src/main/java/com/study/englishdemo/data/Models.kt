@@ -419,6 +419,29 @@ data class MorphemeSegment(
 
 enum class PracticeMode { FLIP, CHOICE, CLOZE, SPELL, DICTATION }
 
+enum class PracticeModeBriefKind { WARMUP, RECOGNITION, CONTEXT, ACTIVE_RECALL, LISTENING }
+
+data class PracticeModeLadderStep(
+    val mode: PracticeMode,
+    val label: String,
+    val cue: String,
+    val weight: Float,
+    val isCurrent: Boolean,
+)
+
+data class PracticeModeBrief(
+    val kind: PracticeModeBriefKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val progress: Float,
+    val ladder: List<PracticeModeLadderStep>,
+)
+
 data class PracticeSessionStats(
     val answered: Int = 0,
     val stable: Int = 0,

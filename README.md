@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.33
+# Englishdemo / LexRise v0.34
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.34 亮点
+
+- **Review Tab 新增“练习模式阶梯”**
+  - 在模式切换条下方新增阶梯卡，把翻卡、选择、完形、拼写、听写排成 5 级难度路线
+  - 切换模式时会解释当前模式负责回忆、辨认、语境、主动拼写还是音形绑定，并提示先试当前模式、降速一档、可升下一档或收口听写
+  - 卡片展示行动标签、当前阶梯、待复习/稳定率、总进度条和 5 个模式 chips，让用户知道为什么选这个模式，而不只是盲目切换
+  - 逻辑由 `buildPracticeModeBrief` 纯函数派生，不新增数据库字段，不改变 Review 队列顺序、SRS 评分或练习模式切换行为
 
 ## v0.33 亮点
 
@@ -363,6 +371,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.34（2026-06-09）
+- Review Tab 新增“练习模式阶梯”，把翻卡、选择、完形、拼写、听写排成 5 级训练路线
+- 新增 `PracticeModeBrief` / `PracticeModeLadderStep` / `PracticeModeBriefKind` 和 `buildPracticeModeBrief` 纯函数
+- 新增 `PracticeModeBriefCard`，展示行动标签、阶梯进度、当前指标和 5 个模式 chips
+- 应用版本元数据同步到 0.34.0
+- Android 单测 148 → 153
 
 ### v0.33（2026-06-09）
 - 词汇搜索新增“结果分诊”，在有结果时提示先按阶段、同根线、词形、原词、释义或混合路线浏览
