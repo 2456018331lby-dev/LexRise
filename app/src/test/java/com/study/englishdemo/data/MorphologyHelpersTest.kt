@@ -586,6 +586,110 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildRootWordPracticePlan_prefersRootLoopWithFamilyTerms() {
+        val plan = buildRootWordPracticePlan(
+            word = fakeEntry(
+                term = "inspect",
+                rootKey = "spec",
+                phase = StudyPhase.REVIEW,
+                derivatives = listOf("inspected"),
+            ),
+            rootMeanings = listOf("看", "观察"),
+            familyTerms = listOf("inspect", "respect", "spectator"),
+        )
+
+        assertThat(plan.kind).isEqualTo(RootWordPracticePlanKind.ROOT_LOOP)
+        assertThat(plan.primaryValue).isEqualTo("spec")
+        assertThat(plan.secondaryValue).isEqualTo("2")
+        assertThat(plan.actionLabel).isEqualTo("按根复盘")
+        assertThat(plan.steps).hasSize(3)
+        assertThat(plan.steps.first().cue).contains("spec = 看 / 观察")
+        assertThat(plan.focusTerms).containsExactly("respect", "spectator", "inspected").inOrder()
+    }
+
+    @Test
+    fun buildRootWordPracticePlan_usesFormLoopWithoutRootTrace() {
+        val plan = buildRootWordPracticePlan(
+            word = fakeEntry(
+                term = "clarify",
+                rootKey = "",
+                phase = StudyPhase.LEARNING,
+                derivatives = listOf("clarified", "clarifies", "clarify"),
+            ),
+            rootMeanings = emptyList(),
+            familyTerms = emptyList(),
+        )
+
+        assertThat(plan.kind).isEqualTo(RootWordPracticePlanKind.FORM_LOOP)
+        assertThat(plan.primaryValue).isEqualTo("2")
+        assertThat(plan.secondaryValue).isEqualTo("学习中")
+        assertThat(plan.actionLabel).isEqualTo("词形回填")
+        assertThat(plan.steps[1].cue).contains("clarified / clarifies")
+        assertThat(plan.focusTerms).containsExactly("clarified", "clarifies").inOrder()
+    }
+
+    @Test
+    fun buildRootWordPracticePlan_usesMemoryLoopWhenMnemonicExists() {
+        val plan = buildRootWordPracticePlan(
+            word = fakeEntry(
+                term = "state",
+                rootKey = "",
+                phase = StudyPhase.NEW,
+                mnemonic = "stat 站住就是稳定的状态",
+            ),
+            rootMeanings = emptyList(),
+            familyTerms = emptyList(),
+        )
+
+        assertThat(plan.kind).isEqualTo(RootWordPracticePlanKind.MEMORY_LOOP)
+        assertThat(plan.primaryValue).isEqualTo("可用")
+        assertThat(plan.secondaryValue).isEqualTo("新词")
+        assertThat(plan.actionLabel).isEqualTo("读巧记")
+        assertThat(plan.steps.first().cue).contains("stat")
+    }
+
+    @Test
+    fun buildRootWordPracticePlan_usesContextLoopWhenOnlyExampleExists() {
+        val plan = buildRootWordPracticePlan(
+            word = fakeEntry(
+                term = "abandon",
+                rootKey = "",
+                example = "Never abandon your plan.",
+                pos = "vt.",
+            ),
+            rootMeanings = emptyList(),
+            familyTerms = emptyList(),
+        )
+
+        assertThat(plan.kind).isEqualTo(RootWordPracticePlanKind.CONTEXT_LOOP)
+        assertThat(plan.primaryValue).isEqualTo("可用")
+        assertThat(plan.secondaryValue).isEqualTo("vt.")
+        assertThat(plan.actionLabel).isEqualTo("语境回想")
+        assertThat(plan.steps[1].cue).contains("abandon")
+    }
+
+    @Test
+    fun buildRootWordPracticePlan_fallsBackToQuickLoop() {
+        val plan = buildRootWordPracticePlan(
+            word = fakeEntry(
+                term = "plain",
+                rootKey = "",
+                phase = null,
+                translation = "普通的",
+                frq = 1200,
+            ),
+            rootMeanings = emptyList(),
+            familyTerms = emptyList(),
+        )
+
+        assertThat(plan.kind).isEqualTo(RootWordPracticePlanKind.QUICK_LOOP)
+        assertThat(plan.primaryValue).isEqualTo("未建档")
+        assertThat(plan.secondaryValue).isEqualTo("1200")
+        assertThat(plan.actionLabel).isEqualTo("快扫确认")
+        assertThat(plan.steps[1].cue).isEqualTo("普通的")
+    }
+
+    @Test
     fun buildWordBatchBrief_handlesEmptyBatch() {
         val brief = buildWordBatchBrief(emptyList())
 

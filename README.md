@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.36
+# Englishdemo / LexRise v0.37
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.37 亮点
+
+- **词根详情卡二期：复盘实验台**
+  - 从词根 Tab 或同根词 chip 打开的底部详情卡升级为更完整的复盘卡，顶部 hero 区突出词条、阶段、发音和当前导读类型
+  - 新增“复盘计划”卡，把当前词拆成定位、对照、回卡 / 词形回填 / 巧记复述 / 语境遮词 / 快扫确认三步路线
+  - 复盘策略由 `buildRootWordPracticePlan` 纯函数派生，会按词根、派生词、巧记、例句或最小线索选择不同打法，并保留焦点词 chips
+  - 不新增数据库字段，不改变词根排序、底部详情打开路径、用户巧记、复习队列或 SRS 评分
 
 ## v0.36 亮点
 
@@ -387,6 +395,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.37（2026-06-09）
+- 词根详情卡二期：底部详情卡新增词条 hero 区和“复盘计划”三步轨道
+- 新增 `RootWordPracticePlan` / `RootWordPracticePlanKind` 和 `buildRootWordPracticePlan` 纯函数
+- `RootWordPreviewSheet` 接入 `RootWordPracticePlanCard`，按词根、词形、巧记、语境或快扫生成复盘打法
+- 应用版本元数据同步到 0.37.0
+- Android 单测 162 → 167
 
 ### v0.36（2026-06-09）
 - 完形模式二期：多句例句先切分为候选句，再按命中词形、句长、空格位置和标点选择更清晰的题干

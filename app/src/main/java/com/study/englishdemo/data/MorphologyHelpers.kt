@@ -623,6 +623,133 @@ fun buildRootWordGuide(
     }
 }
 
+fun buildRootWordPracticePlan(
+    word: WordEntry,
+    rootMeanings: List<String>,
+    familyTerms: List<String>,
+    focusLimit: Int = 4,
+): RootWordPracticePlan {
+    val cappedFocus = focusLimit.coerceAtLeast(0)
+    val cleanMeanings = rootMeanings
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .distinct()
+    val meaningLabel = cleanMeanings.take(2).joinToString(" / ").ifBlank { "同根线索" }
+    val cleanDerivatives = word.derivatives
+        .map { it.trim() }
+        .filter { it.isNotBlank() && !it.equals(word.term, ignoreCase = true) }
+        .distinctBy { it.lowercase() }
+    val cleanFamilyTerms = familyTerms
+        .map { it.trim() }
+        .filter { it.isNotBlank() && !it.equals(word.term, ignoreCase = true) }
+        .distinctBy { it.lowercase() }
+    val rootKey = word.rootKey.trim()
+    val phaseLabel = studyPhaseLabel(word.progress?.phase)
+    val focusTerms = (cleanFamilyTerms + cleanDerivatives)
+        .distinctBy { it.lowercase() }
+        .take(cappedFocus)
+    val focusCue = focusTerms.take(2).joinToString(" / ").ifBlank { word.term }
+
+    return when {
+        rootKey.isNotBlank() && (cleanMeanings.isNotEmpty() || cleanFamilyTerms.isNotEmpty()) -> {
+            val familyCount = cleanFamilyTerms.size
+            RootWordPracticePlan(
+                kind = RootWordPracticePlanKind.ROOT_LOOP,
+                title = "三步复盘 $rootKey 根族",
+                message = "这张词根详情卡先定位核心义，再对照同根词，最后遮住释义复述 ${word.term}。",
+                primaryLabel = "词根",
+                primaryValue = rootKey,
+                secondaryLabel = "同根可比",
+                secondaryValue = familyCount.toString(),
+                actionLabel = "按根复盘",
+                progress = ((familyCount + cleanDerivatives.size + cleanMeanings.size).toFloat() / 8f).coerceIn(0.24f, 1f),
+                steps = listOf(
+                    LearningLoopStep("定位", "先说词根义", "$rootKey = $meaningLabel", 0.42f),
+                    LearningLoopStep("对照", "拿同根词找差异", "对比 $focusCue 的释义边界", 0.72f),
+                    LearningLoopStep("回卡", "遮住释义复述", "用 ${word.term} 说出核心义和一个场景", 0.92f),
+                ),
+                focusTerms = focusTerms,
+            )
+        }
+        cleanDerivatives.isNotEmpty() -> RootWordPracticePlan(
+            kind = RootWordPracticePlanKind.FORM_LOOP,
+            title = "先把词形变化串成一组",
+            message = "这张详情卡没有强词根线索，先把原词和派生形绑在一起，再回到释义和例句。",
+            primaryLabel = "派生词",
+            primaryValue = cleanDerivatives.size.toString(),
+            secondaryLabel = "阶段",
+            secondaryValue = phaseLabel,
+            actionLabel = "词形回填",
+            progress = (cleanDerivatives.size.toFloat() / 5f).coerceIn(0.24f, 1f),
+            steps = listOf(
+                LearningLoopStep("原词", "先读原词", "说出 ${word.term} 的基础义", 0.36f),
+                LearningLoopStep("变形", "扫派生形", "对照 ${cleanDerivatives.take(2).joinToString(" / ")}", 0.68f),
+                LearningLoopStep("回填", "回到句子或释义", "确认变形不影响核心义", 0.88f),
+            ),
+            focusTerms = cleanDerivatives.take(cappedFocus),
+        )
+        word.mnemonic.isNotBlank() -> {
+            val mnemonicCue = compactPlanCue(word.mnemonic)
+            RootWordPracticePlan(
+                kind = RootWordPracticePlanKind.MEMORY_LOOP,
+                title = "用巧记先稳住第一印象",
+                message = "这张词已有巧记线索，先读线索，再遮住中文释义做一次主动回忆。",
+                primaryLabel = "巧记",
+                primaryValue = "可用",
+                secondaryLabel = "阶段",
+                secondaryValue = phaseLabel,
+                actionLabel = "读巧记",
+                progress = 0.66f,
+                steps = listOf(
+                    LearningLoopStep("读线索", "先读巧记", mnemonicCue, 0.44f),
+                    LearningLoopStep("遮释义", "盖住中文回想", "只看 ${word.term} 说出含义", 0.72f),
+                    LearningLoopStep("补场景", "补一个使用场景", "把巧记转成自己的短句", 0.9f),
+                ),
+                focusTerms = emptyList(),
+            )
+        }
+        word.example.isNotBlank() -> RootWordPracticePlan(
+            kind = RootWordPracticePlanKind.CONTEXT_LOOP,
+            title = "把词放回例句里复盘",
+            message = "先读例句定位语义，再遮住目标词确认自己能不能从上下文取回它。",
+            primaryLabel = "例句",
+            primaryValue = "可用",
+            secondaryLabel = "词性",
+            secondaryValue = word.pos.ifBlank { "未标" },
+            actionLabel = "语境回想",
+            progress = 0.58f,
+            steps = listOf(
+                LearningLoopStep("读句", "先读完整例句", compactPlanCue(word.example), 0.4f),
+                LearningLoopStep("遮词", "遮住目标词", "用上下文猜回 ${word.term}", 0.72f),
+                LearningLoopStep("复述", "换中文复述", "说出它在句子里的功能", 0.88f),
+            ),
+            focusTerms = emptyList(),
+        )
+        else -> RootWordPracticePlan(
+            kind = RootWordPracticePlanKind.QUICK_LOOP,
+            title = "做一次最小复盘",
+            message = "这个词当前线索较少，先用发音、释义和一次主动回忆建立基本记忆。",
+            primaryLabel = "阶段",
+            primaryValue = phaseLabel,
+            secondaryLabel = "频率",
+            secondaryValue = if (word.frq > 0) word.frq.toString() else "未标",
+            actionLabel = "快扫确认",
+            progress = 0.32f,
+            steps = listOf(
+                LearningLoopStep("听", "先听发音", "确认 ${word.term} 的音形", 0.34f),
+                LearningLoopStep("看", "扫中文释义", word.translation.ifBlank { "先建立基础义" }, 0.58f),
+                LearningLoopStep("说", "遮住再说一遍", "不用例句也要说出核心含义", 0.78f),
+            ),
+            focusTerms = emptyList(),
+        )
+    }
+}
+
+private fun compactPlanCue(text: String, limit: Int = 34): String {
+    val compact = text.trim().replace(Regex("\\s+"), " ")
+    return if (compact.length <= limit) compact else "${compact.take(limit)}..."
+}
+
 fun buildWordBatchBrief(words: List<WordEntry>, focusLimit: Int = 4): WordBatchBrief {
     val cleanWords = words.distinctBy { it.id }
     val total = cleanWords.size

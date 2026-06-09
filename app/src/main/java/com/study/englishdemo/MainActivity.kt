@@ -136,6 +136,8 @@ import com.study.englishdemo.data.RootGroup
 import com.study.englishdemo.data.RootGroupStage
 import com.study.englishdemo.data.RootMnemonicBrief
 import com.study.englishdemo.data.RootMnemonicBriefKind
+import com.study.englishdemo.data.RootWordPracticePlan
+import com.study.englishdemo.data.RootWordPracticePlanKind
 import com.study.englishdemo.data.RootWordGuide
 import com.study.englishdemo.data.RootWordGuideKind
 import com.study.englishdemo.data.StudyFocusCue
@@ -170,6 +172,7 @@ import com.study.englishdemo.data.buildReviewQueueBrief
 import com.study.englishdemo.data.buildRootAtlasBrief
 import com.study.englishdemo.data.buildRootGroupInsight
 import com.study.englishdemo.data.buildRootMnemonicBrief
+import com.study.englishdemo.data.buildRootWordPracticePlan
 import com.study.englishdemo.data.buildRootWordGuide
 import com.study.englishdemo.data.buildStudyFocusCue
 import com.study.englishdemo.data.buildStudyRhythmBrief
@@ -4087,6 +4090,13 @@ private fun RootWordPreviewSheet(
             familyTerms = familyWords.map { it.term },
         )
     }
+    val practicePlan = remember(word, rootMeanings, familyWords) {
+        buildRootWordPracticePlan(
+            word = word,
+            rootMeanings = rootMeanings,
+            familyTerms = familyWords.map { it.term },
+        )
+    }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -4096,26 +4106,14 @@ private fun RootWordPreviewSheet(
                 .padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
-                    Text(word.term, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Text(
-                        word.phonetic.ifBlank { "同根词速览" },
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    PhaseTag(word.progress?.phase)
-                    IconButton(onClick = { onSpeak(word.term) }) {
-                        Icon(Icons.Rounded.GraphicEq, contentDescription = "播放发音")
-                    }
-                }
-            }
+            RootWordPreviewHero(
+                word = word,
+                guide = guide,
+                practicePlan = practicePlan,
+                onSpeak = onSpeak,
+            )
             RootWordGuidePanel(guide)
+            RootWordPracticePlanCard(practicePlan)
             if (word.rootKey.isNotBlank()) {
                 val rootRef = com.study.englishdemo.data.RootReference(
                     key = word.rootKey,
@@ -4145,10 +4143,82 @@ private fun RootWordPreviewSheet(
                 )
             }
             if (word.derivatives.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    word.derivatives.take(6).forEach { d ->
-                        AssistChip(onClick = {}, label = { Text(d) })
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(
+                        word.derivatives
+                            .map { it.trim() }
+                            .filter { it.isNotBlank() }
+                            .distinctBy { it.lowercase() }
+                            .take(8),
+                        key = { it },
+                    ) { derivative ->
+                        AssistChip(onClick = {}, label = { Text(derivative) })
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RootWordPreviewHero(
+    word: WordEntry,
+    guide: RootWordGuide,
+    practicePlan: RootWordPracticePlan,
+    onSpeak: (String) -> Unit,
+) {
+    val accent = rootWordPracticePlanAccent(practicePlan.kind)
+    Surface(shape = RoundedCornerShape(28.dp), color = Color.Transparent) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.24f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+                        ),
+                    ),
+                    RoundedCornerShape(28.dp),
+                )
+                .padding(18.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            "词根详情 · ${guide.badgeLabel}",
+                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        PhaseTag(word.progress?.phase)
+                        IconButton(onClick = { onSpeak(word.term) }) {
+                            Icon(Icons.Rounded.GraphicEq, contentDescription = "播放发音", tint = accent)
+                        }
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(word.term, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        word.phonetic.ifBlank { practicePlan.actionLabel },
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.64f),
+                    )
+                    Text(
+                        word.translation.ifBlank { "暂无中文释义" },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = accent,
+                    )
                 }
             }
         }
@@ -4253,6 +4323,112 @@ private fun RootWordGuidePanel(guide: RootWordGuide) {
 }
 
 @Composable
+private fun RootWordPracticePlanCard(plan: RootWordPracticePlan) {
+    val accent = rootWordPracticePlanAccent(plan.kind)
+    val icon = rootWordPracticePlanIcon(plan.kind)
+    val progress by animateFloatAsState(
+        targetValue = plan.progress.coerceIn(0f, 1f),
+        animationSpec = tween(460),
+        label = "rootWordPracticePlan",
+    )
+    Surface(shape = RoundedCornerShape(26.dp), color = Color.Transparent) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.surface,
+                            accent.copy(alpha = 0.13f),
+                        ),
+                    ),
+                    RoundedCornerShape(26.dp),
+                )
+                .padding(15.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(16.dp), color = accent.copy(alpha = 0.15f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(8.dp)
+                                    .size(20.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("复盘计划", style = MaterialTheme.typography.labelMedium, color = accent)
+                            Text(plan.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            plan.actionLabel,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+                Text(
+                    plan.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
+                )
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.11f),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    RootWordGuideMetric(plan.primaryLabel, plan.primaryValue, accent, Modifier.weight(1f))
+                    RootWordGuideMetric(plan.secondaryLabel, plan.secondaryValue, accent, Modifier.weight(1f))
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    plan.steps.forEachIndexed { index, step ->
+                        LearningLoopStepRow(
+                            step = step,
+                            accent = accent,
+                            isLast = index == plan.steps.lastIndex,
+                        )
+                    }
+                }
+                if (plan.focusTerms.isNotEmpty()) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(plan.focusTerms, key = { it }) { term ->
+                            Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.10f)) {
+                                Text(
+                                    term,
+                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = accent,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun RootWordGuideMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
@@ -4283,6 +4459,23 @@ private fun rootWordGuideIcon(kind: RootWordGuideKind) = when (kind) {
     RootWordGuideKind.WORD_FORMS -> Icons.Rounded.Translate
     RootWordGuideKind.CONTEXT -> Icons.Rounded.AutoStories
     RootWordGuideKind.QUICK_REVIEW -> Icons.Rounded.PsychologyAlt
+}
+
+@Composable
+private fun rootWordPracticePlanAccent(kind: RootWordPracticePlanKind): Color = when (kind) {
+    RootWordPracticePlanKind.ROOT_LOOP -> Color(0xFF2D5B52)
+    RootWordPracticePlanKind.FORM_LOOP -> Color(0xFF3F6F8F)
+    RootWordPracticePlanKind.MEMORY_LOOP -> Color(0xFFB46B2B)
+    RootWordPracticePlanKind.CONTEXT_LOOP -> Color(0xFFC98A3D)
+    RootWordPracticePlanKind.QUICK_LOOP -> Color(0xFF6E8B3D)
+}
+
+private fun rootWordPracticePlanIcon(kind: RootWordPracticePlanKind) = when (kind) {
+    RootWordPracticePlanKind.ROOT_LOOP -> Icons.Rounded.AccountTree
+    RootWordPracticePlanKind.FORM_LOOP -> Icons.Rounded.Translate
+    RootWordPracticePlanKind.MEMORY_LOOP -> Icons.Rounded.Star
+    RootWordPracticePlanKind.CONTEXT_LOOP -> Icons.Rounded.AutoStories
+    RootWordPracticePlanKind.QUICK_LOOP -> Icons.Rounded.PsychologyAlt
 }
 
 @Composable
