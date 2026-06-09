@@ -301,6 +301,7 @@ git ls-files .android-sdk/ app/build/   # 应为空
 
 - 家目录里 `git add .`（会扫 `.ssh/` `.claude/` 等一堆隐私目录）
 - 无说明地 `git push --force` 到 main（当前 GitHub main 是 API 快照；如需对齐本地完整历史，先写清楚原因和回滚路径）
+- 用 GitHub Git Data API 发布快照时直接读取工作区文本文件；应从 `git cat-file blob <sha>` 读取 Git 对象内容，避免 Windows 换行让远端 blob SHA 偏离本地提交
 - 在未 revoke 泄露 PAT 前复用家目录仓库的 `github` remote
 
 ---
