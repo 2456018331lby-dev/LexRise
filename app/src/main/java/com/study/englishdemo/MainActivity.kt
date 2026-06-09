@@ -103,6 +103,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.study.englishdemo.data.ClozeContextGuide
+import com.study.englishdemo.data.ClozeContextGuideKind
 import com.study.englishdemo.data.DailyReviewCount
 import com.study.englishdemo.data.DailyStudyRoute
 import com.study.englishdemo.data.DailyStudyRouteStep
@@ -137,6 +139,7 @@ import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
 import com.study.englishdemo.data.WordMemoryAnchor
 import com.study.englishdemo.data.WordMemoryAnchorKind
+import com.study.englishdemo.data.buildClozeContextGuide
 import com.study.englishdemo.data.buildDailyStudyRoute
 import com.study.englishdemo.data.buildPracticeSessionCoach
 import com.study.englishdemo.data.buildReviewQueueBrief
@@ -3875,6 +3878,7 @@ private fun ClozePracticePager(
                 ) { Text(if (index < words.size - 1) "跳到下一题" else "回到开头") }
             }
         } else {
+            val guide = buildClozeContextGuide(q)
             item {
                 Card(shape = RoundedCornerShape(26.dp)) {
                     Column(modifier = Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -3899,6 +3903,9 @@ private fun ClozePracticePager(
                         }
                     }
                 }
+            }
+            item {
+                ClozeContextGuidePanel(guide)
             }
             items(q.options) { option ->
                 QuizOptionButton(
@@ -3956,6 +3963,144 @@ private fun ClozePracticePager(
             }
         }
     }
+}
+
+@Composable
+private fun ClozeContextGuidePanel(guide: ClozeContextGuide) {
+    val accent = clozeContextGuideAccent(guide.kind)
+    val icon = clozeContextGuideIcon(guide.kind)
+    val confidence by animateFloatAsState(
+        targetValue = guide.confidence.coerceIn(0f, 1f),
+        animationSpec = tween(420),
+        label = "clozeContextGuideConfidence",
+    )
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.18f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f),
+                        ),
+                    ),
+                )
+                .padding(14.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(15.dp), color = accent.copy(alpha = 0.15f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(8.dp)
+                                    .size(20.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                guide.badgeLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(guide.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                guide.message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                            )
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            guide.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { confidence },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ClozeGuideMetric(guide.primaryLabel, guide.primaryValue, accent, Modifier.weight(1f))
+                    ClozeGuideMetric(guide.secondaryLabel, guide.secondaryValue, accent, Modifier.weight(1f))
+                }
+                if (guide.focusTerms.isNotEmpty()) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                        items(guide.focusTerms, key = { it }) { term ->
+                            Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.10f)) {
+                                Text(
+                                    term,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = accent,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClozeGuideMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = accent)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun clozeContextGuideAccent(kind: ClozeContextGuideKind): Color = when (kind) {
+    ClozeContextGuideKind.ROOT_TRACE -> Color(0xFF2D5B52)
+    ClozeContextGuideKind.WORD_FORM -> Color(0xFF3F6F8F)
+    ClozeContextGuideKind.MEANING -> Color(0xFFC98A3D)
+    ClozeContextGuideKind.QUICK_SCAN -> Color(0xFF6E8B3D)
+}
+
+private fun clozeContextGuideIcon(kind: ClozeContextGuideKind) = when (kind) {
+    ClozeContextGuideKind.ROOT_TRACE -> Icons.Rounded.AccountTree
+    ClozeContextGuideKind.WORD_FORM -> Icons.Rounded.Translate
+    ClozeContextGuideKind.MEANING -> Icons.Rounded.AutoStories
+    ClozeContextGuideKind.QUICK_SCAN -> Icons.Rounded.PsychologyAlt
 }
 
 private enum class QuizOptionState { IDLE, CORRECT, WRONG, DIMMED }

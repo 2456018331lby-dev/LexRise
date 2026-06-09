@@ -895,6 +895,80 @@ fun buildClozeBlank(example: String, term: String, variants: List<String> = empt
     )
 }
 
+fun buildClozeContextGuide(question: ClozeQuestion, focusLimit: Int = 4): ClozeContextGuide {
+    val word = question.word
+    val cappedFocus = focusLimit.coerceAtLeast(0)
+    val promptWords = clozePromptFocusTerms(question.prompt, cappedFocus)
+    val sentenceLength = Regex("[A-Za-z]+").findAll(question.prompt.replace("____", " ")).count()
+    val optionCount = question.options.distinctBy { it.lowercase() }.size
+    val answerIsDerivative = !question.correct.equals(word.term, ignoreCase = true)
+    return when {
+        answerIsDerivative -> ClozeContextGuide(
+            kind = ClozeContextGuideKind.WORD_FORM,
+            badgeLabel = "词形导读",
+            title = "先判断空格需要哪种词形",
+            message = "这题挖掉的是原词的词形变化；先看空格前后的时态、语法位置和候选词形，再决定答案。",
+            primaryLabel = "答案类型",
+            primaryValue = "派生形",
+            secondaryLabel = "候选",
+            secondaryValue = optionCount.toString(),
+            actionLabel = "先判词形",
+            confidence = 0.74f,
+            focusTerms = promptWords,
+        )
+        word.rootKey.isNotBlank() -> ClozeContextGuide(
+            kind = ClozeContextGuideKind.ROOT_TRACE,
+            badgeLabel = "词根导读",
+            title = "先用 ${word.rootKey} 锚住空格",
+            message = "空格附近的语境先给方向，再用词根 ${word.rootKey} 约束含义，避免只靠中文释义猜选项。",
+            primaryLabel = "词根",
+            primaryValue = word.rootKey,
+            secondaryLabel = "句长",
+            secondaryValue = sentenceLength.coerceAtLeast(1).toString(),
+            actionLabel = "先抓词根",
+            confidence = if (promptWords.isEmpty()) 0.52f else 0.68f,
+            focusTerms = promptWords,
+        )
+        word.translation.isNotBlank() || word.definition.isNotBlank() -> ClozeContextGuide(
+            kind = ClozeContextGuideKind.MEANING,
+            badgeLabel = "语义导读",
+            title = "先读完整语境再看候选",
+            message = "这题没有强词根或词形线索，先把空格所在句读顺，再用中文释义和词性缩小选项。",
+            primaryLabel = "释义",
+            primaryValue = "可参考",
+            secondaryLabel = "词性",
+            secondaryValue = word.pos.ifBlank { "未标" },
+            actionLabel = "先读语境",
+            confidence = 0.56f,
+            focusTerms = promptWords,
+        )
+        else -> ClozeContextGuide(
+            kind = ClozeContextGuideKind.QUICK_SCAN,
+            badgeLabel = "速扫导读",
+            title = "先做一次最小判断",
+            message = "外部线索较少，先扫空格左右两侧，再在候选里找最自然的搭配。",
+            primaryLabel = "候选",
+            primaryValue = optionCount.toString(),
+            secondaryLabel = "句长",
+            secondaryValue = sentenceLength.coerceAtLeast(1).toString(),
+            actionLabel = "快速判断",
+            confidence = 0.34f,
+            focusTerms = promptWords,
+        )
+    }
+}
+
+private fun clozePromptFocusTerms(prompt: String, focusLimit: Int): List<String> {
+    if (focusLimit <= 0) return emptyList()
+    return Regex("[A-Za-z]{3,}")
+        .findAll(prompt.replace("____", " "))
+        .map { it.value.trim('\'', '"', '.', ',', ';', ':', '!', '?') }
+        .filter { it.length >= 3 }
+        .distinctBy { it.lowercase() }
+        .take(focusLimit)
+        .toList()
+}
+
 /**
  * Replaces the target term in an example sentence with a visible blank for
  * cloze practice. Matching is case-insensitive and avoids partial matches
