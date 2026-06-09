@@ -841,6 +841,103 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildMnemonicWorkshopBrief_handlesEmptyBatch() {
+        val brief = buildMnemonicWorkshopBrief(emptyList())
+
+        assertThat(brief.kind).isEqualTo(MnemonicWorkshopBriefKind.EMPTY)
+        assertThat(brief.primaryValue).isEqualTo("0")
+        assertThat(brief.secondaryValue).isEqualTo("0")
+        assertThat(brief.steps).hasSize(3)
+        assertThat(brief.actionLabel).isEqualTo("去巩固")
+    }
+
+    @Test
+    fun buildMnemonicWorkshopBrief_completesFullySeededBatches() {
+        val brief = buildMnemonicWorkshopBrief(
+            listOf(
+                fakeEntry("state", "stat", mnemonic = "stat 站住就是状态"),
+                fakeEntry("statement", "stat", mnemonic = "state + ment 是陈述"),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(MnemonicWorkshopBriefKind.COMPLETE)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.secondaryValue).isEqualTo("0")
+        assertThat(brief.progress).isEqualTo(1f)
+        assertThat(brief.focusTerms).containsExactly("state", "statement").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("直接学习")
+    }
+
+    @Test
+    fun buildMnemonicWorkshopBrief_prefersRootDraftsForRootedGaps() {
+        val brief = buildMnemonicWorkshopBrief(
+            listOf(
+                fakeEntry("inspect", "spec"),
+                fakeEntry("respect", "spec"),
+                fakeEntry("plain", "", mnemonic = "plain 朴素就是普通"),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(MnemonicWorkshopBriefKind.ROOT_DRAFTS)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.secondaryValue).isEqualTo("spec")
+        assertThat(brief.focusTerms).containsExactly("inspect", "respect").inOrder()
+        assertThat(brief.steps[1].title).isEqualTo("根义 + 中文场景")
+        assertThat(brief.actionLabel).isEqualTo("按根补写")
+    }
+
+    @Test
+    fun buildMnemonicWorkshopBrief_usesFormDraftsForDerivativeGaps() {
+        val brief = buildMnemonicWorkshopBrief(
+            listOf(
+                fakeEntry("clarify", "", derivatives = listOf("clarified", "clarifies")),
+                fakeEntry("review", "", derivatives = listOf("reviewed")),
+                fakeEntry("plain", "", mnemonic = "plain 普通"),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(MnemonicWorkshopBriefKind.FORM_DRAFTS)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.secondaryValue).isEqualTo("2")
+        assertThat(brief.focusTerms).containsExactly("clarify", "review").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("按词形补")
+    }
+
+    @Test
+    fun buildMnemonicWorkshopBrief_usesContextDraftsForExampleGaps() {
+        val brief = buildMnemonicWorkshopBrief(
+            listOf(
+                fakeEntry("abandon", "", example = "Never abandon the plan."),
+                fakeEntry("benefit", "", example = "Daily practice brings benefit."),
+                fakeEntry("plain", "", mnemonic = "plain 普通"),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(MnemonicWorkshopBriefKind.CONTEXT_DRAFTS)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.secondaryValue).isEqualTo("2")
+        assertThat(brief.focusTerms).containsExactly("abandon", "benefit").inOrder()
+        assertThat(brief.steps.first().title).isEqualTo("先找语境触发点")
+        assertThat(brief.actionLabel).isEqualTo("按例句补")
+    }
+
+    @Test
+    fun buildMnemonicWorkshopBrief_fallsBackToBasicDraftsForSparseGaps() {
+        val brief = buildMnemonicWorkshopBrief(
+            listOf(
+                fakeEntry("plain", ""),
+                fakeEntry("single", "", mnemonic = "single 单独"),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(MnemonicWorkshopBriefKind.BASIC_DRAFTS)
+        assertThat(brief.primaryValue).isEqualTo("1")
+        assertThat(brief.secondaryValue).isEqualTo("1")
+        assertThat(brief.focusTerms).containsExactly("plain")
+        assertThat(brief.actionLabel).isEqualTo("卡住再补")
+    }
+
+    @Test
     fun buildLearningLoopBrief_handlesEmptyBatch() {
         val brief = buildLearningLoopBrief(emptyList())
 

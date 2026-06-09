@@ -194,6 +194,22 @@ data class MnemonicBatchBrief(
     val focusTerms: List<String>,
 )
 
+enum class MnemonicWorkshopBriefKind { EMPTY, COMPLETE, ROOT_DRAFTS, FORM_DRAFTS, CONTEXT_DRAFTS, BASIC_DRAFTS }
+
+data class MnemonicWorkshopBrief(
+    val kind: MnemonicWorkshopBriefKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val progress: Float,
+    val steps: List<LearningLoopStep>,
+    val focusTerms: List<String>,
+)
+
 enum class LearningLoopBriefKind { EMPTY, ROOT_LOOP, MEMORY_LOOP, CONTEXT_LOOP, BATCH_LOOP, QUICK_LOOP }
 
 data class LearningLoopStep(

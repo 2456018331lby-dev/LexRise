@@ -937,6 +937,190 @@ fun buildMnemonicBatchBrief(words: List<WordEntry>, focusLimit: Int = 4): Mnemon
     }
 }
 
+fun buildMnemonicWorkshopBrief(words: List<WordEntry>, focusLimit: Int = 4): MnemonicWorkshopBrief {
+    val cleanWords = words.distinctBy { it.id }
+    val total = cleanWords.size
+    val cappedFocus = focusLimit.coerceAtLeast(0)
+    if (total == 0) {
+        return MnemonicWorkshopBrief(
+            kind = MnemonicWorkshopBriefKind.EMPTY,
+            title = "巧记工坊暂时不用开工",
+            message = "当前没有待学新词，不需要额外补巧记；先去 Review 或难词专攻保持主动回忆。",
+            primaryLabel = "待学",
+            primaryValue = "0",
+            secondaryLabel = "待补",
+            secondaryValue = "0",
+            actionLabel = "去巩固",
+            progress = 0f,
+            steps = learningLoopSteps(
+                "回看",
+                "抽查旧词",
+                "没有新词时，先确认到期词和难词是否稳定。",
+                "保留",
+                "不硬编巧记",
+                "没有真实卡点就不制造额外记忆负担。",
+                "收口",
+                "结束本轮",
+                "把精力留给下一批真正卡住的词。",
+            ),
+            focusTerms = emptyList(),
+        )
+    }
+
+    val blankWords = cleanWords.filter { it.mnemonic.isBlank() }
+    val mnemonicWords = cleanWords.filter { it.mnemonic.isNotBlank() }
+    if (blankWords.isEmpty()) {
+        return MnemonicWorkshopBrief(
+            kind = MnemonicWorkshopBriefKind.COMPLETE,
+            title = "这批巧记已经铺满",
+            message = "当前 $total 个新词都有巧记线索，先读现成线索再翻卡；不要重复改写，避免把稳定线索变复杂。",
+            primaryLabel = "有巧记",
+            primaryValue = mnemonicWords.size.toString(),
+            secondaryLabel = "待补",
+            secondaryValue = "0",
+            actionLabel = "直接学习",
+            progress = 1f,
+            steps = learningLoopSteps(
+                "先读",
+                "读现成巧记",
+                "只看一遍线索，不在这里反复加工。",
+                "翻卡",
+                "遮释义自测",
+                "确认巧记能不能触发原词含义。",
+                "保留",
+                "只修失效线索",
+                "只有读完仍卡住的词，才回头改写。",
+            ),
+            focusTerms = mnemonicWords
+                .map { it.term.trim() }
+                .filter { it.isNotEmpty() }
+                .distinctBy { it.lowercase() }
+                .take(cappedFocus),
+        )
+    }
+
+    val rootedBlankWords = blankWords.filter { it.rootKey.isNotBlank() }
+    val formBlankWords = blankWords.filter { word ->
+        word.derivatives.any { it.isNotBlank() && !it.equals(word.term, ignoreCase = true) }
+    }
+    val contextBlankWords = blankWords.filter { it.example.isNotBlank() }
+    val blankShare = blankWords.size.toFloat() / total.toFloat()
+
+    fun focusFrom(source: List<WordEntry>): List<String> = source
+        .map { it.term.trim() }
+        .filter { it.isNotEmpty() }
+        .distinctBy { it.lowercase() }
+        .take(cappedFocus)
+
+    return when {
+        rootedBlankWords.size >= 2 -> {
+            val strongestRoot = rootedBlankWords
+                .groupingBy { it.rootKey.trim() }
+                .eachCount()
+                .filterKeys { it.isNotBlank() }
+                .maxWithOrNull(
+                    compareBy<Map.Entry<String, Int>> { it.value }
+                        .thenBy { it.key.length },
+                )
+            val rootKey = strongestRoot?.key.orEmpty()
+            val rootCount = strongestRoot?.value ?: rootedBlankWords.size
+            val focus = if (rootKey.isNotBlank()) rootedBlankWords.filter { it.rootKey.trim() == rootKey } else rootedBlankWords
+            MnemonicWorkshopBrief(
+                kind = MnemonicWorkshopBriefKind.ROOT_DRAFTS,
+                title = "先给 $rootKey 根族补巧记骨架",
+                message = "这批有 ${blankWords.size} 个词缺巧记，其中 $rootCount 个可沿 $rootKey 词根成组；先补同一根线的骨架，效率比逐词硬编更高。",
+                primaryLabel = "待补",
+                primaryValue = blankWords.size.toString(),
+                secondaryLabel = "主根",
+                secondaryValue = rootKey.ifBlank { "混合" },
+                actionLabel = "按根补写",
+                progress = blankShare.coerceIn(0.18f, 1f),
+                steps = learningLoopSteps(
+                    "选根",
+                    "先锁一条根线",
+                    "优先处理 $rootKey 这组空白词。",
+                    "写骨架",
+                    "根义 + 中文场景",
+                    "每个词只写一句能触发核心义的短线索。",
+                    "抽查",
+                    "读词回想",
+                    "能从巧记回到释义才保留，绕口就重写。",
+                ),
+                focusTerms = focusFrom(focus),
+            )
+        }
+        formBlankWords.size >= 2 -> MnemonicWorkshopBrief(
+            kind = MnemonicWorkshopBriefKind.FORM_DRAFTS,
+            title = "先给词形变化做联想模板",
+            message = "这批缺巧记词里有 ${formBlankWords.size} 个带派生形，先把原词、变形和中文义绑在一起，后续拼写/听写更稳。",
+            primaryLabel = "待补",
+            primaryValue = blankWords.size.toString(),
+            secondaryLabel = "词形词",
+            secondaryValue = formBlankWords.size.toString(),
+            actionLabel = "按词形补",
+            progress = blankShare.coerceIn(0.18f, 1f),
+            steps = learningLoopSteps(
+                "原词",
+                "先写基础义",
+                "用原词解释核心中文义，不先堆花哨口诀。",
+                "变形",
+                "绑定派生形",
+                "把过去式、复数或 -ing 形写进同一句线索。",
+                "回填",
+                "回到卡片自测",
+                "看到派生形也能折回原词才算有效。",
+            ),
+            focusTerms = focusFrom(formBlankWords),
+        )
+        contextBlankWords.size >= 2 -> MnemonicWorkshopBrief(
+            kind = MnemonicWorkshopBriefKind.CONTEXT_DRAFTS,
+            title = "从例句里摘取个人巧记",
+            message = "这批缺巧记词里有 ${contextBlankWords.size} 个带例句；先从真实语境摘一个触发点，比凭空编口诀更不容易跑偏。",
+            primaryLabel = "待补",
+            primaryValue = blankWords.size.toString(),
+            secondaryLabel = "有例句",
+            secondaryValue = contextBlankWords.size.toString(),
+            actionLabel = "按例句补",
+            progress = blankShare.coerceIn(0.18f, 1f),
+            steps = learningLoopSteps(
+                "读句",
+                "先找语境触发点",
+                "从例句里抓动作、对象或场景。",
+                "压缩",
+                "压成一句线索",
+                "保留最能触发中文义的 6-16 个字。",
+                "遮词",
+                "用线索回想原词",
+                "能从场景回到单词才写入。",
+            ),
+            focusTerms = focusFrom(contextBlankWords),
+        )
+        else -> MnemonicWorkshopBrief(
+            kind = MnemonicWorkshopBriefKind.BASIC_DRAFTS,
+            title = "只给卡点词补最小巧记",
+            message = "这批缺巧记词线索分散，不适合批量硬编；先学习，真正卡住的词再用发音、字形或中文义补一句最小线索。",
+            primaryLabel = "待补",
+            primaryValue = blankWords.size.toString(),
+            secondaryLabel = "已有",
+            secondaryValue = mnemonicWords.size.toString(),
+            actionLabel = "卡住再补",
+            progress = blankShare.coerceIn(0.12f, 0.72f),
+            steps = learningLoopSteps(
+                "先学",
+                "不要先硬编",
+                "线索分散时，先用翻卡找真正卡点。",
+                "标记",
+                "只挑卡住词",
+                "读完仍想不起的词才进入巧记补写。",
+                "一句",
+                "写最短触发语",
+                "能触发中文义即可，不追求漂亮。",
+            ),
+            focusTerms = focusFrom(blankWords),
+        )
+    }
+}
+
 fun buildLearningLoopBrief(words: List<WordEntry>, focusLimit: Int = 4): LearningLoopBrief {
     val cleanWords = words.distinctBy { it.id }
     val total = cleanWords.size
