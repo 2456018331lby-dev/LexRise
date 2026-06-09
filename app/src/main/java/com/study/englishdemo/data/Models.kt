@@ -327,6 +327,21 @@ data class RootAtlasBrief(
     val focusRoots: List<String>,
 )
 
+enum class RootMnemonicBriefKind { EMPTY, ROOT_SEED, PATCH_GAPS, READY, SATURATED }
+
+data class RootMnemonicBrief(
+    val kind: RootMnemonicBriefKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val progress: Float,
+    val focusRoots: List<String>,
+)
+
 data class BookRootSnapshot(
     val totalRoots: Int,
     val touchedRoots: Int,

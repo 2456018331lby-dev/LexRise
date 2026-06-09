@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.28
+# Englishdemo / LexRise v0.29
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.29 亮点
+
+- **词根 Tab 新增“根族巧记补给”**
+  - 在“词根图谱简报”后新增第二张导读卡，先判断当前可见根族的巧记 seed 覆盖状态
+  - 完全没有巧记时优先提示给成员多的大根族补地基词；已有少量 seed 时提示沿同根补缺；覆盖足够时提示回看有 seed 的强根族
+  - 卡片展示巧记词覆盖、已播根族、进度条、行动标签和补给根族 chips，让 v0.27 的离线巧记 seed 不只服务新词页，也能反向指导内容补全
+  - 逻辑由 `buildRootMnemonicBrief` 纯函数派生，不新增数据库字段，不改变词根排序、学习进度、用户巧记或 SRS 评分
 
 ## v0.28 亮点
 
@@ -323,6 +331,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.29（2026-06-09）
+- 词根 Tab 新增“根族巧记补给”，解释当前可见根族的巧记 seed 覆盖、补缺方向和优先根族
+- 新增 `RootMnemonicBrief` / `RootMnemonicBriefKind` 和 `buildRootMnemonicBrief` 纯函数
+- 新增 `RootMnemonicBriefCard`，展示巧记词覆盖、已播根族、进度条、行动标签和补给根族 chips
+- 应用版本元数据同步到 0.29.0
+- Android 单测 118 → 123
 
 ### v0.28（2026-06-09）
 - 新词页新增“巧记覆盖简报”，解释当前批次应先读现成巧记、边学边补、借词根桥接还是先速记起步

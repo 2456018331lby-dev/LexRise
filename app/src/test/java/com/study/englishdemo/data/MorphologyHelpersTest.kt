@@ -816,6 +816,85 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildRootMnemonicBrief_handlesEmptyRootBooks() {
+        val brief = buildRootMnemonicBrief(emptyList())
+
+        assertThat(brief.kind).isEqualTo(RootMnemonicBriefKind.EMPTY)
+        assertThat(brief.primaryValue).isEqualTo("0")
+        assertThat(brief.secondaryValue).isEqualTo("0")
+        assertThat(brief.progress).isEqualTo(0f)
+        assertThat(brief.focusRoots).isEmpty()
+    }
+
+    @Test
+    fun buildRootMnemonicBrief_seedsLargeRootsWhenNoMnemonicExists() {
+        val brief = buildRootMnemonicBrief(
+            listOf(
+                fakeRootGroup("spec", total = 5, learned = 0),
+                fakeRootGroup("stat", total = 3, learned = 0),
+                fakeRootGroup("clar", total = 1, learned = 0),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(RootMnemonicBriefKind.ROOT_SEED)
+        assertThat(brief.primaryValue).isEqualTo("0/9")
+        assertThat(brief.secondaryValue).isEqualTo("0/3")
+        assertThat(brief.focusRoots).containsExactly("spec", "stat", "clar").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("补地基词")
+    }
+
+    @Test
+    fun buildRootMnemonicBrief_patchesSeededRootsWithLargeGaps() {
+        val brief = buildRootMnemonicBrief(
+            listOf(
+                fakeRootGroup("spec", total = 5, learned = 1, mnemonicIndices = setOf(1)),
+                fakeRootGroup("stat", total = 4, learned = 1, mnemonicIndices = setOf(1)),
+                fakeRootGroup("clar", total = 2, learned = 0),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(RootMnemonicBriefKind.PATCH_GAPS)
+        assertThat(brief.primaryValue).isEqualTo("2/11")
+        assertThat(brief.secondaryValue).isEqualTo("2/3")
+        assertThat(brief.focusRoots).containsExactly("spec", "stat").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("补根族缺口")
+    }
+
+    @Test
+    fun buildRootMnemonicBrief_marksUsableRootMnemonicCoverageReady() {
+        val brief = buildRootMnemonicBrief(
+            listOf(
+                fakeRootGroup("scrib", total = 4, learned = 2, mnemonicIndices = setOf(1, 2)),
+                fakeRootGroup("spec", total = 3, learned = 1, mnemonicIndices = setOf(1, 2)),
+                fakeRootGroup("port", total = 3, learned = 1),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(RootMnemonicBriefKind.READY)
+        assertThat(brief.primaryValue).isEqualTo("4/10")
+        assertThat(brief.secondaryValue).isEqualTo("2/3")
+        assertThat(brief.focusRoots).containsExactly("scrib", "spec").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("回看有种子根")
+    }
+
+    @Test
+    fun buildRootMnemonicBrief_marksDenseMnemonicNetworkSaturated() {
+        val brief = buildRootMnemonicBrief(
+            listOf(
+                fakeRootGroup("scrib", total = 4, learned = 4, mnemonicIndices = setOf(1, 2, 3, 4)),
+                fakeRootGroup("spec", total = 3, learned = 3, mnemonicIndices = setOf(1, 2, 3)),
+                fakeRootGroup("port", total = 3, learned = 3, mnemonicIndices = setOf(1, 2)),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(RootMnemonicBriefKind.SATURATED)
+        assertThat(brief.primaryValue).isEqualTo("9/10")
+        assertThat(brief.secondaryValue).isEqualTo("3/3")
+        assertThat(brief.focusRoots).containsExactly("scrib", "port", "spec").inOrder()
+        assertThat(brief.progress).isWithin(0.001f).of(0.9f)
+    }
+
+    @Test
     fun buildQuizOptions_alwaysIncludesCorrectAndFourTotal() {
         val pool = listOf(
             fakeEntry("state", "stat"),
@@ -1531,7 +1610,12 @@ class MorphologyHelpersTest {
         },
     )
 
-    private fun fakeRootGroup(rootKey: String, total: Int, learned: Int): RootGroup {
+    private fun fakeRootGroup(
+        rootKey: String,
+        total: Int,
+        learned: Int,
+        mnemonicIndices: Set<Int> = emptySet(),
+    ): RootGroup {
         val safeTotal = total.coerceAtLeast(0)
         val safeLearned = learned.coerceIn(0, safeTotal)
         val members = (1..safeTotal).map { index ->
@@ -1539,6 +1623,7 @@ class MorphologyHelpersTest {
                 term = "$rootKey$index",
                 rootKey = rootKey,
                 phase = if (index <= safeLearned) StudyPhase.REVIEW else StudyPhase.NEW,
+                mnemonic = if (index in mnemonicIndices) "$rootKey$index 巧记 seed" else "",
             )
         }
         return RootGroup(

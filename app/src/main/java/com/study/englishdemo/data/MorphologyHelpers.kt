@@ -908,6 +908,146 @@ fun buildRootAtlasBrief(
     )
 }
 
+fun buildRootMnemonicBrief(groups: List<RootGroup>, focusLimit: Int = 4): RootMnemonicBrief {
+    data class RootMnemonicStats(
+        val rootKey: String,
+        val totalWords: Int,
+        val mnemonicWords: Int,
+        val blankWords: Int,
+    )
+
+    val stats = groups
+        .filter { it.rootKey.isNotBlank() && it.totalWords > 0 }
+        .distinctBy { it.rootKey.lowercase() }
+        .map { group ->
+            val members = group.members.distinctBy { it.id }
+            val total = if (members.isNotEmpty()) {
+                members.size
+            } else {
+                group.totalWords
+            }.coerceAtLeast(0)
+            val mnemonicCount = members
+                .count { it.mnemonic.isNotBlank() }
+                .coerceIn(0, total)
+            RootMnemonicStats(
+                rootKey = group.rootKey,
+                totalWords = total,
+                mnemonicWords = mnemonicCount,
+                blankWords = (total - mnemonicCount).coerceAtLeast(0),
+            )
+        }
+        .filter { it.totalWords > 0 }
+
+    val totalRoots = stats.size
+    val totalWords = stats.sumOf { it.totalWords }
+    val mnemonicWords = stats.sumOf { it.mnemonicWords }
+    val seededRoots = stats.count { it.mnemonicWords > 0 }
+    val blankWords = (totalWords - mnemonicWords).coerceAtLeast(0)
+    val coverage = if (totalWords == 0) 0f else (mnemonicWords.toFloat() / totalWords.toFloat()).coerceIn(0f, 1f)
+    val rootCoverage = if (totalRoots == 0) 0f else (seededRoots.toFloat() / totalRoots.toFloat()).coerceIn(0f, 1f)
+    val focusLimitSafe = focusLimit.coerceAtLeast(0)
+
+    if (totalRoots == 0 || totalWords == 0) {
+        return RootMnemonicBrief(
+            kind = RootMnemonicBriefKind.EMPTY,
+            title = "根族巧记暂时无图谱",
+            message = "当前词书没有可聚合的词根成员，先回到新词页建立基础词条，再回来补巧记网络。",
+            primaryLabel = "巧记词",
+            primaryValue = "0",
+            secondaryLabel = "根族",
+            secondaryValue = "0",
+            actionLabel = "先学新词",
+            progress = 0f,
+            focusRoots = emptyList(),
+        )
+    }
+
+    val kind = when {
+        mnemonicWords == 0 -> RootMnemonicBriefKind.ROOT_SEED
+        coverage >= 0.85f && rootCoverage >= 0.70f -> RootMnemonicBriefKind.SATURATED
+        coverage >= 0.40f || (coverage >= 0.30f && rootCoverage >= 0.70f) -> RootMnemonicBriefKind.READY
+        else -> RootMnemonicBriefKind.PATCH_GAPS
+    }
+
+    val focusSource = when (kind) {
+        RootMnemonicBriefKind.EMPTY -> emptyList()
+        RootMnemonicBriefKind.ROOT_SEED -> stats.sortedWith(
+            compareByDescending<RootMnemonicStats> { it.totalWords }
+                .thenBy { it.rootKey },
+        )
+        RootMnemonicBriefKind.PATCH_GAPS -> stats
+            .filter { it.mnemonicWords > 0 && it.blankWords > 0 }
+            .ifEmpty { stats.filter { it.blankWords > 0 } }
+            .sortedWith(
+                compareByDescending<RootMnemonicStats> { it.blankWords }
+                    .thenByDescending { it.mnemonicWords }
+                    .thenBy { it.rootKey },
+            )
+        RootMnemonicBriefKind.READY -> stats
+            .filter { it.mnemonicWords > 0 }
+            .sortedWith(
+                compareByDescending<RootMnemonicStats> { it.mnemonicWords }
+                    .thenByDescending { it.totalWords }
+                    .thenBy { it.rootKey },
+            )
+        RootMnemonicBriefKind.SATURATED -> stats
+            .filter { it.mnemonicWords > 0 }
+            .sortedWith(
+                compareByDescending<RootMnemonicStats> { it.totalWords }
+                    .thenBy { it.rootKey },
+            )
+    }
+    val focusRoots = focusSource
+        .map { it.rootKey }
+        .distinct()
+        .take(focusLimitSafe)
+
+    val coverageLabel = "${(coverage * 100f).toInt()}%"
+    val title: String
+    val message: String
+    val action: String
+    when (kind) {
+        RootMnemonicBriefKind.EMPTY -> {
+            title = "根族巧记暂时无图谱"
+            message = "当前词书没有可聚合的词根成员，先回到新词页建立基础词条，再回来补巧记网络。"
+            action = "先学新词"
+        }
+        RootMnemonicBriefKind.ROOT_SEED -> {
+            title = "先给大根族补第一条巧记"
+            message = "当前可见根族还没有巧记 seed；优先挑成员多的根族，各补 1 个地基词线索，比零散补词更能形成网络。"
+            action = "补地基词"
+        }
+        RootMnemonicBriefKind.PATCH_GAPS -> {
+            title = "已有巧记种子，先补根族缺口"
+            message = "已有 $mnemonicWords 个巧记词，但还有 $blankWords 个同根成员空白；沿已有 seed 补相邻词，能复用同一条记忆线。"
+            action = "补根族缺口"
+        }
+        RootMnemonicBriefKind.READY -> {
+            title = "巧记根族已经能带路"
+            message = "当前巧记覆盖 $coverageLabel，已有 $seededRoots 个根族带 seed；先回看这些根族，再把最容易混淆的空白词补成短线索。"
+            action = "回看有种子根"
+        }
+        RootMnemonicBriefKind.SATURATED -> {
+            title = "巧记网络基本成型"
+            message = "大部分根族已经有可用巧记，后续只在 Review 卡顿时补缺；避免为了凑覆盖率硬写低质量口诀。"
+            action = "抽查强根族"
+        }
+    }
+
+    return RootMnemonicBrief(
+        kind = kind,
+        title = title,
+        message = message,
+        primaryLabel = "巧记词",
+        primaryValue = "$mnemonicWords/$totalWords",
+        secondaryLabel = "已播根族",
+        secondaryValue = "$seededRoots/$totalRoots",
+        actionLabel = action,
+        progress = coverage,
+        focusRoots = focusRoots,
+    )
+}
+
 /**
  * Builds a 4-option multiple-choice question. Distractors come from the
  * provided pool, prioritizing words sharing the same rootKey (higher
