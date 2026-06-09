@@ -555,3 +555,17 @@ data class VocabularySearchInsight(
     val confidence: Float,
     val focusTerms: List<String>,
 )
+
+data class VocabularySearchRescueStep(
+    val label: String,
+    val example: String,
+    val reason: String,
+)
+
+data class VocabularySearchRescuePlan(
+    val title: String,
+    val message: String,
+    val actionLabel: String,
+    val steps: List<VocabularySearchRescueStep>,
+    val intensity: Float,
+)
