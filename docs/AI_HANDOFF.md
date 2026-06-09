@@ -380,7 +380,7 @@ curl -fL -o tools/raw/roots_raw.md \
 - GitHub 仓库：`https://github.com/2456018331lby-dev/LexRise`
 - 本地 remote：`origin https://github.com/2456018331lby-dev/LexRise.git`
 - 当前 GitHub `main` 是通过 GitHub API 上传的项目快照，因为本机 `git push` 连接 `github.com:443` 时超时/重置；`gh api` 正常可用
-- GitHub 快照包含 76 个 Git 跟踪文件，不包含 `.android-sdk/`、`local.properties`、`tools/raw/`、`app/build/`、`build/`、`.gradle/`、`.kotlin/`
+- GitHub 快照包含 77 个 Git 跟踪文件，不包含 `.android-sdk/`、`local.properties`、`tools/raw/`、`app/build/`、`build/`、`.gradle/`、`.kotlin/`
 
 仍然需要注意：
 - 不要复用家目录仓库里那个 `github` remote（URL 里含旧 token，且会把 Englishdemo 推到错误的仓库）
@@ -388,6 +388,8 @@ curl -fL -o tools/raw/roots_raw.md \
 
 这个独立仓库当前分支 `main`，最新提交以 `git log --oneline -1` 为准；近期历史提交包括：
 ```
+fd29cd9 Teach cloze questions how to read their context
+f9be6ec Record GitHub snapshot publication state
 1788e30 Make root preview sheets teach the next review move
 896d730 Orient root study before browsing families
 e6ae455 Explain weekly rhythm before the heatmap
