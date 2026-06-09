@@ -20,3 +20,4 @@
 - `buildRootMnemonicBrief` is a JVM-testable pure function.
 - The UI only reads `RootGroup.members.mnemonic`; it does not write or auto-generate missing mnemonics.
 - GitHub MCP credentials still need separate repair before MCP-based remote publishing can work.
+- GitHub main was refreshed through GitHub API snapshot commit `953703dfaab2d4dbdf721cceb68cf7bbbb5e1e35`; GitHub MCP still returned `Bad credentials` in this environment.
