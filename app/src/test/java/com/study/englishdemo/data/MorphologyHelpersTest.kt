@@ -737,6 +737,100 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildLearningLoopBrief_handlesEmptyBatch() {
+        val brief = buildLearningLoopBrief(emptyList())
+
+        assertThat(brief.kind).isEqualTo(LearningLoopBriefKind.EMPTY)
+        assertThat(brief.primaryValue).isEqualTo("0")
+        assertThat(brief.secondaryValue).isEqualTo("复习")
+        assertThat(brief.steps).hasSize(3)
+        assertThat(brief.actionLabel).isEqualTo("去巩固")
+    }
+
+    @Test
+    fun buildLearningLoopBrief_prefersRootLoopsForDenseRootBatches() {
+        val brief = buildLearningLoopBrief(
+            listOf(
+                fakeEntry("inspect", "spec"),
+                fakeEntry("respect", "spec"),
+                fakeEntry("prospect", "spec"),
+                fakeEntry("plain", ""),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(LearningLoopBriefKind.ROOT_LOOP)
+        assertThat(brief.primaryValue).isEqualTo("spec")
+        assertThat(brief.secondaryValue).isEqualTo("3")
+        assertThat(brief.focusTerms).containsExactly("inspect", "respect", "prospect").inOrder()
+        assertThat(brief.steps.map { it.label }).containsExactly("预读", "自测", "入轨").inOrder()
+    }
+
+    @Test
+    fun buildLearningLoopBrief_usesMemoryLoopsForPartialMnemonicCoverage() {
+        val brief = buildLearningLoopBrief(
+            listOf(
+                fakeEntry("state", "stat", mnemonic = "stat 站住就是状态"),
+                fakeEntry("plain", ""),
+                fakeEntry("single", ""),
+                fakeEntry("solo", ""),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(LearningLoopBriefKind.MEMORY_LOOP)
+        assertThat(brief.primaryValue).isEqualTo("25%")
+        assertThat(brief.secondaryValue).isEqualTo("3")
+        assertThat(brief.focusTerms).containsExactly("plain", "single", "solo").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("线索闭环")
+    }
+
+    @Test
+    fun buildLearningLoopBrief_usesContextLoopsWhenExamplesDominate() {
+        val brief = buildLearningLoopBrief(
+            listOf(
+                fakeEntry("abandon", "", example = "Never abandon the plan."),
+                fakeEntry("benefit", "", example = "Daily practice brings benefit."),
+                fakeEntry("capture", "", example = "Capture the main idea."),
+                fakeEntry("plain", ""),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(LearningLoopBriefKind.CONTEXT_LOOP)
+        assertThat(brief.primaryValue).isEqualTo("3")
+        assertThat(brief.secondaryValue).isEqualTo("4")
+        assertThat(brief.focusTerms).containsExactly("abandon", "benefit", "capture").inOrder()
+        assertThat(brief.actionLabel).isEqualTo("语境闭环")
+    }
+
+    @Test
+    fun buildLearningLoopBrief_splitsLargeBatchesIntoSegments() {
+        val words = (1..11).map { index -> fakeEntry("word$index", "") }
+
+        val brief = buildLearningLoopBrief(words)
+
+        assertThat(brief.kind).isEqualTo(LearningLoopBriefKind.BATCH_LOOP)
+        assertThat(brief.primaryValue).isEqualTo("11")
+        assertThat(brief.secondaryValue).isEqualTo("3")
+        assertThat(brief.steps[0].title).isEqualTo("5词一段")
+        assertThat(brief.actionLabel).isEqualTo("分段闭环")
+    }
+
+    @Test
+    fun buildLearningLoopBrief_fallsBackToQuickLoopsForSmallSparseBatches() {
+        val brief = buildLearningLoopBrief(
+            listOf(
+                fakeEntry("plain", ""),
+                fakeEntry("form", "", derivatives = listOf("formed")),
+            ),
+        )
+
+        assertThat(brief.kind).isEqualTo(LearningLoopBriefKind.QUICK_LOOP)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.secondaryValue).isEqualTo("1")
+        assertThat(brief.focusTerms).containsExactly("plain", "form").inOrder()
+        assertThat(brief.steps.last().title).isEqualTo("评分入队")
+    }
+
+    @Test
     fun buildRootGroupInsight_seedsUntouchedRootFamilies() {
         val insight = buildRootGroupInsight(
             RootGroup(

@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.34
+# Englishdemo / LexRise v0.35
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.35 亮点
+
+- **Learn Tab 新增“新词闭环计划”**
+  - 在“本批新词策略”和“巧记覆盖简报”后新增三步闭环卡，把当前新词批次拆成预读、自测、评分入轨
+  - 自动判断这批更适合按同根词串线、先读/补巧记、先走例句语境、大批次分段，还是小批快进
+  - 卡片展示行动标签、闭环强度、两项关键指标、三步轨道和焦点词 chips，让用户知道怎样把“看线索”真正收束到 SRS
+  - 逻辑由 `buildLearningLoopBrief` 纯函数派生，不新增数据库字段，不改变新词顺序、翻卡评分、用户巧记或 SRS 间隔
 
 ## v0.34 亮点
 
@@ -371,6 +379,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.35（2026-06-09）
+- Learn Tab 新增“新词闭环计划”，把当前新词批次拆成预读、自测、评分入轨三步
+- 新增 `LearningLoopBrief` / `LearningLoopStep` / `LearningLoopBriefKind` 和 `buildLearningLoopBrief` 纯函数
+- 新增 `LearningLoopBriefCard`，展示行动标签、闭环强度、三步轨道和焦点词 chips
+- 应用版本元数据同步到 0.35.0
+- Android 单测 153 → 159
 
 ### v0.34（2026-06-09）
 - Review Tab 新增“练习模式阶梯”，把翻卡、选择、完形、拼写、听写排成 5 级训练路线

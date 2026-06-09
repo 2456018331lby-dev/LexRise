@@ -112,6 +112,9 @@ import com.study.englishdemo.data.DailyLoadLane
 import com.study.englishdemo.data.DailyStudyRoute
 import com.study.englishdemo.data.DailyStudyRouteStep
 import com.study.englishdemo.data.DailyStudyRouteTarget
+import com.study.englishdemo.data.LearningLoopBrief
+import com.study.englishdemo.data.LearningLoopBriefKind
+import com.study.englishdemo.data.LearningLoopStep
 import com.study.englishdemo.data.Morpheme
 import com.study.englishdemo.data.MnemonicBatchBrief
 import com.study.englishdemo.data.MnemonicBatchBriefKind
@@ -155,6 +158,7 @@ import com.study.englishdemo.data.WordBook
 import com.study.englishdemo.data.WordEntry
 import com.study.englishdemo.data.WordMemoryAnchor
 import com.study.englishdemo.data.WordMemoryAnchorKind
+import com.study.englishdemo.data.buildLearningLoopBrief
 import com.study.englishdemo.data.buildMnemonicBatchBrief
 import com.study.englishdemo.data.buildClozeContextGuide
 import com.study.englishdemo.data.buildDailyLoadBrief
@@ -1140,6 +1144,7 @@ private fun LearnScreen(
     val words = uiState.session?.recommendedNewWords.orEmpty()
     val batchBrief = remember(words) { buildWordBatchBrief(words) }
     val mnemonicBrief = remember(words) { buildMnemonicBatchBrief(words) }
+    val learningLoopBrief = remember(words) { buildLearningLoopBrief(words) }
     WordQueueScreen(
         title = "新词学习",
         subtitle = "当前词书：${uiState.selectedBookTitle}。按词根聚簇出词——同根词连着记，比字母序高效。",
@@ -1147,6 +1152,7 @@ private fun LearnScreen(
         uiState = uiState,
         batchBrief = batchBrief,
         mnemonicBrief = mnemonicBrief,
+        learningLoopBrief = learningLoopBrief,
         onRate = onRate,
         onSpeak = onSpeak,
         onMnemonic = onMnemonic,
@@ -2790,6 +2796,7 @@ private fun WordQueueScreen(
     uiState: AppUiState,
     batchBrief: WordBatchBrief? = null,
     mnemonicBrief: MnemonicBatchBrief? = null,
+    learningLoopBrief: LearningLoopBrief? = null,
     onRate: (Long, ReviewRating) -> Unit,
     onSpeak: (String) -> Unit,
     onMnemonic: (Long, String) -> Unit,
@@ -2810,6 +2817,11 @@ private fun WordQueueScreen(
         mnemonicBrief?.let { brief ->
             item {
                 MnemonicBatchBriefCard(brief)
+            }
+        }
+        learningLoopBrief?.let { brief ->
+            item {
+                LearningLoopBriefCard(brief)
             }
         }
         if (words.isEmpty()) {
@@ -3067,6 +3079,192 @@ private fun MnemonicBatchBriefCard(brief: MnemonicBatchBrief) {
 }
 
 @Composable
+private fun LearningLoopBriefCard(brief: LearningLoopBrief) {
+    val accent = learningLoopBriefAccent(brief.kind)
+    val icon = when (brief.kind) {
+        LearningLoopBriefKind.EMPTY -> Icons.Rounded.Check
+        LearningLoopBriefKind.ROOT_LOOP -> Icons.Rounded.AccountTree
+        LearningLoopBriefKind.MEMORY_LOOP -> Icons.Rounded.Star
+        LearningLoopBriefKind.CONTEXT_LOOP -> Icons.Rounded.AutoStories
+        LearningLoopBriefKind.BATCH_LOOP -> Icons.Rounded.Insights
+        LearningLoopBriefKind.QUICK_LOOP -> Icons.Rounded.PsychologyAlt
+    }
+    val animated by animateFloatAsState(
+        targetValue = brief.progress.coerceIn(0f, 1f),
+        animationSpec = tween(560),
+        label = "learningLoopBriefProgress",
+    )
+    Card(
+        shape = RoundedCornerShape(30.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.24f),
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+                        ),
+                        start = Offset(0f, 0f),
+                        end = Offset(780f, 320f),
+                    ),
+                )
+                .padding(18.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(17.dp), color = accent.copy(alpha = 0.16f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(10.dp)
+                                    .size(22.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "新词闭环计划",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(brief.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                brief.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                            )
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            brief.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { animated },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    BatchBriefMetric(brief.primaryLabel, brief.primaryValue, accent, Modifier.weight(1f))
+                    BatchBriefMetric(brief.secondaryLabel, brief.secondaryValue, accent, Modifier.weight(1f))
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    brief.steps.forEachIndexed { index, step ->
+                        LearningLoopStepRow(
+                            step = step,
+                            accent = accent,
+                            isLast = index == brief.steps.lastIndex,
+                        )
+                    }
+                }
+                if (brief.focusTerms.isNotEmpty()) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        items(brief.focusTerms, key = { it }) { term ->
+                            Surface(shape = RoundedCornerShape(14.dp), color = accent.copy(alpha = 0.10f)) {
+                                Text(
+                                    term,
+                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = accent,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LearningLoopStepRow(step: LearningLoopStep, accent: Color, isLast: Boolean) {
+    val weight by animateFloatAsState(
+        targetValue = step.weight.coerceIn(0f, 1f),
+        animationSpec = tween(430),
+        label = "learningLoopStep${step.label}",
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.16f)) {
+                Text(
+                    step.label,
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = accent,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            if (!isLast) {
+                Box(
+                    modifier = Modifier
+                        .width(2.dp)
+                        .height(22.dp)
+                        .background(accent.copy(alpha = 0.18f), RoundedCornerShape(999.dp)),
+                )
+            }
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(step.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Box(
+                    modifier = Modifier
+                        .width(52.dp)
+                        .height(6.dp)
+                        .background(accent.copy(alpha = 0.10f), RoundedCornerShape(999.dp)),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(weight)
+                            .height(6.dp)
+                            .background(accent, RoundedCornerShape(999.dp)),
+                    )
+                }
+            }
+            Text(
+                step.cue,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.64f),
+            )
+        }
+    }
+}
+
+@Composable
 private fun BatchBriefMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
@@ -3094,6 +3292,16 @@ private fun mnemonicBatchBriefAccent(kind: MnemonicBatchBriefKind): Color = when
     MnemonicBatchBriefKind.ROOT_BRIDGE -> Color(0xFF2D5B52)
     MnemonicBatchBriefKind.QUICK_START -> Color(0xFF3F6F8F)
     MnemonicBatchBriefKind.EMPTY -> Color(0xFF6E8B3D)
+}
+
+@Composable
+private fun learningLoopBriefAccent(kind: LearningLoopBriefKind): Color = when (kind) {
+    LearningLoopBriefKind.EMPTY -> Color(0xFF6E8B3D)
+    LearningLoopBriefKind.ROOT_LOOP -> Color(0xFF2D5B52)
+    LearningLoopBriefKind.MEMORY_LOOP -> Color(0xFFC98A3D)
+    LearningLoopBriefKind.CONTEXT_LOOP -> MaterialTheme.colorScheme.primary
+    LearningLoopBriefKind.BATCH_LOOP -> Color(0xFF9A6B3A)
+    LearningLoopBriefKind.QUICK_LOOP -> Color(0xFF3F6F8F)
 }
 
 @Composable
