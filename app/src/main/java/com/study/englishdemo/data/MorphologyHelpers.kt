@@ -810,6 +810,198 @@ fun buildMnemonicBatchBrief(words: List<WordEntry>, focusLimit: Int = 4): Mnemon
     }
 }
 
+fun buildLearningLoopBrief(words: List<WordEntry>, focusLimit: Int = 4): LearningLoopBrief {
+    val cleanWords = words.distinctBy { it.id }
+    val total = cleanWords.size
+    val cappedFocus = focusLimit.coerceAtLeast(0)
+    if (total == 0) {
+        return LearningLoopBrief(
+            kind = LearningLoopBriefKind.EMPTY,
+            title = "新词闭环已收口",
+            message = "当前没有待学新词，下一步用 Review 或难词专攻把今天的记忆留在长期轨道里。",
+            primaryLabel = "待学",
+            primaryValue = "0",
+            secondaryLabel = "下一步",
+            secondaryValue = "复习",
+            actionLabel = "去巩固",
+            progress = 0f,
+            steps = learningLoopSteps(
+                "回看",
+                "抽查旧词",
+                "用 Review 或难词专攻确认今天没有漏点。",
+                "清空",
+                "保持手感",
+                "不再硬加新词，留出复习恢复窗口。",
+                "收口",
+                "结束本轮",
+                "核心负载已清时，收口比继续堆量更稳。",
+            ),
+            focusTerms = emptyList(),
+        )
+    }
+
+    val rootedWords = cleanWords.filter { it.rootKey.isNotBlank() }
+    val mnemonicWords = cleanWords.filter { it.mnemonic.isNotBlank() }
+    val blankMnemonicWords = cleanWords.filter { it.mnemonic.isBlank() }
+    val contextWords = cleanWords.filter { it.example.isNotBlank() }
+    val derivativeWords = cleanWords.filter { word ->
+        word.derivatives.any { it.isNotBlank() && !it.equals(word.term, ignoreCase = true) }
+    }
+    val strongestRoot = rootedWords
+        .groupingBy { it.rootKey.trim() }
+        .eachCount()
+        .filterKeys { it.isNotBlank() }
+        .maxWithOrNull(
+            compareBy<Map.Entry<String, Int>> { it.value }
+                .thenBy { it.key.length },
+        )
+    val rootShare = strongestRoot?.value?.toFloat()?.div(total.toFloat()) ?: 0f
+    val mnemonicCoverage = mnemonicWords.size.toFloat() / total.toFloat()
+    val contextShare = contextWords.size.toFloat() / total.toFloat()
+    val derivativeShare = derivativeWords.size.toFloat() / total.toFloat()
+
+    fun focusFrom(source: List<WordEntry>): List<String> = source
+        .map { it.term.trim() }
+        .filter { it.isNotEmpty() }
+        .distinctBy { it.lowercase() }
+        .take(cappedFocus)
+
+    val kind = when {
+        strongestRoot != null && (strongestRoot.value >= 3 || rootShare >= 0.45f) -> LearningLoopBriefKind.ROOT_LOOP
+        mnemonicWords.isNotEmpty() && (mnemonicCoverage >= 0.45f || blankMnemonicWords.size >= 3) -> LearningLoopBriefKind.MEMORY_LOOP
+        contextWords.size >= 3 && contextShare >= 0.55f -> LearningLoopBriefKind.CONTEXT_LOOP
+        total >= 10 -> LearningLoopBriefKind.BATCH_LOOP
+        else -> LearningLoopBriefKind.QUICK_LOOP
+    }
+
+    return when (kind) {
+        LearningLoopBriefKind.EMPTY -> error("EMPTY handled above")
+        LearningLoopBriefKind.ROOT_LOOP -> {
+            val rootKey = strongestRoot?.key.orEmpty()
+            val rootCount = strongestRoot?.value ?: 0
+            LearningLoopBrief(
+                kind = kind,
+                title = "先串根线，再逐张入轨",
+                message = "这批 $total 个新词里，$rootCount 个集中在 $rootKey 词根；先把根义和同根差异讲清，再翻卡评分，能减少孤立记忆。",
+                primaryLabel = "主词根",
+                primaryValue = rootKey,
+                secondaryLabel = "同根词",
+                secondaryValue = rootCount.toString(),
+                actionLabel = "按根闭环",
+                progress = rootShare.coerceIn(0.18f, 1f),
+                steps = learningLoopSteps(
+                    "预读",
+                    "串 $rootKey",
+                    "先扫同根词，找共同根义和形近差异。",
+                    "自测",
+                    "遮义翻卡",
+                    "逐张先回忆，再揭示释义和巧记线索。",
+                    "入轨",
+                    "评分收束",
+                    "GOOD/EASY 进复习，AGAIN/HARD 留给下一轮修复。",
+                ),
+                focusTerms = focusFrom(cleanWords.filter { it.rootKey == rootKey }),
+            )
+        }
+        LearningLoopBriefKind.MEMORY_LOOP -> {
+            val coverageLabel = "${(mnemonicCoverage * 100f).toInt()}%"
+            val focusSource = if (blankMnemonicWords.size >= 3) blankMnemonicWords else mnemonicWords
+            LearningLoopBrief(
+                kind = kind,
+                title = "先读巧记，再补卡顿词",
+                message = "这批已有 ${mnemonicWords.size} 个现成巧记、${blankMnemonicWords.size} 个空白；先用已有线索起步，只有真正卡住的词才补个人口诀。",
+                primaryLabel = "巧记覆盖",
+                primaryValue = coverageLabel,
+                secondaryLabel = "待补",
+                secondaryValue = blankMnemonicWords.size.toString(),
+                actionLabel = "线索闭环",
+                progress = mnemonicCoverage.coerceIn(0.16f, 1f),
+                steps = learningLoopSteps(
+                    "预读",
+                    "先读线索",
+                    "有巧记先读巧记，没有就看词根/词形。",
+                    "自测",
+                    "卡顿才补",
+                    "只给反复想不起的词补一句个人线索。",
+                    "入轨",
+                    "评分分流",
+                    "稳定词进入复习，卡顿词留给难词修复。",
+                ),
+                focusTerms = focusFrom(focusSource),
+            )
+        }
+        LearningLoopBriefKind.CONTEXT_LOOP -> LearningLoopBrief(
+            kind = kind,
+            title = "先放回语境，再翻卡确认",
+            message = "这批有 ${contextWords.size} 个词带例句，适合先读句子抓语义位置，再遮住目标词做主动提取。",
+            primaryLabel = "有例句",
+            primaryValue = contextWords.size.toString(),
+            secondaryLabel = "批次",
+            secondaryValue = total.toString(),
+            actionLabel = "语境闭环",
+            progress = contextShare.coerceIn(0.18f, 1f),
+            steps = learningLoopSteps(
+                "预读",
+                "扫例句",
+                "先确认词在句子里承担什么语义角色。",
+                "自测",
+                "遮词复述",
+                "盖住释义后，用例句把词义讲出来。",
+                "入轨",
+                "评分确认",
+                "能在语境提取再给 GOOD；只认中文就先 HARD。",
+            ),
+            focusTerms = focusFrom(contextWords),
+        )
+        LearningLoopBriefKind.BATCH_LOOP -> LearningLoopBrief(
+            kind = kind,
+            title = "大批次切小段，别一口吞",
+            message = "这批有 $total 个新词，先切成每 5 个一小段：预读、翻卡、评分都按小段收束，避免后半段只是在扫屏。",
+            primaryLabel = "批次",
+            primaryValue = total.toString(),
+            secondaryLabel = "建议分段",
+            secondaryValue = "${kotlin.math.ceil(total / 5.0).toInt()}",
+            actionLabel = "分段闭环",
+            progress = (total.toFloat() / 16f).coerceIn(0.22f, 1f),
+            steps = learningLoopSteps(
+                "预读",
+                "5词一段",
+                "每段先看词根、巧记、例句中最强的一条线索。",
+                "自测",
+                "段内翻卡",
+                "一段内逐张先回忆再揭示，不跨段拖欠。",
+                "入轨",
+                "低分回头",
+                "AGAIN/HARD 留在本段末尾再看一次。",
+            ),
+            focusTerms = focusFrom((rootedWords + derivativeWords + contextWords).ifEmpty { cleanWords }),
+        )
+        LearningLoopBriefKind.QUICK_LOOP -> LearningLoopBrief(
+            kind = kind,
+            title = "小批快进，三步收束",
+            message = "这批只有 $total 个新词，直接按发音/释义预读、遮挡自测、评分入轨走完一轮；重点是形成第一次主动回忆。",
+            primaryLabel = "待学",
+            primaryValue = total.toString(),
+            secondaryLabel = "词形线索",
+            secondaryValue = derivativeWords.size.toString(),
+            actionLabel = "三步闭环",
+            progress = maxOf(0.24f, derivativeShare * 0.8f).coerceIn(0.24f, 0.72f),
+            steps = learningLoopSteps(
+                "预读",
+                "抓第一线索",
+                "看发音、词根、词形或一句释义，建立最小印象。",
+                "自测",
+                "遮义回忆",
+                "翻卡前先说出核心义，别直接看答案。",
+                "入轨",
+                "评分入队",
+                "按真实回忆质量评分，让 SRS 接管后续间隔。",
+            ),
+            focusTerms = focusFrom(cleanWords),
+        )
+    }
+}
+
 fun buildRootGroupInsight(group: RootGroup, focusLimit: Int = 3): RootGroupInsight {
     val total = group.totalWords.coerceAtLeast(0)
     val learned = group.learnedWords.coerceIn(0, total)
@@ -898,6 +1090,22 @@ fun buildRootGroupInsight(group: RootGroup, focusLimit: Int = 3): RootGroupInsig
         focusTerms = focusTerms,
     )
 }
+
+private fun learningLoopSteps(
+    firstLabel: String,
+    firstTitle: String,
+    firstCue: String,
+    secondLabel: String,
+    secondTitle: String,
+    secondCue: String,
+    thirdLabel: String,
+    thirdTitle: String,
+    thirdCue: String,
+): List<LearningLoopStep> = listOf(
+    LearningLoopStep(firstLabel, firstTitle, firstCue, 0.34f),
+    LearningLoopStep(secondLabel, secondTitle, secondCue, 0.72f),
+    LearningLoopStep(thirdLabel, thirdTitle, thirdCue, 1f),
+)
 
 fun buildRootAtlasBrief(
     groups: List<RootGroup>,

@@ -117,7 +117,7 @@ describe,de + scrib：把看到的写下来就是 describe 描述
 
 ### 能不能避开？能避开就避开
 
-很多"新功能"其实不需要加列。本项目 v0.3-v0.34 的所有新能力（簇首、词根覆盖、词根图谱简报、根族巧记补给、词根详情导读、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、完形语境导读、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、空结果救援、结果分诊、练习模式阶梯、本轮练习统计、本轮教练、本轮收口建议、复习队列预案、七日节奏简报、首页学习焦点、今日负载简报、今日训练路线、新词记忆锚、新词批次策略、新词巧记覆盖简报、离线巧记 seed 注入）都走**派生查询、纯函数派生、构建期资源生成或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题、在构建脚本里生成资源，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
+很多"新功能"其实不需要加列。本项目 v0.3-v0.35 的所有新能力（簇首、词根覆盖、词根图谱简报、根族巧记补给、词根详情导读、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、完形语境导读、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、空结果救援、结果分诊、练习模式阶梯、本轮练习统计、本轮教练、本轮收口建议、复习队列预案、七日节奏简报、首页学习焦点、今日负载简报、今日训练路线、新词记忆锚、新词批次策略、新词巧记覆盖简报、新词闭环计划、离线巧记 seed 注入）都走**派生查询、纯函数派生、构建期资源生成或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题、在构建脚本里生成资源，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
 
 - 想标记"这个词是簇首"？→ 已经有 `getAnchorWordIds(bookId)` 动态算，不加 `isAnchor` 列
 - 想统计"哪个词翻车最多"？→ `getToughWordsForBook` 从 `review_logs` GROUP BY 出来
@@ -147,6 +147,7 @@ describe,de + scrib：把看到的写下来就是 describe 描述
 - 想让新词卡先提示“抓什么线索”？→ `buildWordMemoryAnchor` 从词条、词根引用和同根词数量派生记忆锚；UI 只展示，不覆盖用户 `mnemonic`
 - 想让一批新词先给整体打法？→ `buildWordBatchBrief` 从当前 `recommendedNewWords` 派生词根/词形/语境/混合策略，不改学习顺序、不写队列表
 - 想让新词批次解释巧记覆盖？→ `buildMnemonicBatchBrief` 从当前 `recommendedNewWords.mnemonic/rootKey/derivatives` 派生覆盖简报；UI 只展示，不自动补写 mnemonic
+- 想让新词批次告诉用户怎么完成一轮闭环？→ `buildLearningLoopBrief` 从当前 `recommendedNewWords` 派生预读、自测、评分入轨三步，不改新词顺序、不写队列、不改 SRS
 - 想批量补默认巧记？→ 改 `tools/mnemonics_seed.csv` 或 `tools/raw/mnemonics.csv`，用 `tools/build_wordlists.py` 写入内置 CSV 的 `mnemonic` 列；不要改 Room，不要启动时覆盖用户编辑
 
 ### 如果确实要升级 schema
@@ -340,6 +341,7 @@ git ls-files .android-sdk/ app/build/   # 应为空
 | 改词根图谱简报 | `data/MorphologyHelpers.kt#buildRootAtlasBrief` + `data/Models.kt#RootAtlasBrief/RootAtlasBriefKind` + `MainActivity.kt#RootAtlasBriefCard/RootAtlasMetric` + `MorphologyHelpersTest` |
 | 改根族巧记补给 | `data/MorphologyHelpers.kt#buildRootMnemonicBrief` + `data/Models.kt#RootMnemonicBrief/RootMnemonicBriefKind` + `MainActivity.kt#RootMnemonicBriefCard` + `MorphologyHelpersTest` |
 | 改词根详情导读 | `data/MorphologyHelpers.kt#buildRootWordGuide` + `data/Models.kt#RootWordGuide/RootWordGuideKind` + `MainActivity.kt#RootWordGuidePanel/RootWordPreviewSheet` + `MorphologyHelpersTest` |
+| 改新词闭环计划 | `data/Models.kt#LearningLoopBrief/LearningLoopStep` + `data/MorphologyHelpers.kt#buildLearningLoopBrief` + `MainActivity.kt#LearningLoopBriefCard/WordQueueScreen` + `MorphologyHelpersTest` |
 | 改词根 Tab 根族路线 | `data/MorphologyHelpers.kt#buildRootGroupInsight` + `data/Models.kt#RootGroupInsight/RootGroupStage` + `MainActivity.kt#RootGroupCard/RootStageBadge/RootFocusTermChip` + `MorphologyHelpersTest` |
 | 改选择题干扰项逻辑 | `data/MorphologyHelpers.kt#buildQuizOptions` + `MorphologyHelpersTest` |
 | 改完形/例句挖空 | `data/MorphologyHelpers.kt#buildClozeBlank/blankTermInExample` + `StudyRepository.kt#buildClozeQuestion` + 对应 Test；候选排序保持原词优先、派生词按例句位置优先 |
