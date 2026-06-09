@@ -20,3 +20,4 @@
 - `buildMnemonicBatchBrief` is a JVM-testable pure function.
 - The UI only reads `WordEntry.mnemonic`; it does not write missing mnemonics automatically.
 - GitHub MCP credentials still need separate repair before MCP-based remote publishing can work.
+- GitHub main was refreshed through GitHub API snapshot commit `1d458eca4d27e47876ee978d90d5dc95664ffde2`; GitHub MCP still returned `Bad credentials` in this environment.
