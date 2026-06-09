@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.29
+# Englishdemo / LexRise v0.30
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.30 亮点
+
+- **Dashboard 新增“今日负载简报”**
+  - 在顶部三项指标后新增总览卡，先把复习债、新词目标、难词压力和词根缺口拆成 4 条负载轨道
+  - 自动判断今天更适合先清债、修错题、补词根、按考试配速推进、均衡推进或收口复盘
+  - 卡片展示总强度条、关键指标、行动标签和四条动画轨道，让首页不只告诉用户“做什么”，还解释“压力来自哪里”
+  - 逻辑由 `buildDailyLoadBrief` 纯函数派生，不新增数据库字段，不改变学习路线、自动配速、用户设置或 SRS 评分
 
 ## v0.29 亮点
 
@@ -331,6 +339,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.30（2026-06-09）
+- Dashboard 新增“今日负载简报”，汇总复习、新词、难词和词根缺口的当前压力来源
+- 新增 `DailyLoadBrief` / `DailyLoadBriefKind` / `DailyLoadLane` 和 `buildDailyLoadBrief` 纯函数
+- 新增 `DailyLoadBriefCard` / `DailyLoadLaneRow`，展示总强度、关键指标、行动标签和 4 条负载轨道
+- 应用版本元数据同步到 0.30.0
+- Android 单测 123 → 129
 
 ### v0.29（2026-06-09）
 - 词根 Tab 新增“根族巧记补给”，解释当前可见根族的巧记 seed 覆盖、补缺方向和优先根族

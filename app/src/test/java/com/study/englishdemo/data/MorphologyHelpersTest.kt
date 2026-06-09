@@ -170,6 +170,103 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildDailyLoadBrief_prioritizesReviewDebt() {
+        val brief = buildDailyLoadBrief(
+            session = fakeSession(reviewDueCount = 16, newWordTarget = 20, newWordsRemaining = 120),
+            rootSnapshot = BookRootSnapshot(totalRoots = 80, touchedRoots = 40, totalClustered = 300, learnedClustered = 150),
+            pace = fakePace(target = 20),
+            toughWordCount = 3,
+        )
+
+        assertThat(brief.kind).isEqualTo(DailyLoadBriefKind.REVIEW_DEBT)
+        assertThat(brief.primaryValue).isEqualTo("16")
+        assertThat(brief.secondaryValue).isEqualTo("20")
+        assertThat(brief.actionLabel).isEqualTo("先清债")
+        assertThat(brief.lanes.map { it.label }).containsExactly("复习", "新词", "难词", "词根").inOrder()
+    }
+
+    @Test
+    fun buildDailyLoadBrief_prioritizesToughRepairWhenReviewDebtIsLight() {
+        val brief = buildDailyLoadBrief(
+            session = fakeSession(reviewDueCount = 4, newWordTarget = 20, newWordsRemaining = 120),
+            rootSnapshot = BookRootSnapshot(totalRoots = 80, touchedRoots = 50, totalClustered = 300, learnedClustered = 160),
+            pace = fakePace(target = 20),
+            toughWordCount = 8,
+        )
+
+        assertThat(brief.kind).isEqualTo(DailyLoadBriefKind.TOUGH_REPAIR)
+        assertThat(brief.primaryValue).isEqualTo("8")
+        assertThat(brief.secondaryValue).isEqualTo("4")
+        assertThat(brief.actionLabel).isEqualTo("先修漏点")
+    }
+
+    @Test
+    fun buildDailyLoadBrief_surfacesRootGapsBeforeNewWords() {
+        val brief = buildDailyLoadBrief(
+            session = fakeSession(reviewDueCount = 0, newWordTarget = 20, newWordsRemaining = 120),
+            rootSnapshot = BookRootSnapshot(totalRoots = 100, touchedRoots = 20, totalClustered = 300, learnedClustered = 50),
+            pace = fakePace(target = 20),
+            toughWordCount = 0,
+        )
+
+        assertThat(brief.kind).isEqualTo(DailyLoadBriefKind.ROOT_GAP)
+        assertThat(brief.primaryValue).isEqualTo("20/100")
+        assertThat(brief.secondaryValue).isEqualTo("20")
+        assertThat(brief.actionLabel).isEqualTo("补词根网")
+    }
+
+    @Test
+    fun buildDailyLoadBrief_usesAutoPaceWhenDebtIsClear() {
+        val brief = buildDailyLoadBrief(
+            session = fakeSession(reviewDueCount = 0, newWordTarget = 20, newWordsRemaining = 400),
+            rootSnapshot = BookRootSnapshot(totalRoots = 80, touchedRoots = 50, totalClustered = 300, learnedClustered = 160),
+            pace = fakePace(target = 32, remainingWords = 400, remainingDays = 18, isAuto = true),
+            toughWordCount = 0,
+        )
+
+        assertThat(brief.kind).isEqualTo(DailyLoadBriefKind.PACE_PUSH)
+        assertThat(brief.primaryValue).isEqualTo("32")
+        assertThat(brief.secondaryValue).isEqualTo("400")
+        assertThat(brief.actionLabel).isEqualTo("按配速走")
+    }
+
+    @Test
+    fun buildDailyLoadBrief_balancesManageableMixedLoad() {
+        val brief = buildDailyLoadBrief(
+            session = fakeSession(reviewDueCount = 5, newWordTarget = 18, newWordsRemaining = 90),
+            rootSnapshot = BookRootSnapshot(totalRoots = 80, touchedRoots = 45, totalClustered = 300, learnedClustered = 170),
+            pace = fakePace(target = 18),
+            toughWordCount = 2,
+        )
+
+        assertThat(brief.kind).isEqualTo(DailyLoadBriefKind.BALANCED)
+        assertThat(brief.primaryValue).isEqualTo("18")
+        assertThat(brief.secondaryValue).isEqualTo("5")
+        assertThat(brief.lanes.first { it.label == "词根" }.value).isEqualTo("45/80")
+    }
+
+    @Test
+    fun buildDailyLoadBrief_marksClearDaysForWrapUp() {
+        val brief = buildDailyLoadBrief(
+            session = fakeSession(
+                reviewDueCount = 0,
+                newWordsRemaining = 0,
+                studiedToday = 24,
+                streakDays = 8,
+                completionRatio = 1f,
+            ),
+            rootSnapshot = BookRootSnapshot(totalRoots = 80, touchedRoots = 70, totalClustered = 300, learnedClustered = 260),
+            pace = fakePace(target = 20, remainingWords = 0),
+            toughWordCount = 0,
+        )
+
+        assertThat(brief.kind).isEqualTo(DailyLoadBriefKind.CLEAR)
+        assertThat(brief.primaryValue).isEqualTo("8")
+        assertThat(brief.secondaryValue).isEqualTo("24")
+        assertThat(brief.actionLabel).isEqualTo("收口复盘")
+    }
+
+    @Test
     fun buildDailyStudyRoute_prioritizesReviewToughAndRoots() {
         val route = buildDailyStudyRoute(
             session = fakeSession(reviewDueCount = 18, newWordsRemaining = 120),

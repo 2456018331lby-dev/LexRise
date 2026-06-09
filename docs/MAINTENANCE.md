@@ -110,7 +110,7 @@ describe,de + scrib：把看到的写下来就是 describe 描述
 
 ### 能不能避开？能避开就避开
 
-很多"新功能"其实不需要加列。本项目 v0.3-v0.29 的所有新能力（簇首、词根覆盖、词根图谱简报、根族巧记补给、词根详情导读、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、完形语境导读、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、本轮练习统计、本轮教练、复习队列预案、七日节奏简报、首页学习焦点、今日训练路线、新词记忆锚、新词批次策略、新词巧记覆盖简报、离线巧记 seed 注入）都走**派生查询、纯函数派生、构建期资源生成或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题、在构建脚本里生成资源，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
+很多"新功能"其实不需要加列。本项目 v0.3-v0.30 的所有新能力（簇首、词根覆盖、词根图谱简报、根族巧记补给、词根详情导读、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、完形语境导读、派生词挖空、完形候选排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、本轮练习统计、本轮教练、复习队列预案、七日节奏简报、首页学习焦点、今日负载简报、今日训练路线、新词记忆锚、新词批次策略、新词巧记覆盖简报、离线巧记 seed 注入）都走**派生查询、纯函数派生、构建期资源生成或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题、在构建脚本里生成资源，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
 
 - 想标记"这个词是簇首"？→ 已经有 `getAnchorWordIds(bookId)` 动态算，不加 `isAnchor` 列
 - 想统计"哪个词翻车最多"？→ `getToughWordsForBook` 从 `review_logs` GROUP BY 出来
@@ -131,6 +131,7 @@ describe,de + scrib：把看到的写下来就是 describe 描述
 - 想在本轮复习开始前提示“先怎么清这批到期词”？→ `buildReviewQueueBrief` 从 `dueReviewWords` + `PracticeMode` 派生复习队列预案，不改复习顺序、不写评分、不写 Room
 - 想解释最近一周复习节奏？→ `buildStudyRhythmBrief` 从 `recentReviewCounts` + `DailyOverview` 派生七日节奏简报，不写复习日志、不改热力图数据
 - 想提示"今天先做什么"并跳到对应页面？→ `buildStudyFocusCue` 从 session / rootSnapshot / pace 派生建议和按钮文案；`MainActivity` 只做本地 Tab 切换，不写设置、不写 Room
+- 想先判断今天压力主要来自哪里？→ `buildDailyLoadBrief` 从 session / rootSnapshot / pace / toughWords 数量派生今日负载简报，不写设置、不改自动配速、不改路线排序
 - 想把今天拆成多步路线？→ `buildDailyStudyRoute` 从 session / rootSnapshot / pace / toughWords 数量派生 1–3 个行动步骤；`MainActivity` 只负责跳 Tab，不写设置、不写 Room
 - 想让新词卡先提示“抓什么线索”？→ `buildWordMemoryAnchor` 从词条、词根引用和同根词数量派生记忆锚；UI 只展示，不覆盖用户 `mnemonic`
 - 想让一批新词先给整体打法？→ `buildWordBatchBrief` 从当前 `recommendedNewWords` 派生词根/词形/语境/混合策略，不改学习顺序、不写队列表
@@ -319,6 +320,7 @@ git ls-files .android-sdk/ app/build/   # 应为空
 | 改发音 | `speech/WordSpeaker.kt`（当前是 Android TTS，改成音频文件要加 raw 资源） |
 | 改考试计划/自动配速 | `data/MorphologyHelpers.kt#computePaceRecommendation` + `MorphologyHelpersTest` |
 | 改首页学习焦点/行动按钮 | `data/MorphologyHelpers.kt#buildStudyFocusCue` + `data/Models.kt#StudyFocusCue` + `MainActivity.kt#StudyFocusCueCard` + `MorphologyHelpersTest` |
+| 改首页今日负载简报 | `data/MorphologyHelpers.kt#buildDailyLoadBrief` + `data/Models.kt#DailyLoadBrief/DailyLoadBriefKind/DailyLoadLane` + `MainActivity.kt#DailyLoadBriefCard` + `MorphologyHelpersTest` |
 | 改首页今日训练路线 | `data/MorphologyHelpers.kt#buildDailyStudyRoute` + `data/Models.kt#DailyStudyRoute/DailyStudyRouteStep/DailyStudyRouteTarget` + `MainActivity.kt#DailyStudyRouteCard/DailyStudyRouteStepCard` + `MorphologyHelpersTest` |
 | 改首页七日节奏简报 | `data/MorphologyHelpers.kt#buildStudyRhythmBrief` + `data/Models.kt#StudyRhythmBrief/StudyRhythmBriefKind` + `MainActivity.kt#StudyRhythmBriefCard/StudyRhythmMetric` + `MorphologyHelpersTest` |
 | 改新词卡记忆锚 | `data/MorphologyHelpers.kt#buildWordMemoryAnchor` + `data/Models.kt#WordMemoryAnchor/WordMemoryAnchorKind` + `MainActivity.kt#WordMemoryAnchorPanel/MemoryAnchorMetric` + `MorphologyHelpersTest` |
