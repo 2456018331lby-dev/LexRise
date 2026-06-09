@@ -120,6 +120,8 @@ import com.study.englishdemo.data.PracticeSessionCoach
 import com.study.englishdemo.data.PracticeSessionCoachKind
 import com.study.englishdemo.data.PracticeSessionStats
 import com.study.englishdemo.data.ReviewRating
+import com.study.englishdemo.data.ReviewExitBrief
+import com.study.englishdemo.data.ReviewExitBriefKind
 import com.study.englishdemo.data.ReviewQueueBrief
 import com.study.englishdemo.data.ReviewQueueBriefKind
 import com.study.englishdemo.data.RootAtlasBrief
@@ -151,6 +153,7 @@ import com.study.englishdemo.data.buildClozeContextGuide
 import com.study.englishdemo.data.buildDailyLoadBrief
 import com.study.englishdemo.data.buildDailyStudyRoute
 import com.study.englishdemo.data.buildPracticeSessionCoach
+import com.study.englishdemo.data.buildReviewExitBrief
 import com.study.englishdemo.data.buildReviewQueueBrief
 import com.study.englishdemo.data.buildRootAtlasBrief
 import com.study.englishdemo.data.buildRootGroupInsight
@@ -1156,6 +1159,13 @@ private fun ReviewScreen(
     val queueBrief = remember(words, uiState.practiceMode) {
         buildReviewQueueBrief(words = words, mode = uiState.practiceMode)
     }
+    val exitBrief = remember(uiState.practiceStats, uiState.practiceMode, words.size) {
+        buildReviewExitBrief(
+            stats = uiState.practiceStats,
+            mode = uiState.practiceMode,
+            remainingDueCount = words.size,
+        )
+    }
     Column(modifier = Modifier.fillMaxSize()) {
         PracticeModeBar(
             current = uiState.practiceMode,
@@ -1164,6 +1174,12 @@ private fun ReviewScreen(
         )
         ReviewQueueBriefCard(
             brief = queueBrief,
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 12.dp),
+        )
+        ReviewExitBriefCard(
+            brief = exitBrief,
             modifier = Modifier
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 12.dp),
@@ -1308,6 +1324,117 @@ private fun practiceCoachAccent(kind: PracticeSessionCoachKind): Color = when (k
     PracticeSessionCoachKind.RECOVER -> Color(0xFFB65245)
     PracticeSessionCoachKind.STABILIZE -> MaterialTheme.colorScheme.primary
     PracticeSessionCoachKind.ADVANCE -> Color(0xFF6E8B3D)
+}
+
+@Composable
+private fun ReviewExitBriefCard(brief: ReviewExitBrief, modifier: Modifier = Modifier) {
+    val accent = reviewExitBriefAccent(brief.kind)
+    val icon = when (brief.kind) {
+        ReviewExitBriefKind.START -> Icons.Rounded.AutoStories
+        ReviewExitBriefKind.CONTINUE -> Icons.Rounded.Insights
+        ReviewExitBriefKind.REPAIR -> Icons.Rounded.PsychologyAlt
+        ReviewExitBriefKind.LEVEL_UP -> Icons.Rounded.LocalFireDepartment
+        ReviewExitBriefKind.WRAP_UP -> Icons.Rounded.EventAvailable
+        ReviewExitBriefKind.CLEAR -> Icons.Rounded.Check
+    }
+    val animated by animateFloatAsState(
+        targetValue = brief.progress.coerceIn(0f, 1f),
+        animationSpec = tween(500),
+        label = "reviewExitBriefProgress",
+    )
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.surface,
+                            accent.copy(alpha = 0.16f),
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+                        ),
+                    ),
+                )
+                .padding(15.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(15.dp), color = accent.copy(alpha = 0.14f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(8.dp)
+                                    .size(20.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "本轮收口建议",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(brief.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                brief.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                            )
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            brief.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { animated },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ReviewQueueMetric(brief.primaryLabel, brief.primaryValue, accent, Modifier.weight(1f))
+                    ReviewQueueMetric(brief.secondaryLabel, brief.secondaryValue, accent, Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun reviewExitBriefAccent(kind: ReviewExitBriefKind): Color = when (kind) {
+    ReviewExitBriefKind.START -> Color(0xFFC98A3D)
+    ReviewExitBriefKind.CONTINUE -> MaterialTheme.colorScheme.secondary
+    ReviewExitBriefKind.REPAIR -> Color(0xFFB65245)
+    ReviewExitBriefKind.LEVEL_UP -> Color(0xFF6E8B3D)
+    ReviewExitBriefKind.WRAP_UP -> Color(0xFF3F6F8F)
+    ReviewExitBriefKind.CLEAR -> Color(0xFF2D5B52)
 }
 
 @Composable

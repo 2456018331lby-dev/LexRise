@@ -1478,6 +1478,94 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildReviewExitBrief_waitsForTheFirstAnswer() {
+        val brief = buildReviewExitBrief(
+            stats = PracticeSessionStats(),
+            mode = PracticeMode.FLIP,
+            remainingDueCount = 9,
+        )
+
+        assertThat(brief.kind).isEqualTo(ReviewExitBriefKind.START)
+        assertThat(brief.primaryValue).isEqualTo("9")
+        assertThat(brief.secondaryValue).isEqualTo("翻卡")
+        assertThat(brief.actionLabel).isEqualTo("先做首题")
+        assertThat(brief.progress).isEqualTo(0f)
+    }
+
+    @Test
+    fun buildReviewExitBrief_marksClearedQueuesAfterAttempts() {
+        val brief = buildReviewExitBrief(
+            stats = PracticeSessionStats(answered = 8, stable = 7, needsPractice = 1),
+            mode = PracticeMode.CLOZE,
+            remainingDueCount = 0,
+        )
+
+        assertThat(brief.kind).isEqualTo(ReviewExitBriefKind.CLEAR)
+        assertThat(brief.primaryValue).isEqualTo("0")
+        assertThat(brief.secondaryValue).isEqualTo("87%")
+        assertThat(brief.actionLabel).isEqualTo("本轮收口")
+        assertThat(brief.progress).isEqualTo(1f)
+    }
+
+    @Test
+    fun buildReviewExitBrief_repairsWhenNeedsPracticeDominates() {
+        val brief = buildReviewExitBrief(
+            stats = PracticeSessionStats(answered = 7, stable = 2, needsPractice = 5),
+            mode = PracticeMode.SPELL,
+            remainingDueCount = 12,
+        )
+
+        assertThat(brief.kind).isEqualTo(ReviewExitBriefKind.REPAIR)
+        assertThat(brief.primaryLabel).isEqualTo("再练")
+        assertThat(brief.primaryValue).isEqualTo("5")
+        assertThat(brief.secondaryValue).isEqualTo("28%")
+        assertThat(brief.actionLabel).isEqualTo("转修错题")
+    }
+
+    @Test
+    fun buildReviewExitBrief_levelsUpStableSessionsWithDebtLeft() {
+        val brief = buildReviewExitBrief(
+            stats = PracticeSessionStats(answered = 10, stable = 9, needsPractice = 1),
+            mode = PracticeMode.CHOICE,
+            remainingDueCount = 14,
+        )
+
+        assertThat(brief.kind).isEqualTo(ReviewExitBriefKind.LEVEL_UP)
+        assertThat(brief.primaryValue).isEqualTo("90%")
+        assertThat(brief.secondaryValue).isEqualTo("14")
+        assertThat(brief.message).contains("完形或拼写")
+        assertThat(brief.actionLabel).isEqualTo("加难继续")
+    }
+
+    @Test
+    fun buildReviewExitBrief_wrapsUpSmallRemainingQueues() {
+        val brief = buildReviewExitBrief(
+            stats = PracticeSessionStats(answered = 6, stable = 5, needsPractice = 1),
+            mode = PracticeMode.CLOZE,
+            remainingDueCount = 2,
+        )
+
+        assertThat(brief.kind).isEqualTo(ReviewExitBriefKind.WRAP_UP)
+        assertThat(brief.primaryValue).isEqualTo("2")
+        assertThat(brief.secondaryValue).isEqualTo("83%")
+        assertThat(brief.actionLabel).isEqualTo("收尾两题")
+    }
+
+    @Test
+    fun buildReviewExitBrief_continuesBalancedSessions() {
+        val brief = buildReviewExitBrief(
+            stats = PracticeSessionStats(answered = 5, stable = 3, needsPractice = 2),
+            mode = PracticeMode.DICTATION,
+            remainingDueCount = 8,
+        )
+
+        assertThat(brief.kind).isEqualTo(ReviewExitBriefKind.CONTINUE)
+        assertThat(brief.primaryValue).isEqualTo("5")
+        assertThat(brief.secondaryValue).isEqualTo("8")
+        assertThat(brief.actionLabel).isEqualTo("继续本组")
+    }
+
+    @Test
     fun buildToughWordPrescription_rebuildsHighLapseWords() {
         val prescription = buildToughWordPrescription(
             ToughWord(
