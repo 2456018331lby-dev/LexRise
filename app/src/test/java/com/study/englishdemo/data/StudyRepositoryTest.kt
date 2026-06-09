@@ -354,6 +354,20 @@ class StudyRepositoryTest {
     }
 
     @Test
+    fun buildClozeQuestion_usesBestSentenceFromMultiSentenceExample() = runBlocking {
+        val repo = miniRepoForMultiSentenceCloze()
+        val book = repo.importBook("multi-cloze.csv", ByteArrayInputStream("".toByteArray()))
+        val clarify = repo.searchWords(book.bookId, "clarify").first { it.term == "clarify" }
+
+        val question = repo.buildClozeQuestion(clarify.id, book.bookId)
+
+        assertThat(question).isNotNull()
+        assertThat(question!!.prompt).isEqualTo("The team should ____ the final goal before launch.")
+        assertThat(question.correct).isEqualTo("clarify")
+        assertThat(question.options).contains("clarify")
+    }
+
+    @Test
     fun ensureBundledBookImported_isIdempotent() = runBlocking {
         val wordBookDao = FakeWordBookDao()
         val wordEntryDao = FakeWordEntryDao()
@@ -473,6 +487,45 @@ class StudyRepositoryTest {
                     definition = "make clear",
                     translation = "澄清",
                     example = "The note clarified the final goal.",
+                    tags = listOf("cet4"),
+                    rootKey = "clar",
+                    derivatives = listOf("clarified", "clarifies"),
+                ),
+                ImportedWord(term = "clear", phonetic = "", definition = "", translation = "清楚", example = "The sky is clear.", tags = listOf("cet4"), rootKey = "clar"),
+                ImportedWord(term = "include", phonetic = "", definition = "", translation = "包括", example = "Include the answer.", tags = listOf("cet4"), rootKey = "clud"),
+                ImportedWord(term = "status", phonetic = "", definition = "", translation = "状态", example = "Status matters.", tags = listOf("cet4"), rootKey = "stat"),
+                ImportedWord(term = "floor", phonetic = "", definition = "", translation = "地板", example = "The floor is clean.", tags = listOf("cet4")),
+            ),
+        )
+        return StudyRepository(
+            wordBookDao = wordBookDao,
+            wordEntryDao = wordEntryDao,
+            progressDao = progressDao,
+            reviewLogDao = reviewLogDao,
+            preferencesRepository = FakePreferences(),
+            importer = FakeImporter(preview),
+            scheduler = SpacedRepetitionScheduler(clock),
+            clock = clock,
+        )
+    }
+
+    private fun miniRepoForMultiSentenceCloze(): StudyRepository {
+        val wordBookDao = FakeWordBookDao()
+        val wordEntryDao = FakeWordEntryDao()
+        val progressDao = FakeWordProgressDao()
+        val reviewLogDao = FakeReviewLogDao()
+        val preview = ImportPreview(
+            title = "multi cloze",
+            description = "",
+            source = "imported",
+            examTag = "cet4",
+            words = listOf(
+                ImportedWord(
+                    term = "clarify",
+                    phonetic = "",
+                    definition = "make clear",
+                    translation = "澄清",
+                    example = "Clarify. The team should clarify the final goal before launch.",
                     tags = listOf("cet4"),
                     rootKey = "clar",
                     derivatives = listOf("clarified", "clarifies"),
