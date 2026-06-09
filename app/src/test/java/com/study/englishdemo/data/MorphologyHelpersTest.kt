@@ -1516,6 +1516,83 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildPracticeModeBrief_mapsFlipToTheWarmupRung() {
+        val brief = buildPracticeModeBrief(
+            mode = PracticeMode.FLIP,
+            stats = PracticeSessionStats(),
+            remainingDueCount = 9,
+        )
+
+        assertThat(brief.kind).isEqualTo(PracticeModeBriefKind.WARMUP)
+        assertThat(brief.primaryValue).isEqualTo("1/5")
+        assertThat(brief.secondaryLabel).isEqualTo("待复习")
+        assertThat(brief.secondaryValue).isEqualTo("9")
+        assertThat(brief.actionLabel).isEqualTo("先试翻卡")
+        assertThat(brief.progress).isWithin(0.001f).of(0.2f)
+        assertThat(brief.ladder.map { it.label }).containsExactly("翻卡", "选择", "完形", "拼写", "听写").inOrder()
+        assertThat(brief.ladder.first().isCurrent).isTrue()
+    }
+
+    @Test
+    fun buildPracticeModeBrief_suggestsUpgradingStableChoiceRounds() {
+        val brief = buildPracticeModeBrief(
+            mode = PracticeMode.CHOICE,
+            stats = PracticeSessionStats(answered = 9, stable = 8, needsPractice = 1),
+            remainingDueCount = 12,
+        )
+
+        assertThat(brief.kind).isEqualTo(PracticeModeBriefKind.RECOGNITION)
+        assertThat(brief.primaryValue).isEqualTo("2/5")
+        assertThat(brief.secondaryValue).isEqualTo("88%")
+        assertThat(brief.actionLabel).isEqualTo("可升完形")
+        assertThat(brief.ladder.first { it.mode == PracticeMode.CHOICE }.isCurrent).isTrue()
+    }
+
+    @Test
+    fun buildPracticeModeBrief_flagsLowStabilitySpellForSlowdown() {
+        val brief = buildPracticeModeBrief(
+            mode = PracticeMode.SPELL,
+            stats = PracticeSessionStats(answered = 7, stable = 3, needsPractice = 4),
+            remainingDueCount = 10,
+        )
+
+        assertThat(brief.kind).isEqualTo(PracticeModeBriefKind.ACTIVE_RECALL)
+        assertThat(brief.primaryValue).isEqualTo("4/5")
+        assertThat(brief.secondaryValue).isEqualTo("42%")
+        assertThat(brief.actionLabel).isEqualTo("降速一档")
+        assertThat(brief.message).contains("不要硬刷")
+    }
+
+    @Test
+    fun buildPracticeModeBrief_marksDictationAsTheFinalRung() {
+        val brief = buildPracticeModeBrief(
+            mode = PracticeMode.DICTATION,
+            stats = PracticeSessionStats(answered = 6, stable = 5, needsPractice = 1),
+            remainingDueCount = 6,
+        )
+
+        assertThat(brief.kind).isEqualTo(PracticeModeBriefKind.LISTENING)
+        assertThat(brief.primaryValue).isEqualTo("5/5")
+        assertThat(brief.progress).isEqualTo(1f)
+        assertThat(brief.actionLabel).isEqualTo("收口听写")
+        assertThat(brief.ladder.last().cue).isEqualTo("音形")
+    }
+
+    @Test
+    fun buildPracticeModeBrief_handlesClearedQueuesWithoutMutatingMode() {
+        val brief = buildPracticeModeBrief(
+            mode = PracticeMode.CLOZE,
+            stats = PracticeSessionStats(answered = 4, stable = 4, needsPractice = 0),
+            remainingDueCount = 0,
+        )
+
+        assertThat(brief.kind).isEqualTo(PracticeModeBriefKind.CONTEXT)
+        assertThat(brief.primaryValue).isEqualTo("3/5")
+        assertThat(brief.actionLabel).isEqualTo("队列已清")
+        assertThat(brief.ladder.first { it.mode == PracticeMode.CLOZE }.isCurrent).isTrue()
+    }
+
+    @Test
     fun buildPracticeSessionCoach_warmsUpBeforeAttempts() {
         val coach = buildPracticeSessionCoach(PracticeSessionStats(), PracticeMode.FLIP)
 

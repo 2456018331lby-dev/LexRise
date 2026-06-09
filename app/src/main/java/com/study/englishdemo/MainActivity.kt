@@ -116,6 +116,9 @@ import com.study.englishdemo.data.Morpheme
 import com.study.englishdemo.data.MnemonicBatchBrief
 import com.study.englishdemo.data.MnemonicBatchBriefKind
 import com.study.englishdemo.data.PracticeMode
+import com.study.englishdemo.data.PracticeModeBrief
+import com.study.englishdemo.data.PracticeModeBriefKind
+import com.study.englishdemo.data.PracticeModeLadderStep
 import com.study.englishdemo.data.PracticeSessionCoach
 import com.study.englishdemo.data.PracticeSessionCoachKind
 import com.study.englishdemo.data.PracticeSessionStats
@@ -156,6 +159,7 @@ import com.study.englishdemo.data.buildMnemonicBatchBrief
 import com.study.englishdemo.data.buildClozeContextGuide
 import com.study.englishdemo.data.buildDailyLoadBrief
 import com.study.englishdemo.data.buildDailyStudyRoute
+import com.study.englishdemo.data.buildPracticeModeBrief
 import com.study.englishdemo.data.buildPracticeSessionCoach
 import com.study.englishdemo.data.buildReviewExitBrief
 import com.study.englishdemo.data.buildReviewQueueBrief
@@ -1165,6 +1169,13 @@ private fun ReviewScreen(
     val queueBrief = remember(words, uiState.practiceMode) {
         buildReviewQueueBrief(words = words, mode = uiState.practiceMode)
     }
+    val modeBrief = remember(uiState.practiceMode, uiState.practiceStats, words.size) {
+        buildPracticeModeBrief(
+            mode = uiState.practiceMode,
+            stats = uiState.practiceStats,
+            remainingDueCount = words.size,
+        )
+    }
     val exitBrief = remember(uiState.practiceStats, uiState.practiceMode, words.size) {
         buildReviewExitBrief(
             stats = uiState.practiceStats,
@@ -1177,6 +1188,12 @@ private fun ReviewScreen(
             current = uiState.practiceMode,
             onChange = onModeChange,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+        )
+        PracticeModeBriefCard(
+            brief = modeBrief,
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 12.dp),
         )
         ReviewQueueBriefCard(
             brief = queueBrief,
@@ -1248,6 +1265,187 @@ private fun ReviewScreen(
             )
         }
     }
+}
+
+@Composable
+private fun PracticeModeBriefCard(brief: PracticeModeBrief, modifier: Modifier = Modifier) {
+    val accent = practiceModeBriefAccent(brief.kind)
+    val icon = when (brief.kind) {
+        PracticeModeBriefKind.WARMUP -> Icons.Rounded.AutoStories
+        PracticeModeBriefKind.RECOGNITION -> Icons.Rounded.Quiz
+        PracticeModeBriefKind.CONTEXT -> Icons.Rounded.Insights
+        PracticeModeBriefKind.ACTIVE_RECALL -> Icons.Rounded.Keyboard
+        PracticeModeBriefKind.LISTENING -> Icons.Rounded.Hearing
+    }
+    val progress by animateFloatAsState(
+        targetValue = brief.progress.coerceIn(0f, 1f),
+        animationSpec = tween(520),
+        label = "practiceModeBriefProgress",
+    )
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.18f),
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+                        ),
+                    ),
+                )
+                .padding(16.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(16.dp), color = accent.copy(alpha = 0.14f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(9.dp)
+                                    .size(20.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "练习模式阶梯",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(brief.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                brief.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                            )
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            brief.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    PracticeModeBriefMetric(
+                        label = brief.primaryLabel,
+                        value = brief.primaryValue,
+                        accent = accent,
+                        modifier = Modifier.weight(1f),
+                    )
+                    PracticeModeBriefMetric(
+                        label = brief.secondaryLabel,
+                        value = brief.secondaryValue,
+                        accent = accent,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(brief.ladder, key = { it.mode.name }) { step ->
+                        PracticeModeLadderChip(step = step, accent = accent)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PracticeModeBriefMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.76f),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = accent)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PracticeModeLadderChip(step: PracticeModeLadderStep, accent: Color) {
+    val chipColor = if (step.isCurrent) accent.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.70f)
+    val textColor = if (step.isCurrent) accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f)
+    Surface(
+        modifier = Modifier.width(76.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = chipColor,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Text(
+                step.label,
+                style = MaterialTheme.typography.labelMedium,
+                color = textColor,
+                fontWeight = if (step.isCurrent) FontWeight.Bold else FontWeight.Medium,
+            )
+            LinearProgressIndicator(
+                progress = { step.weight.coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp),
+                color = accent,
+                trackColor = accent.copy(alpha = 0.10f),
+            )
+            Text(
+                step.cue,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (step.isCurrent) 0.72f else 0.48f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun practiceModeBriefAccent(kind: PracticeModeBriefKind): Color = when (kind) {
+    PracticeModeBriefKind.WARMUP -> Color(0xFF7A6742)
+    PracticeModeBriefKind.RECOGNITION -> Color(0xFF3F6F8F)
+    PracticeModeBriefKind.CONTEXT -> Color(0xFF6E8B3D)
+    PracticeModeBriefKind.ACTIVE_RECALL -> Color(0xFFB65245)
+    PracticeModeBriefKind.LISTENING -> Color(0xFF2D5B52)
 }
 
 @Composable

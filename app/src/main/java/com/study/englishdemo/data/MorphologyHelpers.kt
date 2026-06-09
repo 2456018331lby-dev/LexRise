@@ -1830,6 +1830,84 @@ fun recordPracticeAttempt(
     )
 }
 
+fun buildPracticeModeBrief(
+    mode: PracticeMode,
+    stats: PracticeSessionStats,
+    remainingDueCount: Int,
+): PracticeModeBrief {
+    val answered = stats.answered.coerceAtLeast(0)
+    val stable = stats.stable.coerceIn(0, answered)
+    val needsPractice = stats.needsPractice.coerceIn(0, answered)
+    val stabilityPercent = if (answered == 0) 0 else (stable * 100) / answered
+    val remaining = remainingDueCount.coerceAtLeast(0)
+    val levelIndex = practiceModeLevel(mode)
+    val levelValue = "${levelIndex + 1}/5"
+    val ladder = practiceModeLadderModes().mapIndexed { index, stepMode ->
+        PracticeModeLadderStep(
+            mode = stepMode,
+            label = practiceModeLabel(stepMode),
+            cue = practiceModeCue(stepMode),
+            weight = if (stepMode == mode) 1f else (0.18f + index * 0.07f).coerceIn(0.18f, 0.54f),
+            isCurrent = stepMode == mode,
+        )
+    }
+    val actionLabel = when {
+        remaining == 0 -> "队列已清"
+        answered == 0 -> "先试${practiceModeLabel(mode)}"
+        needsPractice >= 3 && (needsPractice > stable || stabilityPercent < 60) -> "降速一档"
+        answered >= 8 && stabilityPercent >= 85 && mode != PracticeMode.DICTATION -> "可升${practiceModeNextLabel(mode)}"
+        mode == PracticeMode.DICTATION && stabilityPercent >= 80 && answered >= 6 -> "收口听写"
+        else -> practiceModeActionLabel(mode)
+    }
+    val secondaryLabel = if (answered == 0) "待复习" else "稳定率"
+    val secondaryValue = if (answered == 0) remaining.toString() else "$stabilityPercent%"
+
+    fun brief(
+        kind: PracticeModeBriefKind,
+        title: String,
+        message: String,
+    ) = PracticeModeBrief(
+        kind = kind,
+        title = title,
+        message = message,
+        primaryLabel = "阶梯",
+        primaryValue = levelValue,
+        secondaryLabel = secondaryLabel,
+        secondaryValue = secondaryValue,
+        actionLabel = actionLabel,
+        progress = ((levelIndex + 1).toFloat() / practiceModeLadderModes().size.toFloat()).coerceIn(0f, 1f),
+        ladder = ladder,
+    )
+
+    return when (mode) {
+        PracticeMode.FLIP -> brief(
+            kind = PracticeModeBriefKind.WARMUP,
+            title = "第 1 阶：先翻卡校准",
+            message = "翻卡负责唤醒旧词线索；先遮住释义说出词义、词根或例句，再翻面评分，别一上来就冲拼写。",
+        )
+        PracticeMode.CHOICE -> brief(
+            kind = PracticeModeBriefKind.RECOGNITION,
+            title = "第 2 阶：用选择确认识别",
+            message = "选择题把识别线索收窄到同根和近义干扰项；适合在翻卡稳定后确认自己是否真能辨认。",
+        )
+        PracticeMode.CLOZE -> brief(
+            kind = PracticeModeBriefKind.CONTEXT,
+            title = "第 3 阶：放回语境提取",
+            message = "完形题要求先读句子，再用词根、词形和语义定位空格；这是从认识单词过渡到会用单词的一档。",
+        )
+        PracticeMode.SPELL -> brief(
+            kind = PracticeModeBriefKind.ACTIVE_RECALL,
+            title = "第 4 阶：进入主动拼写",
+            message = "拼写会暴露音形和词缀漏洞；如果再练数升高，先退回完形或选择修线索，不要硬刷到堆债。",
+        )
+        PracticeMode.DICTATION -> brief(
+            kind = PracticeModeBriefKind.LISTENING,
+            title = "第 5 阶：用听写锁住音形",
+            message = "听写把发音、拼写和词义绑到一起；适合稳定词的收口抽查，不适合在大量错题时直接冲顶。",
+        )
+    }
+}
+
 fun buildPracticeSessionCoach(stats: PracticeSessionStats, mode: PracticeMode): PracticeSessionCoach {
     val answered = stats.answered.coerceAtLeast(0)
     val stable = stats.stable.coerceIn(0, answered)
@@ -2105,6 +2183,40 @@ private fun practiceModeLabel(mode: PracticeMode): String = when (mode) {
     PracticeMode.CHOICE -> "选择"
     PracticeMode.CLOZE -> "完形"
     PracticeMode.SPELL -> "拼写"
+    PracticeMode.DICTATION -> "听写"
+}
+
+private fun practiceModeLadderModes(): List<PracticeMode> = listOf(
+    PracticeMode.FLIP,
+    PracticeMode.CHOICE,
+    PracticeMode.CLOZE,
+    PracticeMode.SPELL,
+    PracticeMode.DICTATION,
+)
+
+private fun practiceModeLevel(mode: PracticeMode): Int = practiceModeLadderModes().indexOf(mode).coerceAtLeast(0)
+
+private fun practiceModeCue(mode: PracticeMode): String = when (mode) {
+    PracticeMode.FLIP -> "回忆"
+    PracticeMode.CHOICE -> "辨认"
+    PracticeMode.CLOZE -> "语境"
+    PracticeMode.SPELL -> "拼写"
+    PracticeMode.DICTATION -> "音形"
+}
+
+private fun practiceModeActionLabel(mode: PracticeMode): String = when (mode) {
+    PracticeMode.FLIP -> "先回忆"
+    PracticeMode.CHOICE -> "辨干扰"
+    PracticeMode.CLOZE -> "读语境"
+    PracticeMode.SPELL -> "主动拼"
+    PracticeMode.DICTATION -> "听后写"
+}
+
+private fun practiceModeNextLabel(mode: PracticeMode): String = when (mode) {
+    PracticeMode.FLIP -> "选择"
+    PracticeMode.CHOICE -> "完形"
+    PracticeMode.CLOZE -> "拼写"
+    PracticeMode.SPELL -> "听写"
     PracticeMode.DICTATION -> "听写"
 }
 
