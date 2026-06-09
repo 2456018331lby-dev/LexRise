@@ -38,6 +38,13 @@ python -m unittest discover -s tools -p "test_*.py"
 
 一般不要整目录删 `.android-sdk/`——它是当前项目的本地 Android SDK。空间紧张时只能按需裁剪明确不用的组件，例如只构建 APK 时可以移除 `.android-sdk/system-images/`、`.android-sdk/emulator/` 和未被 Gradle 实际使用的旧/新 build-tools；但要保留 `platforms/android-35`、`build-tools/34.0.0`、`cmdline-tools/`、`platform-tools/` 和 `licenses/`。`.gradle/` 可删但会触发依赖重新下载，通常只在缓存异常或用户明确要求清理空间时做。
 
+### 仓库轻量化规则
+
+- 测试源码不要删：`app/src/test/` 和 `tools/test_build_wordlists.py` 是后续优化的回归保护。
+- 旧版 `docs/release-notes-v0.*-draft.md` 不长期保留；发布或进入下一版后，把关键信息归入 `README.md` / `AI_HANDOFF.md` / `MAINTENANCE.md`，只保留当前版本草稿。
+- 构建产物和缓存可删：`app/build/`、根目录 `build/`、`.gradle/`、`.kotlin/`、`tools/__pycache__/`。
+- 原始词库 `tools/raw/` 不入仓，但用于重建内置词书；除非确认短期不再改词库，否则不要为了几十 MB 删除它。
+
 ---
 
 ## 2. 改词库内容
