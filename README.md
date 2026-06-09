@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.37
+# Englishdemo / LexRise v0.38
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.38 亮点
+
+- **Learn Tab 新增“巧记工坊”**
+  - 在“巧记覆盖简报”和“新词闭环计划”之间新增补写路线卡，专门处理当前批次里还没有 mnemonic 的词
+  - 会按缺口类型推荐先补词根骨架、词形模板、例句触发点，或只给真正卡住的词补最小巧记
+  - 卡片展示待补数量、主线索、三步补写路线和焦点词 chips，让“缺巧记”从单纯覆盖率变成可执行的离线编辑顺序
+  - 不调用在线 API，不自动生成或写入巧记，不新增 Room 字段，不改变新词顺序、用户巧记、复习队列或 SRS 评分
 
 ## v0.37 亮点
 
@@ -395,6 +403,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.38（2026-06-09）
+- Learn Tab 新增“巧记工坊”，把当前新词批次里缺 mnemonic 的词拆成词根、词形、例句或最小补写路线
+- 新增 `MnemonicWorkshopBrief` / `MnemonicWorkshopBriefKind` 和 `buildMnemonicWorkshopBrief` 纯函数
+- `WordQueueScreen` 接入 `MnemonicWorkshopBriefCard`，展示补写进度、指标、三步路线和焦点词 chips
+- 应用版本元数据同步到 0.38.0
+- Android 单测 167 → 173
 
 ### v0.37（2026-06-09）
 - 词根详情卡二期：底部详情卡新增词条 hero 区和“复盘计划”三步轨道
