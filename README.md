@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.27
+# Englishdemo / LexRise v0.28
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.28 亮点
+
+- **新词页新增“巧记覆盖简报”**
+  - 在“本批新词策略”后新增一张简报卡，先判断这批新词的巧记覆盖率
+  - 已有巧记覆盖高时提示先读巧记；覆盖不足时提示边学边补；完全没有巧记但有 rootKey 时提示先借词根桥接
+  - 卡片展示覆盖进度、两项指标、行动标签和焦点词 chips，让 v0.27 的离线巧记 seed 直接进入学习路径
+  - 逻辑由 `buildMnemonicBatchBrief` 纯函数派生，不新增数据库字段，不改变学习顺序、用户巧记或 SRS 评分
 
 ## v0.27 亮点
 
@@ -315,6 +323,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.28（2026-06-09）
+- 新词页新增“巧记覆盖简报”，解释当前批次应先读现成巧记、边学边补、借词根桥接还是先速记起步
+- 新增 `MnemonicBatchBrief` / `MnemonicBatchBriefKind` 和 `buildMnemonicBatchBrief` 纯函数
+- 新增 `MnemonicBatchBriefCard`，展示覆盖进度、指标、行动标签和焦点词 chips
+- 应用版本元数据同步到 0.28.0
+- Android 单测 113 → 118
 
 ### v0.27（2026-06-09）
 - 内置词书 CSV 扩展为 11 列 `mnemonic`，旧 6/10 列导入兼容不变
