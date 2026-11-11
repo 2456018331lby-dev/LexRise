@@ -123,6 +123,36 @@ def clean_translation(raw: str) -> str:
     return "； ".join(keep)[:140]
 
 
+def clean_definition(raw: str) -> str:
+    """Trim ECDICT English definition to the first 2 senses for card display."""
+    if not raw:
+        return ""
+    raw = raw.replace("\r", "")
+    parts = [p.strip() for p in raw.split("\\n") if p.strip()]
+    if not parts:
+        parts = [p.strip() for p in raw.split("\n") if p.strip()]
+    parts = [re.sub(r"\s+", " ", p) for p in parts if p]
+    keep = parts[:2]
+    return " / ".join(keep)[:200]
+
+
+def infer_pos(pos_raw: str, trans_raw: str, def_raw: str) -> str:
+    """Infer or clean part of speech."""
+    pos = (pos_raw or "").strip().replace(":", "/")
+    if pos:
+        return pos
+    found = []
+    text = (trans_raw or "") + " " + (def_raw or "")
+    for tag in ["n.", "vt.", "vi.", "v.", "adj.", "adv.", "prep.", "conj.", "pron.", "art.", "num.", "int."]:
+        if tag in text:
+            clean_tag = tag.rstrip(".")
+            if clean_tag not in found:
+                found.append(clean_tag)
+    if found:
+        return "/".join(found[:3])
+    return ""
+
+
 def clean_mnemonic(raw: str) -> str:
     """Keep built-in mnemonic hints short enough for phone cards."""
     text = re.sub(r"\s+", " ", (raw or "").strip())
@@ -210,15 +240,17 @@ def select_exam(rows, tag_key: str, spec) -> list:
             frq = int(r.get("frq") or 0)
         except ValueError:
             frq = 0
+        def_text = clean_definition(r.get("definition") or "")
+        pos_text = infer_pos(r.get("pos") or "", r.get("translation") or "", r.get("definition") or "")
         selected.append({
             "term": term,
             "phonetic": (r.get("phonetic") or "").strip(),
-            "definition": "",
+            "definition": def_text,
             "translation": trans,
             "example": "",
             "frq": frq,
             "exchange": r.get("exchange") or "",
-            "pos": (r.get("pos") or "").strip().replace(":", "/"),
+            "pos": pos_text,
             "mnemonic": "",
         })
     # ECDICT frq: smaller = more common; cap total

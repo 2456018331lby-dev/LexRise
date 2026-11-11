@@ -520,6 +520,28 @@ data class PracticeSessionCoach(
     val progress: Float,
 )
 
+enum class ReviewSessionRadarKind { EMPTY, BASELINE, RECALL_LEAK, MODE_FRICTION, STABLE_PUSH, FINAL_SWEEP, BALANCED }
+
+data class ReviewSessionRadarLane(
+    val label: String,
+    val value: String,
+    val cue: String,
+    val weight: Float,
+)
+
+data class ReviewSessionRadar(
+    val kind: ReviewSessionRadarKind,
+    val title: String,
+    val message: String,
+    val primaryLabel: String,
+    val primaryValue: String,
+    val secondaryLabel: String,
+    val secondaryValue: String,
+    val actionLabel: String,
+    val progress: Float,
+    val lanes: List<ReviewSessionRadarLane>,
+)
+
 enum class ReviewQueueBriefKind { EMPTY, WARMUP, ROOT_TRACE, CONTEXT, ACTIVE_RECALL, MIXED }
 
 data class ReviewQueueBrief(

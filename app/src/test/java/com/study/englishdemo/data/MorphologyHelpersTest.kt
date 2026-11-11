@@ -1964,6 +1964,109 @@ class MorphologyHelpersTest {
     }
 
     @Test
+    fun buildReviewSessionRadar_handlesEmptyQueuesWithoutSamples() {
+        val radar = buildReviewSessionRadar(
+            stats = PracticeSessionStats(),
+            mode = PracticeMode.FLIP,
+            remainingDueCount = 0,
+        )
+
+        assertThat(radar.kind).isEqualTo(ReviewSessionRadarKind.EMPTY)
+        assertThat(radar.primaryValue).isEqualTo("0")
+        assertThat(radar.secondaryValue).isEqualTo("0")
+        assertThat(radar.actionLabel).isEqualTo("本轮完成")
+        assertThat(radar.lanes.map { it.label }).containsExactly("稳定", "再练", "剩余").inOrder()
+    }
+
+    @Test
+    fun buildReviewSessionRadar_requestsBaselineBeforeAttempts() {
+        val radar = buildReviewSessionRadar(
+            stats = PracticeSessionStats(),
+            mode = PracticeMode.CHOICE,
+            remainingDueCount = 9,
+        )
+
+        assertThat(radar.kind).isEqualTo(ReviewSessionRadarKind.BASELINE)
+        assertThat(radar.primaryValue).isEqualTo("0/5")
+        assertThat(radar.secondaryValue).isEqualTo("9")
+        assertThat(radar.actionLabel).isEqualTo("先做 5 题")
+        assertThat(radar.progress).isEqualTo(0f)
+    }
+
+    @Test
+    fun buildReviewSessionRadar_flagsRecallLeaksWhenErrorsDominate() {
+        val radar = buildReviewSessionRadar(
+            stats = PracticeSessionStats(answered = 6, stable = 2, needsPractice = 4),
+            mode = PracticeMode.CHOICE,
+            remainingDueCount = 10,
+        )
+
+        assertThat(radar.kind).isEqualTo(ReviewSessionRadarKind.RECALL_LEAK)
+        assertThat(radar.primaryValue).isEqualTo("4")
+        assertThat(radar.secondaryValue).isEqualTo("33%")
+        assertThat(radar.actionLabel).isEqualTo("慢修错因")
+        assertThat(radar.message).contains("线索断开")
+    }
+
+    @Test
+    fun buildReviewSessionRadar_distinguishesActiveRecallModeFriction() {
+        val radar = buildReviewSessionRadar(
+            stats = PracticeSessionStats(answered = 5, stable = 2, needsPractice = 3),
+            mode = PracticeMode.SPELL,
+            remainingDueCount = 8,
+        )
+
+        assertThat(radar.kind).isEqualTo(ReviewSessionRadarKind.MODE_FRICTION)
+        assertThat(radar.primaryValue).isEqualTo("3")
+        assertThat(radar.secondaryValue).isEqualTo("拼写")
+        assertThat(radar.actionLabel).isEqualTo("退一档修")
+        assertThat(radar.message).contains("完形或选择")
+    }
+
+    @Test
+    fun buildReviewSessionRadar_pushesStableSessionsWithDebtLeft() {
+        val radar = buildReviewSessionRadar(
+            stats = PracticeSessionStats(answered = 10, stable = 9, needsPractice = 1),
+            mode = PracticeMode.CLOZE,
+            remainingDueCount = 8,
+        )
+
+        assertThat(radar.kind).isEqualTo(ReviewSessionRadarKind.STABLE_PUSH)
+        assertThat(radar.primaryValue).isEqualTo("90%")
+        assertThat(radar.secondaryValue).isEqualTo("8")
+        assertThat(radar.actionLabel).isEqualTo("加压继续")
+        assertThat(radar.message).contains("拼写")
+    }
+
+    @Test
+    fun buildReviewSessionRadar_sweepsSmallRemainingQueues() {
+        val radar = buildReviewSessionRadar(
+            stats = PracticeSessionStats(answered = 5, stable = 4, needsPractice = 1),
+            mode = PracticeMode.DICTATION,
+            remainingDueCount = 2,
+        )
+
+        assertThat(radar.kind).isEqualTo(ReviewSessionRadarKind.FINAL_SWEEP)
+        assertThat(radar.primaryValue).isEqualTo("2")
+        assertThat(radar.secondaryValue).isEqualTo("80%")
+        assertThat(radar.actionLabel).isEqualTo("扫尾收口")
+    }
+
+    @Test
+    fun buildReviewSessionRadar_keepsBalancedSessionsUnderObservation() {
+        val radar = buildReviewSessionRadar(
+            stats = PracticeSessionStats(answered = 5, stable = 3, needsPractice = 2),
+            mode = PracticeMode.CHOICE,
+            remainingDueCount = 8,
+        )
+
+        assertThat(radar.kind).isEqualTo(ReviewSessionRadarKind.BALANCED)
+        assertThat(radar.primaryValue).isEqualTo("5")
+        assertThat(radar.secondaryValue).isEqualTo("8")
+        assertThat(radar.actionLabel).isEqualTo("继续观察")
+    }
+
+    @Test
     fun buildReviewQueueBrief_handlesEmptyQueue() {
         val brief = buildReviewQueueBrief(emptyList(), PracticeMode.FLIP)
 
@@ -2452,4 +2555,13 @@ class MorphologyHelpersTest {
         examDate = remainingDays?.let { LocalDate.of(2026, 6, 7).plusDays(it.toLong()) },
         isAuto = isAuto,
     )
+
+    @Test
+    fun levenshteinDistance_computesCorrectEdits() {
+        assertThat(levenshteinDistance("adapt", "adopt")).isEqualTo(1)
+        assertThat(levenshteinDistance("adapt", "adept")).isEqualTo(1)
+        assertThat(levenshteinDistance("statute", "status")).isEqualTo(2)
+        assertThat(levenshteinDistance("hello", "hello")).isEqualTo(0)
+        assertThat(levenshteinDistance("", "abc")).isEqualTo(3)
+    }
 }

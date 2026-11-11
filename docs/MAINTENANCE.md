@@ -117,7 +117,7 @@ describe,de + scrib：把看到的写下来就是 describe 描述
 
 ### 能不能避开？能避开就避开
 
-很多"新功能"其实不需要加列。本项目 v0.3-v0.38 的所有新能力（簇首、词根覆盖、词根图谱简报、根族巧记补给、词根详情导读、词根详情复盘计划、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、完形语境导读、派生词挖空、完形候选排序、完形多句例句质量排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、空结果救援、结果分诊、练习模式阶梯、本轮练习统计、本轮教练、本轮收口建议、复习队列预案、七日节奏简报、首页学习焦点、今日负载简报、今日训练路线、新词记忆锚、新词批次策略、新词巧记覆盖简报、新词巧记工坊、新词闭环计划、离线巧记 seed 注入）都走**派生查询、纯函数派生、构建期资源生成或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题、在构建脚本里生成资源，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
+很多"新功能"其实不需要加列。本项目 v0.3-v0.39 的所有新能力（簇首、词根覆盖、词根图谱简报、根族巧记补给、词根详情导读、词根详情复盘计划、根族路线、难词专攻、难词处方、错题战情台、选择题干扰池、完形题、完形语境导读、派生词挖空、完形候选排序、完形多句例句质量排序、搜索拼写容错、derivatives 搜索、词形命中展示、词汇检索洞察、空结果救援、结果分诊、练习模式阶梯、本轮练习统计、本轮教练、本轮收口建议、本轮错因雷达、复习队列预案、七日节奏简报、首页学习焦点、今日负载简报、今日训练路线、新词记忆锚、新词批次策略、新词巧记覆盖简报、新词巧记工坊、新词闭环计划、离线巧记 seed 注入）都走**派生查询、纯函数派生、构建期资源生成或 UI session 状态**——DAO 里新加 `@Query`、在 Repository 里拼题、在构建脚本里生成资源，或在 ViewModel 层维护临时状态，而不改 Entity。看一眼这些例子再决定是不是真要动 schema：
 
 - 想标记"这个词是簇首"？→ 已经有 `getAnchorWordIds(bookId)` 动态算，不加 `isAnchor` 列
 - 想统计"哪个词翻车最多"？→ `getToughWordsForBook` 从 `review_logs` GROUP BY 出来
@@ -139,6 +139,7 @@ describe,de + scrib：把看到的写下来就是 describe 描述
 - 想统计"这轮 Review 做得怎么样"？→ `PracticeSessionStats` 是 UI session 状态，`recordPracticeAttempt` 纯函数计数，不写 Room
 - 想根据本轮表现提示“该降速还是加难”？→ `buildPracticeSessionCoach` 从 `PracticeSessionStats` + `PracticeMode` 派生本轮教练，不写设置、不写 Room
 - 想判断这轮该继续、修错、加难还是收口？→ `buildReviewExitBrief` 从 `PracticeSessionStats` + `PracticeMode` + 剩余到期词数派生本轮收口建议，不写设置、不改队列、不改评分
+- 想解释本轮主要错因来自哪里？→ `buildReviewSessionRadar` 从 `PracticeSessionStats` + `PracticeMode` + 剩余到期词数派生错因雷达，不自动切模式、不写评分、不改队列
 - 想在本轮复习开始前提示“先怎么清这批到期词”？→ `buildReviewQueueBrief` 从 `dueReviewWords` + `PracticeMode` 派生复习队列预案，不改复习顺序、不写评分、不写 Room
 - 想解释最近一周复习节奏？→ `buildStudyRhythmBrief` 从 `recentReviewCounts` + `DailyOverview` 派生七日节奏简报，不写复习日志、不改热力图数据
 - 想提示"今天先做什么"并跳到对应页面？→ `buildStudyFocusCue` 从 session / rootSnapshot / pace 派生建议和按钮文案；`MainActivity` 只做本地 Tab 切换，不写设置、不写 Room
@@ -349,6 +350,7 @@ git ls-files .android-sdk/ app/build/   # 应为空
 | 改词汇搜索/拼写容错 | `data/Dao.kt#searchInBook` + `data/MorphologyHelpers.kt#fuzzyTermMatchDistance/fuzzyWordFormMatchDistance/matchingWordForms` + `StudyRepository.kt#searchWords` + `MainActivity.kt#VocabularyRow/VocabularyMatchRail` + 对应 Test |
 | 改本轮练习统计 | `data/Models.kt#PracticeSessionStats` + `data/MorphologyHelpers.kt#recordPracticeAttempt` + `ui/AppViewModel.kt#reviewPracticeWord` + `MainActivity.kt#PracticeSessionStatsCard` |
 | 改练习模式阶梯 | `data/Models.kt#PracticeModeBrief/PracticeModeLadderStep` + `data/MorphologyHelpers.kt#buildPracticeModeBrief` + `MainActivity.kt#PracticeModeBriefCard/ReviewScreen` + `MorphologyHelpersTest` |
+| 改本轮错因雷达 | `data/Models.kt#ReviewSessionRadar/ReviewSessionRadarLane` + `data/MorphologyHelpers.kt#buildReviewSessionRadar` + `MainActivity.kt#ReviewSessionRadarCard/ReviewScreen` + `MorphologyHelpersTest` |
 | 改本轮练习教练 | `data/Models.kt#PracticeSessionCoach/PracticeSessionCoachKind` + `data/MorphologyHelpers.kt#buildPracticeSessionCoach` + `MainActivity.kt#PracticeCoachPanel/PracticeSessionStatsCard` + `MorphologyHelpersTest` |
 | 改本轮收口建议 | `data/Models.kt#ReviewExitBrief/ReviewExitBriefKind` + `data/MorphologyHelpers.kt#buildReviewExitBrief` + `MainActivity.kt#ReviewExitBriefCard/ReviewScreen` + `MorphologyHelpersTest` |
 | 改复习队列预案 | `data/Models.kt#ReviewQueueBrief/ReviewQueueBriefKind` + `data/MorphologyHelpers.kt#buildReviewQueueBrief` + `MainActivity.kt#ReviewQueueBriefCard/ReviewQueueMetric` + `MorphologyHelpersTest` |

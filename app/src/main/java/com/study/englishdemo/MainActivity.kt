@@ -13,6 +13,7 @@ import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,16 +34,25 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.EventAvailable
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.Insights
@@ -53,6 +63,7 @@ import androidx.compose.material.icons.rounded.Quiz
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.TipsAndUpdates
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.AlertDialog
@@ -64,7 +75,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -94,11 +107,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -132,6 +149,9 @@ import com.study.englishdemo.data.ReviewExitBrief
 import com.study.englishdemo.data.ReviewExitBriefKind
 import com.study.englishdemo.data.ReviewQueueBrief
 import com.study.englishdemo.data.ReviewQueueBriefKind
+import com.study.englishdemo.data.ReviewSessionRadar
+import com.study.englishdemo.data.ReviewSessionRadarKind
+import com.study.englishdemo.data.ReviewSessionRadarLane
 import com.study.englishdemo.data.RootAtlasBrief
 import com.study.englishdemo.data.RootAtlasBriefKind
 import com.study.englishdemo.data.RootGroup
@@ -172,6 +192,7 @@ import com.study.englishdemo.data.buildPracticeModeBrief
 import com.study.englishdemo.data.buildPracticeSessionCoach
 import com.study.englishdemo.data.buildReviewExitBrief
 import com.study.englishdemo.data.buildReviewQueueBrief
+import com.study.englishdemo.data.buildReviewSessionRadar
 import com.study.englishdemo.data.buildRootAtlasBrief
 import com.study.englishdemo.data.buildRootGroupInsight
 import com.study.englishdemo.data.buildRootMnemonicBrief
@@ -334,16 +355,10 @@ private fun LexRiseApp(
                     label = { Text("词根") },
                 )
                 NavigationBarItem(
-                    selected = currentTab == HomeTab.TOUGH,
-                    onClick = { currentTab = HomeTab.TOUGH },
-                    icon = { Icon(Icons.Rounded.LocalFireDepartment, contentDescription = null) },
-                    label = { Text("难词") },
-                )
-                NavigationBarItem(
-                    selected = currentTab == HomeTab.VOCAB,
+                    selected = currentTab == HomeTab.VOCAB || currentTab == HomeTab.TOUGH,
                     onClick = { currentTab = HomeTab.VOCAB },
                     icon = { Icon(Icons.Rounded.Translate, contentDescription = null) },
-                    label = { Text("词汇") },
+                    label = { Text("词库") },
                 )
             }
         },
@@ -464,11 +479,54 @@ private fun DashboardScreen(
     }
     var pendingDelete by remember { mutableStateOf<WordBook?>(null) }
     var pendingRename by remember { mutableStateOf<WordBook?>(null) }
+    var analyticsExpanded by remember { mutableStateOf(false) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(20.dp),
     ) {
+        // 1. Top Book Quick Switcher
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "当前词书",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    )
+                    Text(
+                        "点击快速切换",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 2.dp),
+                ) {
+                    items(uiState.books) { book ->
+                        val selected = book.id == uiState.selectedBookId
+                        FilterChip(
+                            selected = selected,
+                            onClick = { onSelectBook(book.id) },
+                            label = { Text(book.title, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) },
+                            leadingIcon = if (selected) {
+                                { Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                            } else null,
+                            shape = RoundedCornerShape(12.dp),
+                        )
+                    }
+                }
+            }
+        }
+
+        // 2. Modern Hero Banner
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -479,56 +537,163 @@ private fun DashboardScreen(
                         .fillMaxWidth()
                         .background(
                             Brush.linearGradient(
-                                listOf(Color(0xFF24473F), Color(0xFF5F8B77), Color(0xFFD6B179)),
+                                listOf(Color(0xFF0D9488), Color(0xFF0284C7), Color(0xFF4F46E5)),
                             ),
                         )
-                        .padding(24.dp),
+                        .padding(22.dp),
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             "今天继续把词汇记进长期记忆",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = Color(0xFFFDF9F3),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color(0xFFFFFFFF),
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            "${uiState.selectedBookTitle} 还剩新词 ${session.overview.newWordsRemaining} 个，待复习 ${session.overview.reviewDueCount} 个，连续学习 ${session.overview.streakDays} 天。",
-                            color = Color(0xFFF3EBDD),
+                            "${uiState.selectedBookTitle} · 新词剩 ${session.overview.newWordsRemaining} 个 · 待复习 ${session.overview.reviewDueCount} 个 · 连续 ${session.overview.streakDays} 天",
+                            color = Color(0xFFE0F2FE),
+                            style = MaterialTheme.typography.bodyMedium,
                         )
                     }
                 }
             }
         }
+
+        // 3. Quick Action Hub (Two Large Primary Action Buttons)
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                MetricCard("今日完成", "${session.overview.studiedToday}", Modifier.weight(1f))
-                MetricCard("复习债务", "${session.overview.reviewDueCount}", Modifier.weight(1f))
-                MetricCard("完成率", "${(session.overview.completionRatio * 100).toInt()}%", Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = {
+                        onFocusAction(
+                            StudyFocusCue(
+                                kind = StudyFocusKind.NEW_WORDS,
+                                title = "学习新词",
+                                message = "今日新词",
+                                primaryLabel = "待学",
+                                primaryValue = "${session.overview.newWordsRemaining}",
+                                secondaryLabel = "目标",
+                                secondaryValue = "${session.overview.newWordTarget}",
+                                actionLabel = "去背词",
+                                progress = session.overview.completionRatio,
+                            )
+                        )
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                ) {
+                    Icon(Icons.Rounded.AutoStories, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("学新词 (${session.overview.newWordsRemaining})", fontWeight = FontWeight.Bold)
+                }
+                FilledTonalButton(
+                    onClick = {
+                        onFocusAction(
+                            StudyFocusCue(
+                                kind = StudyFocusKind.REVIEW,
+                                title = "曲线复习",
+                                message = "今日复习",
+                                primaryLabel = "待复习",
+                                primaryValue = "${session.overview.reviewDueCount}",
+                                secondaryLabel = "连续",
+                                secondaryValue = "${session.overview.streakDays}天",
+                                actionLabel = "去复习",
+                                progress = 1f,
+                            )
+                        )
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                ) {
+                    Icon(Icons.Rounded.PsychologyAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("复习 (${session.overview.reviewDueCount})", fontWeight = FontWeight.Bold)
+                }
             }
         }
-        item { DailyLoadBriefCard(loadBrief) }
+
+        // 4. Three Metrics Cards
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                MetricCard("今日已学", "${session.overview.studiedToday}", Modifier.weight(1f))
+                MetricCard("待复习", "${session.overview.reviewDueCount}", Modifier.weight(1f))
+                MetricCard("完成度", "${(session.overview.completionRatio * 100).toInt()}%", Modifier.weight(1f))
+            }
+        }
+
+        // 5. Intelligent Focus Cue Card
         item { StudyFocusCueCard(focusCue, onAction = { onFocusAction(focusCue) }) }
-        item { DailyStudyRouteCard(dailyRoute, onStepAction = onRouteAction) }
-        if (uiState.settings.examDate != null || uiState.pace.isAuto) {
-            item { ExamCountdownCard(uiState) }
-        }
-        if (uiState.rootSnapshot.totalRoots > 0) {
-            item { RootCoverageCard(uiState) }
-        }
+
+        // 6. Collapsible Analytics Hub (Heatmap, Routes, Load, Rhythm)
         item {
-            SectionTitle("最近 30 日复习")
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { analyticsExpanded = !analyticsExpanded },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(Icons.Rounded.Insights, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                            }
+                            Column {
+                                Text("学习轨迹与深度分析", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Text(
+                                    if (analyticsExpanded) "点击收起分析图表" else "展开复习热力图与路径规划",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                )
+                            }
+                        }
+                        IconButton(onClick = { analyticsExpanded = !analyticsExpanded }, modifier = Modifier.size(32.dp)) {
+                            Icon(
+                                if (analyticsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                                contentDescription = null,
+                            )
+                        }
+                    }
+
+                    AnimatedVisibility(visible = analyticsExpanded) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                            DailyLoadBriefCard(loadBrief)
+                            DailyStudyRouteCard(dailyRoute, onStepAction = onRouteAction)
+                            if (uiState.settings.examDate != null || uiState.pace.isAuto) {
+                                ExamCountdownCard(uiState)
+                            }
+                            if (uiState.rootSnapshot.totalRoots > 0) {
+                                RootCoverageCard(uiState)
+                            }
+                            StudyRhythmBriefCard(rhythmBrief)
+                            ReviewHeatmap(uiState.recentReviewCounts)
+                            StreakBadge(session.overview.streakDays)
+                        }
+                    }
+                }
+            }
         }
+
         item {
-            StudyRhythmBriefCard(rhythmBrief)
-        }
-        item {
-            ReviewHeatmap(uiState.recentReviewCounts)
-        }
-        item {
-            StreakBadge(session.overview.streakDays)
-        }
-        item {
-            SectionTitle("词书")
+            SectionTitle("词书管理")
         }
         if (uiState.isImporting) {
             item {
@@ -1197,38 +1362,90 @@ private fun ReviewScreen(
             remainingDueCount = words.size,
         )
     }
+    val sessionRadar = remember(uiState.practiceStats, uiState.practiceMode, words.size) {
+        buildReviewSessionRadar(
+            stats = uiState.practiceStats,
+            mode = uiState.practiceMode,
+            remainingDueCount = words.size,
+        )
+    }
+    var reviewInsightsExpanded by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxSize()) {
         PracticeModeBar(
             current = uiState.practiceMode,
             onChange = onModeChange,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
         )
-        PracticeModeBriefCard(
-            brief = modeBrief,
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+            ),
             modifier = Modifier
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 12.dp),
-        )
-        ReviewQueueBriefCard(
-            brief = queueBrief,
-            modifier = Modifier
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 12.dp),
-        )
-        ReviewExitBriefCard(
-            brief = exitBrief,
-            modifier = Modifier
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 12.dp),
-        )
-        PracticeSessionStatsCard(
-            stats = uiState.practiceStats,
-            mode = uiState.practiceMode,
-            onReset = onResetPracticeStats,
-            modifier = Modifier
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 12.dp),
-        )
+                .padding(horizontal = 20.dp, vertical = 4.dp)
+                .fillMaxWidth(),
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { reviewInsightsExpanded = !reviewInsightsExpanded },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            "复习战报与模式阶梯",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Text(
+                                "答题 ${uiState.practiceStats.answered} · 稳定 ${uiState.practiceStats.stable} · 需练 ${uiState.practiceStats.needsPractice}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = { reviewInsightsExpanded = !reviewInsightsExpanded },
+                        modifier = Modifier.size(28.dp),
+                    ) {
+                        Icon(
+                            if (reviewInsightsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                            contentDescription = if (reviewInsightsExpanded) "收起诊断" else "展开诊断",
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+                AnimatedVisibility(visible = reviewInsightsExpanded) {
+                    Column(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                        PracticeModeBriefCard(brief = modeBrief)
+                        ReviewQueueBriefCard(brief = queueBrief)
+                        ReviewExitBriefCard(brief = exitBrief)
+                        ReviewSessionRadarCard(radar = sessionRadar)
+                        PracticeSessionStatsCard(
+                            stats = uiState.practiceStats,
+                            mode = uiState.practiceMode,
+                            onReset = onResetPracticeStats,
+                        )
+                    }
+                }
+            }
+        }
         if (words.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -1653,6 +1870,164 @@ private fun reviewExitBriefAccent(kind: ReviewExitBriefKind): Color = when (kind
     ReviewExitBriefKind.LEVEL_UP -> Color(0xFF6E8B3D)
     ReviewExitBriefKind.WRAP_UP -> Color(0xFF3F6F8F)
     ReviewExitBriefKind.CLEAR -> Color(0xFF2D5B52)
+}
+
+@Composable
+private fun ReviewSessionRadarCard(radar: ReviewSessionRadar, modifier: Modifier = Modifier) {
+    val accent = reviewSessionRadarAccent(radar.kind)
+    val icon = when (radar.kind) {
+        ReviewSessionRadarKind.EMPTY -> Icons.Rounded.Check
+        ReviewSessionRadarKind.BASELINE -> Icons.Rounded.AutoStories
+        ReviewSessionRadarKind.RECALL_LEAK -> Icons.Rounded.PsychologyAlt
+        ReviewSessionRadarKind.MODE_FRICTION -> Icons.Rounded.Keyboard
+        ReviewSessionRadarKind.STABLE_PUSH -> Icons.Rounded.LocalFireDepartment
+        ReviewSessionRadarKind.FINAL_SWEEP -> Icons.Rounded.EventAvailable
+        ReviewSessionRadarKind.BALANCED -> Icons.Rounded.Insights
+    }
+    val animated by animateFloatAsState(
+        targetValue = radar.progress.coerceIn(0f, 1f),
+        animationSpec = tween(540),
+        label = "reviewSessionRadarProgress",
+    )
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            accent.copy(alpha = 0.24f),
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+                        ),
+                        start = Offset(0f, 0f),
+                        end = Offset(620f, 260f),
+                    ),
+                )
+                .padding(16.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Surface(shape = RoundedCornerShape(17.dp), color = accent.copy(alpha = 0.16f)) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier
+                                    .padding(9.dp)
+                                    .size(21.dp),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "本轮错因雷达",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(radar.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                radar.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                            )
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = accent.copy(alpha = 0.12f)) {
+                        Text(
+                            radar.actionLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { animated },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+                    color = accent,
+                    trackColor = accent.copy(alpha = 0.12f),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ReviewQueueMetric(radar.primaryLabel, radar.primaryValue, accent, Modifier.weight(1f))
+                    ReviewQueueMetric(radar.secondaryLabel, radar.secondaryValue, accent, Modifier.weight(1f))
+                }
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(radar.lanes, key = { it.label }) { lane ->
+                        ReviewSessionRadarLaneChip(lane = lane, accent = accent)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReviewSessionRadarLaneChip(lane: ReviewSessionRadarLane, accent: Color) {
+    Surface(
+        modifier = Modifier.width(104.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = accent.copy(alpha = 0.09f),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Text(lane.label, style = MaterialTheme.typography.labelMedium, color = accent, fontWeight = FontWeight.SemiBold)
+            Text(
+                lane.value,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+            )
+            LinearProgressIndicator(
+                progress = { lane.weight.coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp),
+                color = accent,
+                trackColor = accent.copy(alpha = 0.12f),
+            )
+            Text(
+                lane.cue,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun reviewSessionRadarAccent(kind: ReviewSessionRadarKind): Color = when (kind) {
+    ReviewSessionRadarKind.EMPTY -> Color(0xFF2D5B52)
+    ReviewSessionRadarKind.BASELINE -> Color(0xFFC98A3D)
+    ReviewSessionRadarKind.RECALL_LEAK -> Color(0xFFB65245)
+    ReviewSessionRadarKind.MODE_FRICTION -> Color(0xFF9A6B3A)
+    ReviewSessionRadarKind.STABLE_PUSH -> Color(0xFF6E8B3D)
+    ReviewSessionRadarKind.FINAL_SWEEP -> Color(0xFF3F6F8F)
+    ReviewSessionRadarKind.BALANCED -> MaterialTheme.colorScheme.secondary
 }
 
 @Composable
@@ -2810,50 +3185,208 @@ private fun WordQueueScreen(
     onSpeak: (String) -> Unit,
     onMnemonic: (Long, String) -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+    var currentIndex by remember(words.firstOrNull()?.id) { mutableIntStateOf(0) }
+    var strategyExpanded by remember { mutableStateOf(false) }
+    var batchFinished by remember(words.firstOrNull()?.id) { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    val total = words.size
+    val currentWord = words.getOrNull(currentIndex)
+    val hasBriefs = batchBrief != null || mnemonicBrief != null || mnemonicWorkshopBrief != null || learningLoopBrief != null
+
+    if (words.isEmpty() || batchFinished || currentWord == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Card(
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier.padding(28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(68.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Rounded.EmojiEvents,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(38.dp),
+                        )
+                    }
+                    Text(
+                        if (words.isEmpty()) "今日目标已达成！" else "🎉 本组单词全部学完！",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        if (words.isEmpty()) "当前没有待处理的新词，休息一下或前往『复习』进行抗遗忘自测。"
+                        else "太棒了！已全部完成初记，记忆曲线引擎已为您自动排期下次复习。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                    if (words.isNotEmpty()) {
+                        Button(
+                            onClick = {
+                                batchFinished = false
+                                currentIndex = 0
+                            },
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                        ) {
+                            Icon(Icons.Rounded.PlayArrow, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("重新温习本组 ($total 词)", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item {
-            SectionTitle(title, subtitle)
-        }
-        batchBrief?.let { brief ->
-            item {
-                WordBatchBriefCard(brief)
-            }
-        }
-        mnemonicBrief?.let { brief ->
-            item {
-                MnemonicBatchBriefCard(brief)
-            }
-        }
-        mnemonicWorkshopBrief?.let { brief ->
-            item {
-                MnemonicWorkshopBriefCard(brief)
-            }
-        }
-        learningLoopBrief?.let { brief ->
-            item {
-                LearningLoopBriefCard(brief)
-            }
-        }
-        if (words.isEmpty()) {
-            item {
-                EmptyStateCard("当前没有待处理单词，休息一下也很好。")
-            }
-        } else {
-            items(words, key = { it.id }) { word ->
-                FlipWordCard(
-                    word = word,
-                    rootRef = uiState.rootRefByKey[word.rootKey],
-                    siblings = uiState.siblingsByWordId[word.id].orEmpty(),
-                    isAnchor = word.id in uiState.anchorWordIds,
-                    onRate = onRate,
-                    onSpeak = onSpeak,
-                    onMnemonic = onMnemonic,
+        // 1. Top Deck Header: Progress & Strategy Action
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Text(
+                            "${currentIndex + 1} / $total",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { (currentIndex + 1f) / total.toFloat() },
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .padding(top = 6.dp)
+                        .height(6.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 )
             }
+
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (hasBriefs) {
+                    IconButton(
+                        onClick = { strategyExpanded = !strategyExpanded },
+                        modifier = Modifier.size(34.dp),
+                    ) {
+                        Icon(
+                            Icons.Rounded.TipsAndUpdates,
+                            contentDescription = "向导策略",
+                            tint = if (strategyExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+                IconButton(
+                    onClick = { if (currentIndex > 0) currentIndex-- },
+                    enabled = currentIndex > 0,
+                    modifier = Modifier.size(34.dp),
+                ) {
+                    Icon(Icons.Rounded.ChevronLeft, contentDescription = "上一词")
+                }
+                IconButton(
+                    onClick = {
+                        if (currentIndex < total - 1) currentIndex++ else batchFinished = true
+                    },
+                    modifier = Modifier.size(34.dp),
+                ) {
+                    Icon(Icons.Rounded.ChevronRight, contentDescription = "下一词")
+                }
+            }
+        }
+
+        // Optional Strategy Brief Accordion
+        if (hasBriefs && strategyExpanded) {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f)),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("本批学习策略向导", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        IconButton(onClick = { strategyExpanded = false }, modifier = Modifier.size(24.dp)) {
+                            Icon(Icons.Rounded.Close, contentDescription = "收起", modifier = Modifier.size(16.dp))
+                        }
+                    }
+                    batchBrief?.let { WordBatchBriefCard(it) }
+                    mnemonicBrief?.let { MnemonicBatchBriefCard(it) }
+                    mnemonicWorkshopBrief?.let { MnemonicWorkshopBriefCard(it) }
+                    learningLoopBrief?.let { LearningLoopBriefCard(it) }
+                }
+            }
+        }
+
+        // 2. Focused Modern Flip Card
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            FlipWordCard(
+                word = currentWord,
+                rootRef = uiState.rootRefByKey[currentWord.rootKey],
+                siblings = uiState.siblingsByWordId[currentWord.id].orEmpty(),
+                isAnchor = currentWord.id in uiState.anchorWordIds,
+                onRate = { wordId, rating ->
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onRate(wordId, rating)
+                    if (currentIndex < total - 1) {
+                        currentIndex++
+                    } else {
+                        batchFinished = true
+                    }
+                },
+                onSpeak = onSpeak,
+                onMnemonic = onMnemonic,
+            )
         }
     }
 }
@@ -3476,6 +4009,7 @@ private fun FlipWordCard(
     onSpeak: (String) -> Unit,
     onMnemonic: (Long, String) -> Unit,
 ) {
+    val haptic = LocalHapticFeedback.current
     var revealed by remember(word.id) { mutableStateOf(false) }
     var mnemonicEditorOpen by remember(word.id) { mutableStateOf(false) }
     var mnemonicDraft by remember(word.id, word.mnemonic) { mutableStateOf(word.mnemonic) }
@@ -3483,6 +4017,13 @@ private fun FlipWordCard(
     val memoryAnchor = remember(word, rootRef, siblings.size) {
         buildWordMemoryAnchor(word = word, rootRef = rootRef, siblingCount = siblings.size)
     }
+
+    val rotation = animateFloatAsState(
+        targetValue = if (revealed) 180f else 0f,
+        animationSpec = tween(durationMillis = 350),
+        label = "3d_card_rotation",
+    )
+
     selectedSibling?.let { selected ->
         RootWordPreviewSheet(
             word = selected,
@@ -3494,53 +4035,129 @@ private fun FlipWordCard(
     }
     Card(
         shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { revealed = !revealed },
+            .heightIn(min = 440.dp)
+            .graphicsLayer {
+                rotationY = rotation.value
+                cameraDistance = 14f * density
+            }
+            .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                revealed = !revealed
+            },
     ) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+                .graphicsLayer {
+                    if (rotation.value > 90f) {
+                        rotationY = 180f
+                    }
+                },
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(word.term, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(word.term, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                     Text(
-                        word.phonetic.ifBlank { "点击卡片查看释义" },
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
+                        word.phonetic.ifBlank { if (revealed) "释义已展示" else "点击卡片翻看释义" },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (isAnchor) AnchorBadge()
                     PhaseTag(word.progress?.phase)
-                    IconButton(onClick = { onSpeak(word.term) }) {
-                        Icon(Icons.Rounded.GraphicEq, contentDescription = "播放发音")
+                    IconButton(onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSpeak(word.term)
+                    }) {
+                        Icon(Icons.Rounded.GraphicEq, contentDescription = "播放发音", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
-            WordMemoryAnchorPanel(memoryAnchor)
-            if (word.rootKey.isNotBlank()) {
-                MorphemeRow(term = word.term, rootKey = word.rootKey, rootRef = rootRef)
-            }
-            AnimatedVisibility(visible = revealed) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(word.translation, style = MaterialTheme.typography.titleMedium)
-                    if (word.pos.isNotBlank()) {
+
+            if (rotation.value <= 90f) {
+                // FRONT SIDE: Focused and clean
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    WordMemoryAnchorPanel(memoryAnchor)
+                    if (word.rootKey.isNotBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        MorphemeRow(term = word.term, rootKey = word.rootKey, rootRef = rootRef)
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                    ) {
                         Text(
-                            "词性：${word.pos}",
+                            "👉 点击卡片 3D 翻转查看释义与巧记",
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         )
+                    }
+                }
+            } else {
+                // BACK SIDE: Scrollable, rich learning details
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (word.pos.isNotBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                            ) {
+                                Text(
+                                    word.pos,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                )
+                            }
+                        }
+                        Text(word.translation, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     if (word.definition.isNotBlank()) {
-                        Text(word.definition, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+                        Text(word.definition, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
                     }
                     if (word.example.isNotBlank()) {
-                        Text(
-                            "例句：${word.example}",
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                "例句：${word.example}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                                modifier = Modifier.padding(10.dp),
+                            )
+                        }
                     }
                     rootRef?.let { r ->
                         if (r.examples.isNotEmpty()) {
@@ -3610,17 +4227,53 @@ private fun FlipWordCard(
                     }
                 }
             }
-            if (!revealed) {
-                Text(
-                    "点击卡片翻出释义，然后选择下方评分。",
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+
+            // 4 Equal-width Rating Buttons
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                RatingButton(
+                    text = "重来",
+                    rating = ReviewRating.AGAIN,
+                    wordId = word.id,
+                    enabled = revealed,
+                    onRate = { id, r ->
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onRate(id, r)
+                    },
+                    modifier = Modifier.weight(1f),
                 )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                RatingButton("重来", ReviewRating.AGAIN, word.id, enabled = revealed, onRate = onRate)
-                RatingButton("困难", ReviewRating.HARD, word.id, enabled = revealed, onRate = onRate)
-                RatingButton("掌握", ReviewRating.GOOD, word.id, enabled = revealed, onRate = onRate)
-                RatingButton("秒会", ReviewRating.EASY, word.id, enabled = revealed, onRate = onRate)
+                RatingButton(
+                    text = "困难",
+                    rating = ReviewRating.HARD,
+                    wordId = word.id,
+                    enabled = revealed,
+                    onRate = { id, r ->
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onRate(id, r)
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                RatingButton(
+                    text = "掌握",
+                    rating = ReviewRating.GOOD,
+                    wordId = word.id,
+                    enabled = revealed,
+                    onRate = { id, r ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onRate(id, r)
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                RatingButton(
+                    text = "秒会",
+                    rating = ReviewRating.EASY,
+                    wordId = word.id,
+                    enabled = revealed,
+                    onRate = { id, r ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onRate(id, r)
+                    },
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
     }
@@ -3796,9 +4449,45 @@ private fun RatingButton(
     wordId: Long,
     enabled: Boolean,
     onRate: (Long, ReviewRating) -> Unit,
+    intervalHint: String = when (rating) {
+        ReviewRating.AGAIN -> "10分钟"
+        ReviewRating.HARD -> "1天"
+        ReviewRating.GOOD -> "3天"
+        ReviewRating.EASY -> "7天"
+    },
+    modifier: Modifier = Modifier,
 ) {
-    Button(onClick = { onRate(wordId, rating) }, enabled = enabled) {
-        Text(text)
+    val (bgColor, textColor) = when (rating) {
+        ReviewRating.AGAIN -> Color(0xFFFEE2E2) to Color(0xFF991B1B)
+        ReviewRating.HARD -> Color(0xFFFEF3C7) to Color(0xFF92400E)
+        ReviewRating.GOOD -> Color(0xFFE0F2FE) to Color(0xFF075985)
+        ReviewRating.EASY -> Color(0xFFDCFCE7) to Color(0xFF166534)
+    }
+    Surface(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(enabled = enabled) { onRate(wordId, rating) },
+        shape = RoundedCornerShape(14.dp),
+        color = if (enabled) bgColor else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = BorderStroke(1.dp, if (enabled) textColor.copy(alpha = 0.25f) else Color.Transparent),
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = if (enabled) textColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+            )
+            Text(
+                intervalHint,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (enabled) textColor.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+            )
+        }
     }
 }
 

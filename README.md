@@ -1,6 +1,14 @@
-# Englishdemo / LexRise v0.38
+# Englishdemo / LexRise v0.39
 
 LexRise 是面向四级、六级、考研英语的原生 Android 背单词应用，走本地离线优先路线：词书、学习进度、复习记录和提醒都保存在本机，不依赖账号和云同步。
+
+## v0.39 亮点
+
+- **Review Tab 新增“本轮错因雷达”**
+  - 在“本轮收口建议”和“本轮练习仪表”之间新增诊断卡，实时解释本轮为什么该继续、降速、加压或收口
+  - 根据本轮完成数、稳定率、再练数、剩余到期词和当前练习模式，区分回忆断点、主动提取门槛、稳定可加压、低剩余扫尾和待采样状态
+  - 卡片展示稳定 / 再练 / 剩余三条雷达轨道、行动标签和关键指标，让 Review 不只是显示统计，而是能读出错因
+  - 逻辑由 `buildReviewSessionRadar` 纯函数派生，不新增数据库字段，不自动切换练习模式，不改变 Review 队列或 SRS 评分
 
 ## v0.38 亮点
 
@@ -403,6 +411,13 @@ python tools/build_wordlists.py
 - [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md)：接手手册，面向下一个 AI 或人接手时的代码索引、关键不变量、下一步候选
 
 ## 进度 / 变更日志
+
+### v0.39（2026-06-09）
+- Review Tab 新增“本轮错因雷达”，按本轮稳定率、再练数、剩余队列和当前模式解释错因主导方向
+- 新增 `ReviewSessionRadar` / `ReviewSessionRadarKind` / `ReviewSessionRadarLane` 和 `buildReviewSessionRadar` 纯函数
+- `ReviewScreen` 接入 `ReviewSessionRadarCard`，展示稳定、再练、剩余三条诊断轨道和行动标签
+- 应用版本元数据同步到 0.39.0
+- Android 单测 173 → 180
 
 ### v0.38（2026-06-09）
 - Learn Tab 新增“巧记工坊”，把当前新词批次里缺 mnemonic 的词拆成词根、词形、例句或最小补写路线

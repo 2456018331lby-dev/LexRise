@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LexRise - 词升英语 (现代词根与记忆曲线背词)</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230F766E'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white' font-weight='bold'>L</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0F766E;
+      --primary-dark: #0D9488;
+      --primary-container: #CCFBF1;
+      --on-primary-container: #115E59;
+      --secondary: #D97706;
+      --secondary-container: #FEF3C7;
+      --tertiary: #4F46E5;
+      --tertiary-container: #EEF2FF;
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --surface-variant: #F1F5F9;
+      --on-bg: #0F172A;
+      --on-surface-variant: #475569;
+      --border: #E2E8F0;
+      --card-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+      --card-hover: 0 12px 30px -4px rgba(15, 23, 42, 0.12);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-xl: 28px;
+    }
+
+    [data-theme="dark"] {
+      --primary: #2DD4BF;
+      --primary-dark: #14B8A6;
+      --primary-container: #115E59;
+      --on-primary-container: #CCFBF1;
+      --secondary: #FBBF24;
+      --secondary-container: #78350F;
+      --tertiary: #818CF8;
+      --tertiary-container: #312E81;
+      --bg: #0B0F19;
+      --surface: #111827;
+      --surface-variant: #1E293B;
+      --on-bg: #F1F5F9;
+      --on-surface-variant: #94A3B8;
+      --border: #334155;
+      --card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+      --card-hover: 0 12px 30px -4px rgba(0, 0, 0, 0.6);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--on-bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: background-color 0.25s, color 0.25s;
+    }
+
+    /* Device frame wrapper */
+    .app-viewport {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100vh;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Top Bar */
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(12px);
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #0F766E, #0284C7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 800;
+      font-size: 18px;
+      box-shadow: 0 2px 8px rgba(15, 118, 110, 0.3);
+    }
+
+    .brand-text-title {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      color: var(--on-bg);
+      line-height: 1.2;
+    }
+    .brand-text-sub {
+      font-size: 11px;
+      color: var(--on-surface-variant);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .streak-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #FEF3C7;
+      color: #92400E;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    .icon-btn {
+      background: var(--surface-variant);
+      border: 1px solid var(--border);
+      color: var(--on-bg);
+      border-radius: 50%;
+      width: 34px;
+      height: 34px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      transition: all 0.2s;
+    }
+    .icon-btn:hover {
+      background: var(--border);
+      transform: scale(1.05);
+    }
+
+    /* Content Area */
+    .app-main {
+      flex: 1;
+      padding: 16px 16px 96px 16px;
+      overflow-y: auto;
+    }
+
+    .tab-view { display: none; }
+    .tab-view.active { display: block; animation: fadeIn 0.25s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Common Card Styles */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      padding: 18px;
+      margin-bottom: 14px;
+      box-shadow: var(--card-shadow);
+      transition: all 0.2s ease;
+    }
+
+    /* Top Book Filter Chips */
+    .book-chips-wrap {
+      margin-bottom: 14px;
+    }
+    .book-chips-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      padding: 0 2px;
+    }
+    .book-chips-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--on-surface-variant);
+    }
+    .book-chips-hint {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+    .book-chips-scroll {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .book-chips-scroll::-webkit-scrollbar { display: none; }
+    .book-filter-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      padding: 7px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--on-bg);
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .book-filter-chip.active {
+      background: var(--primary-container);
+      border-color: var(--primary);
+      color: var(--on-primary-container);
+      font-weight: 700;
+    }
+
+    /* Hero Card */
+    .hero-card {
+      background: linear-gradient(135deg, #0D9488 0%, #0284C7 50%, #4F46E5 100%);
+      color: white;
+      border: none;
+      padding: 22px;
+      border-radius: var(--radius-xl);
+      box-shadow: 0 8px 24px -4px rgba(15, 118, 110, 0.35);
+      margin-bottom: 14px;
+    }
+    .hero-title { font-size: 20px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.3px; }
+    .hero-subtitle { font-size: 13px; opacity: 0.92; line-height: 1.5; }
+
+    /* Quick Action Buttons */
+    .action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .action-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      box-shadow: var(--card-shadow);
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--card-hover);
+      border-color: var(--primary);
+    }
+    .action-btn.primary-btn {
+      background: linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(2, 132, 199, 0.08));
+      border: 1.5px solid var(--primary);
+    }
+    .action-icon-box {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .action-icon-box.amber {
+      background: var(--secondary-container);
+      color: #92400E;
+    }
+    .action-info-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--on-bg);
+      margin-bottom: 2px;
+    }
+    .action-info-sub {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--on-surface-variant);
+    }
+
+    /* Metric Grid */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .metric-tile {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 10px;
+      text-align: center;
+      box-shadow: var(--card-shadow);
+    }
+    .metric-label { font-size: 11px; font-weight: 600; color: var(--on-surface-variant); margin-bottom: 4px; }
+    .metric-val { font-size: 20px; font-weight: 800; color: var(--primary); }
+
+    /* Collapsible Analytics Hub */
+    .analytics-card {
+      background: var(--surface-variant);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .analytics-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+    }
+    .analytics-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .analytics-icon-box {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    .analytics-title { font-size: 14px; font-weight: 700; }
+    .analytics-desc { font-size: 11px; color: var(--on-surface-variant); }
+    .analytics-toggle-btn {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--primary);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .analytics-body {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--border);
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .analytics-body.open { display: flex; animation: fadeIn 0.2s ease; }
+    .analytics-subcard {
+      background: var(--surface);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      border-left: 4px solid var(--primary);
+    }
+    .analytics-subcard.amber { border-left-color: var(--secondary); }
+    .analytics-subcard.indigo { border-left-color: var(--tertiary); }
+    .analytics-subcard-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+    .analytics-subcard-text { font-size: 12px; color: var(--on-surface-variant); line-height: 1.4; }
+
+    /* =======================================================
+       LEARN SCREEN (Focused Single-Card Deck)
+       ======================================================= */
+    .learn-header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .learn-counter-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .learn-counter-badge {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--primary);
+      background: var(--primary-container);
+      padding: 4px 10px;
+      border-radius: 12px;
+    }
+    .nav-arrow-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      color: var(--on-bg);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .nav-arrow-btn:hover {
+      background: var(--surface-variant);
+      border-color: var(--primary);
+    }
+
+    .learn-progress-track {
+      background: var(--surface-variant);
+      height: 6px;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .learn-progress-fill {
+      background: linear-gradient(90deg, #0F766E, #0284C7);
+      height: 100%;
+      width: 5%;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* 3D Flip Card Container */
+    .flip-scene {
+      perspective: 1000px;
+      width: 100%;
+      min-height: 440px;
+      margin-bottom: 16px;
+    }
+    .flip-card {
+      width: 100%;
+      min-height: 440px;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+    }
+    .flip-card.is-flipped {
+      transform: rotateY(180deg);
+    }
+    .card-face {
+      position: absolute;
+      width: 100%;
+      min-height: 440px;
+      top: 0;
+      left: 0;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: var(--card-shadow);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+    .card-face-back {
+      transform: rotateY(180deg);
+      background: var(--surface);
+      overflow-y: auto;
+    }
+
+    /* Front Face Layout */
+    .front-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .front-center-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px 0;
+    }
+    .word-main-term {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--on-bg);
+      margin-bottom: 6px;
+    }
+    .word-main-phonetic {
+      font-size: 15px;
+      color: var(--on-surface-variant);
+      font-family: 'Plus Jakarta Sans', monospace;
+      margin-bottom: 18px;
+    }
+    .front-morpheme-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 20px;
+      margin-bottom: 8px;
+    }
+    .front-bottom-hint {
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--primary);
+      padding-top: 14px;
+      border-top: 1px dashed var(--border);
+    }
+
+    /* Back Face Layout */
+    .back-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+    }
+    .back-word-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--on-bg);
+    }
+    .back-translation {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--primary);
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .back-en-def {
+      font-size: 13px;
+      color: var(--on-surface-variant);
+      line-height: 1.5;
+      margin-bottom: 12px;
+      font-style: italic;
+    }
+    .back-example-box {
+      background: var(--surface-variant);
+      border-left: 3px solid var(--primary);
+      padding: 10px 12px;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .back-mnemonic-box {
+      background: #FFFBEB;
+      border: 1px solid #FCD34D;
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: #92400E;
+      line-height: 1.5;
+    }
+    [data-theme="dark"] .back-mnemonic-box {
+      background: #78350F;
+      border-color: #B45309;
+      color: #FEF3C7;
+    }
+    .mnemonic-box-title {
+      font-weight: 700;
+      font-size: 11px;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Equal-Width Pastel Rating Buttons */
+    .rating-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .rating-btn {
+      border: 1.5px solid transparent;
+      border-radius: 14px;
+      padding: 10px 4px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+    .rating-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .rating-btn-text {
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .rating-btn-sub {
+      font-size: 10px;
+      font-weight: 600;
+      opacity: 0.85;
+    }
+    .rating-again {
+      background: #FFE4E6;
+      color: #BE123C;
+      border-color: #FECDD3;
+    }
+    .rating-hard {
+      background: #FEF3C7;
+      color: #92400E;
+      border-color: #FDE68A;
+    }
+    .rating-good {
+      background: #CCFBF1;
+      color: #115E59;
+      border-color: #99F6E4;
+    }
+    .rating-easy {
+      background: #E0E7FF;
+      color: #3730A3;
+      border-color: #C7D2FE;
+    }
+
+    /* Celebration Card */
+    .celebration-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 32px 20px;
+      text-align: center;
+      box-shadow: var(--card-shadow);
+    }
+    .celebration-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+    .celebration-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--on-bg);
+      margin-bottom: 8px;
+    }
+    .celebration-desc {
+      font-size: 13px;
+      color: var(--on-surface-variant);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .celebration-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      padding: 13px 20px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: var(--surface-variant);
+      color: var(--on-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* =======================================================
+       REVIEW SCREEN
+       ======================================================= */
+    .mode-pills {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      scrollbar-width: none;
+    }
+    .mode-pills::-webkit-scrollbar { display: none; }
+    .mode-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--on-surface-variant);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .mode-pill.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    /* Quiz Question Card */
+    .quiz-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 22px;
+      box-shadow: var(--card-shadow);
+      margin-bottom: 16px;
+    }
+    .quiz-q-num {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    .quiz-q-term {
+      font-size: 26px;
+      font-weight: 800;
+      margin-bottom: 18px;
+      letter-spacing: -0.5px;
+    }
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .quiz-opt {
+      background: var(--surface-variant);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--on-bg);
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .quiz-opt:hover {
+      border-color: var(--primary);
+      background: var(--surface);
+    }
+    .quiz-opt.correct {
+      background: #D1FAE5;
+      border-color: #10B981;
+      color: #065F46;
+      font-weight: 700;
+    }
+    .quiz-opt.wrong {
+      background: #FEE2E2;
+      border-color: #EF4444;
+      color: #991B1B;
+    }
+
+    .spell-input {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+      border: 2px solid var(--border);
+      font-size: 18px;
+      font-weight: 700;
+      outline: none;
+      margin-bottom: 14px;
+      background: var(--surface-variant);
+      color: var(--on-bg);
+      font-family: inherit;
+    }
+    .spell-input:focus {
+      border-color: var(--primary);
+      background: var(--surface);
+    }
+
+    /* =======================================================
+       ROOTS & VOCAB SCREENS
+       ======================================================= */
+    .root-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      margin-bottom: 10px;
+      box-shadow: var(--card-shadow);
+    }
+    .root-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .root-key {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+    .root-count {
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+      padding: 3px 8px;
+      border-radius: 12px;
+    }
+    .root-meaning {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--on-bg);
+      margin-bottom: 6px;
+    }
+    .root-examples {
+      font-size: 12px;
+      color: var(--on-surface-variant);
+    }
+
+    .search-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      box-shadow: var(--card-shadow);
+    }
+    .search-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 14px;
+      background: transparent;
+      color: var(--on-bg);
+      font-family: inherit;
+    }
+
+    .tag-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+    }
+    .tag-pill.pos { background: var(--tertiary-container); color: var(--tertiary); }
+    .tag-pill.frq { background: var(--secondary-container); color: #92400E; }
+    .chips-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .chip {
+      background: var(--surface-variant);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      color: var(--on-surface-variant);
+    }
+
+    /* Audio Speaker Button */
+    .audio-btn {
+      background: var(--primary-container);
+      border: none;
+      color: var(--on-primary-container);
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+    .audio-btn:hover { transform: scale(1.1); }
+    .audio-btn.speaking { animation: pulse 0.6s infinite alternate; }
+    @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.15); } }
+
+    /* Bottom Navigation Bar (5 Items) */
+    .app-nav {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      max-width: 480px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      padding: 8px 6px 12px 6px;
+      z-index: 50;
+      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
+      backdrop-filter: blur(12px);
+    }
+    .nav-item {
+      background: none;
+      border: none;
+      color: var(--on-surface-variant);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 16px;
+      transition: all 0.2s ease;
+      flex: 1;
+    }
+    .nav-item svg {
+      width: 22px;
+      height: 22px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform 0.2s;
+    }
+    .nav-item:hover {
+      color: var(--primary);
+    }
+    .nav-item.active {
+      color: var(--primary);
+      font-weight: 700;
+    }
+    .nav-item.active svg {
+      transform: scale(1.1);
+      stroke: var(--primary);
+    }
+
+    /* Settings Modal Dialog */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 150;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; animation: fadeIn 0.2s ease; }
+    .modal-sheet {
+      background: var(--surface);
+      width: 100%;
+      max-width: 480px;
+      border-radius: 24px 24px 0 0;
+      padding: 24px 20px 36px 20px;
+      box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.2);
+      animation: slideUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(15, 23, 42, 0.92);
+      color: white;
+      padding: 10px 18px;
+      border-radius: 24px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s ease;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="app-viewport">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand-group">
+        <div class="brand-logo">L</div>
+        <div>
+          <div class="brand-text-title">LexRise</div>
+          <div class="brand-text-sub">离线优先 · 现代词根记忆</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="streak-badge" title="连续打卡天数">
+          🔥 <span id="streakCount">7</span>天
+        </div>
+        <button id="settingsBtn" class="icon-btn" title="偏好设置">⚙️</button>
+        <button id="themeToggle" class="icon-btn" title="切换暗色/亮色">🌓</button>
+      </div>
+    </header>
+
+    <!-- Main Views Container -->
+    <main class="app-main">
+      <!-- 1. DASHBOARD VIEW -->
+      <section id="view-dashboard" class="tab-view active">
+        <!-- Top Book Quick Switcher (Material 3 FilterChips) -->
+        <div class="book-chips-wrap">
+          <div class="book-chips-header">
+            <span class="book-chips-title">当前词书</span>
+            <span class="book-chips-hint">点击快速切换</span>
+          </div>
+          <div class="book-chips-scroll" id="bookChipsScroll">
+            <button class="book-filter-chip active" data-book="cet4">
+              <span>✓</span> CET-4 核心词库
+            </button>
+            <button class="book-filter-chip" data-book="cet6">
+              CET-6 核心词库
+            </button>
+            <button class="book-filter-chip" data-book="ky">
+              考研英语 核心词库
+            </button>
+          </div>
+        </div>
+
+        <!-- Hero Card -->
+        <div class="card hero-card">
+          <div class="hero-title" id="heroGreeting">今天继续把词汇记进长期记忆</div>
+          <div class="hero-subtitle" id="heroSummary">
+            CET-4 核心词库还剩新词 3,846 个，待复习 12 个，连续打卡 7 天。
+          </div>
+        </div>
+
+        <!-- 2 Core Study Action Buttons -->
+        <div class="action-grid">
+          <div class="action-btn primary-btn" id="startLearnBtn">
+            <div class="action-icon-box">📖</div>
+            <div>
+              <div class="action-info-title">学新词</div>
+              <div class="action-info-sub">今日目标 20 词 ➔</div>
+            </div>
+          </div>
+          <div class="action-btn" id="startReviewBtn">
+            <div class="action-icon-box amber">🧠</div>
+            <div>
+              <div class="action-info-title">智能复习</div>
+              <div class="action-info-sub">待复习 12 词 ➔</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metric Grid -->
+        <div class="metric-grid">
+          <div class="metric-tile">
+            <div class="metric-label">今日完成</div>
+            <div class="metric-val" id="metricStudied">24</div>
+          </div>
+          <div class="metric-tile">
+            <div class="metric-label">待复习</div>
+            <div class="metric-val" id="metricDue">12</div>
+          </div>
+          <div class="metric-tile">
+            <div class="metric-label">掌握率</div>
+            <div class="metric-val" id="metricRatio">32%</div>
+          </div>
+        </div>
+
+        <!-- Collapsible Analytics Hub -->
+        <div class="analytics-card">
+          <div class="analytics-header" id="analyticsToggle">
+            <div class="analytics-title-wrap">
+              <div class="analytics-icon-box">📊</div>
+              <div>
+                <div class="analytics-title">深度学习诊断与闭环图谱</div>
+                <div class="analytics-desc">词根覆盖率 24% · 记忆稳定性 88.9%</div>
+              </div>
+            </div>
+            <button class="analytics-toggle-btn" id="analyticsBtnText">
+              <span>展开分析</span> ▾
+            </button>
+          </div>
+          <div class="analytics-body" id="analyticsContent">
+            <div class="analytics-subcard">
+              <div class="analytics-subcard-title">🧭 今日闭环学习路径</div>
+              <div class="analytics-subcard-text">
+                ✓ 1. 词根锚点预热 (stat / clud)<br>
+                ✓ 2. 新词聚类精读 (20 个同根词)<br>
+                ● 3. 5 维记忆曲线复习 (单选/拼写)<br>
+                ○ 4. 顽固难词攻坚与巧记自编
+              </div>
+            </div>
+            <div class="analytics-subcard amber">
+              <div class="analytics-subcard-title">🌳 词根覆盖总览</div>
+              <div class="analytics-subcard-text">
+                全库收录 1,041 个拉丁/希腊核心词根，当前词书已点亮 248 个词根族。
+              </div>
+            </div>
+            <div class="analytics-subcard indigo">
+              <div class="analytics-subcard-title">🎯 记忆雷达诊断</div>
+              <div class="analytics-subcard-text">
+                近期复习稳定性 88.9%，平均反应时 1.4 秒，海马体初级记忆印记稳固。
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. LEARN VIEW (Focused Single-Card Deck) -->
+      <section id="view-learn" class="tab-view">
+        <!-- Deck Header & Progress -->
+        <div class="learn-header-bar">
+          <div class="learn-counter-wrap">
+            <button class="nav-arrow-btn" id="prevWordBtn" title="上一个词">‹</button>
+            <span class="learn-counter-badge" id="deckCounter">第 1 / 20 词</span>
+            <button class="nav-arrow-btn" id="nextWordBtn" title="下一个词">›</button>
+          </div>
+          <span style="font-size: 12px; font-weight: 600; color: var(--on-surface-variant);" id="batchTopic">本组策略: stat 词根族</span>
+        </div>
+        <div class="learn-progress-track">
+          <div class="learn-progress-fill" id="deckProgressFill"></div>
+        </div>
+
+        <!-- Dynamic Deck Card Container -->
+        <div id="deckCardContainer">
+          <!-- Flip Card Injected Here -->
+        </div>
+
+        <!-- Rating Action Bar -->
+        <div class="rating-row" id="deckRatingRow">
+          <button class="rating-btn rating-again" data-srs="again">
+            <span class="rating-btn-text">又忘</span>
+            <span class="rating-btn-sub">10分</span>
+          </button>
+          <button class="rating-btn rating-hard" data-srs="hard">
+            <span class="rating-btn-text">模糊</span>
+            <span class="rating-btn-sub">1天</span>
+          </button>
+          <button class="rating-btn rating-good" data-srs="good">
+            <span class="rating-btn-text">良好</span>
+            <span class="rating-btn-sub">3天</span>
+          </button>
+          <button class="rating-btn rating-easy" data-srs="easy">
+            <span class="rating-btn-text">稳固</span>
+            <span class="rating-btn-sub">7天</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- 3. REVIEW VIEW -->
+      <section id="view-review" class="tab-view">
+        <!-- Mode Pills -->
+        <div class="mode-pills" id="reviewModePills">
+          <button class="mode-pill active" data-mode="quiz">词义单选</button>
+          <button class="mode-pill" data-mode="spell">拼写默写</button>
+          <button class="mode-pill" data-mode="dictation">听音辨义</button>
+          <button class="mode-pill" data-mode="cloze">语境完形</button>
+          <button class="mode-pill" data-mode="flip">经典翻卡</button>
+        </div>
+
+        <!-- Practice Arena -->
+        <div id="reviewArena">
+          <!-- Dynamically injected Quiz / Cloze / Spell Question -->
+        </div>
+      </section>
+
+      <!-- 4. ROOTS VIEW -->
+      <section id="view-roots" class="tab-view">
+        <div style="font-size: 18px; font-weight: 800; margin-bottom: 6px;">🌳 词根全景图谱</div>
+        <div style="font-size: 13px; color: var(--on-surface-variant); margin-bottom: 14px;">
+          全库收录 1,041 个核心词根，从构词规律高效推导词义。
+        </div>
+        <div id="rootsList">
+          <!-- Dynamically populated roots -->
+        </div>
+      </section>
+
+      <!-- 5. VOCAB SEARCH VIEW -->
+      <section id="view-vocab" class="tab-view">
+        <div class="search-bar">
+          <span>🔍</span>
+          <input type="text" id="vocabSearchInput" class="search-input" placeholder="搜索英文单词或中文释义...">
+        </div>
+        <div id="vocabSearchResults">
+          <!-- Dynamically populated search items -->
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Navigation (5 Clean Items) -->
+    <nav class="app-nav">
+      <button class="nav-item active" data-tab="dashboard">
+        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <span>总览</span>
+      </button>
+      <button class="nav-item" data-tab="learn">
+        <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+        <span>新词</span>
+      </button>
+      <button class="nav-item" data-tab="review">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <span>复习</span>
+      </button>
+      <button class="nav-item" data-tab="roots">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        <span>词根</span>
+      </button>
+      <button class="nav-item" data-tab="vocab">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <span>词库</span>
+      </button>
+    </nav>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+      <div class="modal-sheet">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+          <div style="font-size: 18px; font-weight: 800;">⚙️ 学习偏好设置</div>
+          <button class="icon-btn" id="closeSettingsBtn">✕</button>
+        </div>
+        <div class="card" style="margin-bottom: 12px;">
+          <div style="font-size: 14px; font-weight: 700; margin-bottom: 8px;">每日新词目标</div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <input type="range" min="5" max="100" value="20" id="targetSlider" style="flex: 1; margin-right: 12px; accent-color: var(--primary);">
+            <span id="targetValue" style="font-weight: 700; font-size: 14px; color: var(--primary);">20 词/天</span>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom: 12px;">
+          <div style="font-size: 14px; font-weight: 700; margin-bottom: 4px;">发音引擎</div>
+          <div style="font-size: 12px; color: var(--on-surface-variant);">离线 Web Speech API / Android 系统 TTS</div>
+        </div>
+        <div class="card" style="margin-bottom: 18px;">
+          <div style="font-size: 14px; font-weight: 700; margin-bottom: 4px;">版本信息</div>
+          <div style="font-size: 12px; color: var(--on-surface-variant);">LexRise v0.41 · 现代聚焦卡牌 + 完整词根图谱</div>
+        </div>
+        <button class="btn-primary" style="width: 100%;" id="saveSettingsBtn">确定保存</button>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">已同步到遗忘曲线</div>
+  </div>
+
+  <!-- Data and Application Script -->
+  <script src="data.js"></script>
+  <script>
+    (function() {
+      const data = window.LEXRISE_DATA || { books: {}, roots: [] };
+      let currentBookKey = 'cet4';
+      let currentLearnIndex = 0;
+      const batchSize = 20;
+      let currentReviewIndex = 0;
+      let currentReviewMode = 'quiz';
+      let studiedCount = 24;
+
+      // DOM Elements
+      const themeToggle = document.getElementById('themeToggle');
+      const settingsBtn = document.getElementById('settingsBtn');
+      const settingsModal = document.getElementById('settingsModal');
+      const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+      const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+      const navItems = document.querySelectorAll('.nav-item');
+      const tabViews = document.querySelectorAll('.tab-view');
+      const toastEl = document.getElementById('toast');
+
+      function showToast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        setTimeout(() => toastEl.classList.remove('show'), 2000);
+      }
+
+      function switchTab(tabKey) {
+        navItems.forEach(n => n.classList.remove('active'));
+        const targetNav = document.querySelector(`.nav-item[data-tab="${tabKey}"]`);
+        if (targetNav) targetNav.classList.add('active');
+
+        tabViews.forEach(v => v.classList.remove('active'));
+        const targetView = document.getElementById(`view-${tabKey}`);
+        if (targetView) targetView.classList.add('active');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      // Tab Navigation
+      navItems.forEach(item => {
+        item.addEventListener('click', () => switchTab(item.dataset.tab));
+      });
+
+      // Quick Action Buttons on Dashboard
+      document.getElementById('startLearnBtn').addEventListener('click', () => switchTab('learn'));
+      document.getElementById('startReviewBtn').addEventListener('click', () => switchTab('review'));
+
+      // Theme toggle
+      themeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      });
+
+      // Settings Modal
+      settingsBtn.addEventListener('click', () => settingsModal.classList.add('open'));
+      closeSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('open'));
+      saveSettingsBtn.addEventListener('click', () => {
+        settingsModal.classList.remove('open');
+        showToast('设置已保存');
+      });
+
+      // Book Chips Switcher
+      const bookChips = document.querySelectorAll('.book-filter-chip');
+      bookChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          bookChips.forEach(c => {
+            c.classList.remove('active');
+            c.innerHTML = c.dataset.book === 'cet4' ? 'CET-4 核心词库' :
+                          c.dataset.book === 'cet6' ? 'CET-6 核心词库' : '考研英语 核心词库';
+          });
+          chip.classList.add('active');
+          chip.innerHTML = `<span>✓</span> ${chip.textContent.trim()}`;
+          currentBookKey = chip.dataset.book;
+          currentLearnIndex = 0;
+          currentReviewIndex = 0;
+          updateDashboard();
+          renderLearnDeck();
+          renderReviewQuestion();
+          renderVocabList();
+          showToast(`已切换词书: ${data.books[currentBookKey]?.title || currentBookKey}`);
+        });
+      });
+
+      // Collapsible Analytics Hub
+      const analyticsToggle = document.getElementById('analyticsToggle');
+      const analyticsContent = document.getElementById('analyticsContent');
+      const analyticsBtnText = document.getElementById('analyticsBtnText');
+      analyticsToggle.addEventListener('click', () => {
+        const isOpen = analyticsContent.classList.toggle('open');
+        analyticsBtnText.innerHTML = isOpen ? '<span>收起分析</span> ▴' : '<span>展开分析</span> ▾';
+      });
+
+      // Speech Synthesis TTS
+      function speakWord(word) {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(word);
+          utterance.lang = 'en-US';
+          utterance.rate = 0.9;
+          window.speechSynthesis.speak(utterance);
+        }
+      }
+
+      function updateDashboard() {
+        const book = data.books[currentBookKey];
+        if (!book) return;
+        document.getElementById('heroSummary').textContent = 
+          `${book.title} 还剩新词 3,846 个，待复习 12 个，连续打卡 7 天。`;
+      }
+
+      // =======================================================
+      // LEARN DECK LOGIC (Focused Single Card)
+      // =======================================================
+      const prevWordBtn = document.getElementById('prevWordBtn');
+      const nextWordBtn = document.getElementById('nextWordBtn');
+      const deckCounter = document.getElementById('deckCounter');
+      const deckProgressFill = document.getElementById('deckProgressFill');
+      const deckCardContainer = document.getElementById('deckCardContainer');
+      const deckRatingRow = document.getElementById('deckRatingRow');
+
+      prevWordBtn.addEventListener('click', () => {
+        if (currentLearnIndex > 0) {
+          currentLearnIndex--;
+          renderLearnDeck();
+        }
+      });
+      nextWordBtn.addEventListener('click', () => {
+        const book = data.books[currentBookKey];
+        if (book && currentLearnIndex < Math.min(book.words.length, batchSize) - 1) {
+          currentLearnIndex++;
+          renderLearnDeck();
+        }
+      });
+
+      function renderLearnDeck() {
+        const book = data.books[currentBookKey];
+        if (!book || !book.words.length) return;
+        const totalInBatch = Math.min(book.words.length, batchSize);
+
+        // Check if finished batch
+        if (currentLearnIndex >= totalInBatch) {
+          deckCounter.textContent = `已完成 20 / 20 词`;
+          deckProgressFill.style.width = '100%';
+          deckRatingRow.style.display = 'none';
+
+          deckCardContainer.innerHTML = `
+            <div class="celebration-card">
+              <div class="celebration-icon">🎉</div>
+              <div class="celebration-title">本组 ${totalInBatch} 词已全部攻克！</div>
+              <div class="celebration-desc">
+                已成功建立词根心锚与海马体初始印记。<br>
+                系统将在 30 分钟后推入艾宾浩斯第一轮复习。
+              </div>
+              <div class="celebration-actions">
+                <button class="btn-primary" id="restartBatchBtn">再学一组新词</button>
+                <button class="btn-secondary" id="backToDashBtn">返回总览面板</button>
+              </div>
+            </div>
+          `;
+          document.getElementById('restartBatchBtn').addEventListener('click', () => {
+            currentLearnIndex = 0;
+            renderLearnDeck();
+          });
+          document.getElementById('backToDashBtn').addEventListener('click', () => {
+            switchTab('dashboard');
+          });
+          return;
+        }
+
+        deckRatingRow.style.display = 'grid';
+        deckCounter.textContent = `第 ${currentLearnIndex + 1} / ${totalInBatch} 词`;
+        const progressPct = ((currentLearnIndex + 1) / totalInBatch) * 100;
+        deckProgressFill.style.width = `${progressPct}%`;
+
+        const word = book.words[currentLearnIndex];
+        const rootText = word.rootKey ? `🌱 ${word.rootKey}` : '🌱 核心词根';
+
+        deckCardContainer.innerHTML = `
+          <div class="flip-scene">
+            <div class="flip-card" id="focusedFlipCard">
+              <!-- FRONT FACE -->
+              <div class="card-face card-face-front">
+                <div class="front-top-bar">
+                  <span class="front-morpheme-tag">${rootText}</span>
+                  <button class="audio-btn" id="frontAudioBtn" title="朗读发音">🔊</button>
+                </div>
+                <div class="front-center-content">
+                  <div class="word-main-term">${word.term}</div>
+                  <div class="word-main-phonetic">${word.phonetic ? `/${word.phonetic}/` : '点击卡片查看音标与释义'}</div>
+                  <div style="display: flex; gap: 6px;">
+                    ${word.pos ? `<span class="tag-pill pos">${word.pos}</span>` : ''}
+                    ${word.frq ? `<span class="tag-pill frq">频次 #${word.frq}</span>` : ''}
+                  </div>
+                </div>
+                <div class="front-bottom-hint">
+                  👉 点击卡片任意处翻转 · 揭晓中文释义与巧记
+                </div>
+              </div>
+
+              <!-- BACK FACE -->
+              <div class="card-face card-face-back">
+                <div class="back-header">
+                  <div class="back-word-title">${word.term}</div>
+                  <button class="audio-btn" id="backAudioBtn" title="朗读发音">🔊</button>
+                </div>
+                <div class="back-translation">${word.translation}</div>
+                ${word.definition ? `<div class="back-en-def">${word.definition}</div>` : ''}
+                ${word.example ? `<div class="back-example-box"><strong>例句:</strong> ${word.example}</div>` : ''}
+                ${word.mnemonic ? `
+                  <div class="back-mnemonic-box">
+                    <div class="mnemonic-box-title">⚡ 离线记忆心锚 (Mnemonic)</div>
+                    <div>${word.mnemonic}</div>
+                  </div>
+                ` : ''}
+                ${word.derivatives && word.derivatives.length ? `
+                  <div style="font-size: 11px; font-weight: 700; color: var(--on-surface-variant); margin-top: 4px;">派生词族:</div>
+                  <div class="chips-row">
+                    ${word.derivatives.map(d => `<span class="chip">${d}</span>`).join('')}
+                  </div>
+                ` : ''}
+                <div class="front-bottom-hint" style="margin-top: auto; padding-top: 10px;">
+                  👈 再次点击翻转回正面
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const card = document.getElementById('focusedFlipCard');
+        const frontAudio = document.getElementById('frontAudioBtn');
+        const backAudio = document.getElementById('backAudioBtn');
+
+        // Card Flip toggle
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.audio-btn')) return;
+          card.classList.toggle('is-flipped');
+        });
+
+        const speakHandler = (e) => {
+          e.stopPropagation();
+          speakWord(word.term);
+        };
+        frontAudio.addEventListener('click', speakHandler);
+        backAudio.addEventListener('click', speakHandler);
+      }
+
+      // Rating Handler
+      document.querySelectorAll('.rating-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const rating = btn.dataset.srs;
+          studiedCount++;
+          document.getElementById('metricStudied').textContent = studiedCount;
+          showToast(`[${rating.toUpperCase()}] 已调度至 SRS 记忆槽位`);
+          currentLearnIndex++;
+          renderLearnDeck();
+        });
+      });
+
+      // =======================================================
+      // REVIEW MODES HANDLER
+      // =======================================================
+      const reviewModePills = document.querySelectorAll('#reviewModePills .mode-pill');
+      reviewModePills.forEach(pill => {
+        pill.addEventListener('click', () => {
+          reviewModePills.forEach(p => p.classList.remove('active'));
+          pill.classList.add('active');
+          currentReviewMode = pill.dataset.mode;
+          renderReviewQuestion();
+        });
+      });
+
+      function renderReviewQuestion() {
+        const book = data.books[currentBookKey];
+        if (!book || !book.words.length) return;
+        const arena = document.getElementById('reviewArena');
+        const word = book.words[currentReviewIndex % book.words.length];
+
+        if (currentReviewMode === 'quiz' || currentReviewMode === 'dictation') {
+          const distractors = book.words.filter(w => w.id !== word.id).slice(0, 3);
+          const options = [word, ...distractors].sort(() => Math.random() - 0.5);
+
+          arena.innerHTML = `
+            <div class="quiz-card">
+              <div class="quiz-q-num">第 ${currentReviewIndex + 1} 题 / 共 15 题 · ${currentReviewMode === 'dictation' ? '听音辨义' : '词义单选'}</div>
+              <div class="quiz-q-term" style="display: flex; align-items: center; justify-content: space-between;">
+                <span>${currentReviewMode === 'dictation' ? '🔊 [请仔细听发音]' : word.term}</span>
+                <button class="audio-btn" id="quizSpeakBtn">🔊</button>
+              </div>
+              <div class="quiz-options">
+                ${options.map((opt, i) => `
+                  <button class="quiz-opt" data-id="${opt.id}">${String.fromCharCode(65 + i)}. ${opt.translation.split('；')[0]}</button>
+                `).join('')}
+              </div>
+              <div id="quizFeedback" style="margin-top: 14px; font-size: 13px; font-weight: 600; display: none;"></div>
+            </div>
+          `;
+
+          const speakBtn = document.getElementById('quizSpeakBtn');
+          speakBtn.addEventListener('click', () => speakWord(word.term));
+          if (currentReviewMode === 'dictation') speakWord(word.term);
+
+          document.querySelectorAll('.quiz-opt').forEach(optBtn => {
+            optBtn.addEventListener('click', () => {
+              const selectedId = parseInt(optBtn.dataset.id);
+              const fb = document.getElementById('quizFeedback');
+              fb.style.display = 'block';
+              if (selectedId === word.id) {
+                optBtn.classList.add('correct');
+                fb.style.color = '#059669';
+                fb.innerHTML = `✓ 答对了！${word.term}: ${word.translation}`;
+                showToast('答对了！已稳固记忆');
+                setTimeout(() => {
+                  currentReviewIndex++;
+                  renderReviewQuestion();
+                }, 1000);
+              } else {
+                optBtn.classList.add('wrong');
+                fb.style.color = '#DC2626';
+                fb.innerHTML = `✗ 正确答案是：${word.translation}`;
+              }
+            });
+          });
+        } else if (currentReviewMode === 'spell') {
+          arena.innerHTML = `
+            <div class="quiz-card">
+              <div class="quiz-q-num">第 ${currentReviewIndex + 1} 题 · 拼写默写</div>
+              <div style="font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--primary);">释义：${word.translation}</div>
+              ${word.mnemonic ? `<div style="font-size: 12px; color: var(--secondary); margin-bottom: 12px;">💡 心锚提示：${word.mnemonic}</div>` : ''}
+              <input type="text" id="spellInput" class="spell-input" placeholder="输入正确英文拼写..." autocomplete="off" autofocus>
+              <button class="btn-primary" style="width: 100%;" id="spellSubmit">提交答案</button>
+              <div id="spellFeedback" style="margin-top: 12px; font-size: 13px; font-weight: 600; display: none;"></div>
+            </div>
+          `;
+
+          const input = document.getElementById('spellInput');
+          const submit = document.getElementById('spellSubmit');
+          const fb = document.getElementById('spellFeedback');
+
+          const checkSpell = () => {
+            const val = input.value.trim().toLowerCase();
+            fb.style.display = 'block';
+            if (val === word.term.toLowerCase()) {
+              fb.style.color = '#059669';
+              fb.innerHTML = `✓ 拼写完全正确！`;
+              showToast('拼写正确！');
+              setTimeout(() => {
+                currentReviewIndex++;
+                renderReviewQuestion();
+              }, 900);
+            } else {
+              fb.style.color = '#DC2626';
+              fb.innerHTML = `✗ 拼写有误，正确为：<strong>${word.term}</strong>`;
+            }
+          };
+
+          submit.addEventListener('click', checkSpell);
+          input.addEventListener('keydown', (e) => { if (e.key === 'Enter') checkSpell(); });
+        } else {
+          // FLIP / CLOZE
+          arena.innerHTML = `
+            <div class="quiz-card">
+              <div class="quiz-q-num">第 ${currentReviewIndex + 1} 题 · 语境完形</div>
+              <div class="quiz-q-term">${word.term}</div>
+              <div style="font-size: 14px; margin-bottom: 14px; line-height: 1.5;">${word.example || 'The word plays an important role in academic and daily contexts.'}</div>
+              <button class="btn-primary" style="width: 100%;" onclick="showToast('已掌握');">翻开答案与解析</button>
+            </div>
+          `;
+        }
+      }
+
+      // Roots Tab
+      function renderRootsList() {
+        const container = document.getElementById('rootsList');
+        container.innerHTML = data.roots.slice(0, 40).map(r => `
+          <div class="root-card">
+            <div class="root-card-top">
+              <span class="root-key">${r.key || r.rootKey}</span>
+              <span class="root-count">${r.examples.length} 例词</span>
+            </div>
+            <div class="root-meaning">${r.meanings.join(' / ')}</div>
+            <div class="root-examples">例词: ${r.examples.join(', ')}</div>
+          </div>
+        `).join('');
+      }
+
+      // Vocab Search
+      const searchInput = document.getElementById('vocabSearchInput');
+      searchInput.addEventListener('input', (e) => {
+        renderVocabList(e.target.value);
+      });
+
+      function renderVocabList(query = '') {
+        const container = document.getElementById('vocabSearchResults');
+        const book = data.books[currentBookKey];
+        if (!book) return;
+        const q = query.trim().toLowerCase();
+        const filtered = q ? book.words.filter(w => w.term.toLowerCase().includes(q) || w.translation.includes(q)) : book.words.slice(0, 30);
+        
+        container.innerHTML = filtered.map(w => `
+          <div class="card" style="padding: 12px 16px; margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 16px; font-weight: 700;">${w.term}</span>
+              <span style="font-size: 12px; font-family: monospace; color: var(--on-surface-variant);">${w.phonetic ? `/${w.phonetic}/` : ''}</span>
+            </div>
+            <div style="font-size: 13px; color: var(--on-surface-variant); margin-top: 4px;">${w.translation}</div>
+          </div>
+        `).join('');
+      }
+
+      // Slider
+      const slider = document.getElementById('targetSlider');
+      const targetVal = document.getElementById('targetValue');
+      slider.addEventListener('input', (e) => {
+        targetVal.textContent = `${e.target.value} 词/天`;
+      });
+
+      // Initialize
+      updateDashboard();
+      renderLearnDeck();
+      renderReviewQuestion();
+      renderRootsList();
+      renderVocabList();
+    })();
+  </script>
+</body>
+</html>

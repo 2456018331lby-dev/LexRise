@@ -65,4 +65,21 @@ class SpacedRepetitionScheduler(private val clock: Clock = Clock.systemDefaultZo
 
     fun isDue(progress: WordProgressEntity, now: Instant = clock.instant()): Boolean =
         progress.nextReviewAt <= now
+
+    /**
+     * Estimates current memory retrievability R in [0.0, 1.0] based on FSRS power decay law:
+     * R(t) = (1 + factor * (t / S)) ^ -decay
+     */
+    fun estimateRetrievability(
+        lastReviewedAt: Instant?,
+        intervalDays: Int,
+        now: Instant = clock.instant(),
+    ): Float {
+        if (lastReviewedAt == null || intervalDays <= 0) return 0f
+        val elapsedDays = max(0.0, ChronoUnit.HOURS.between(lastReviewedAt, now) / 24.0)
+        val s = max(1.0, intervalDays.toDouble())
+        val factor = 19.0 / 81.0
+        val r = Math.pow(1.0 + factor * (elapsedDays / s), -0.5)
+        return r.coerceIn(0.0, 1.0).toFloat()
+    }
 }

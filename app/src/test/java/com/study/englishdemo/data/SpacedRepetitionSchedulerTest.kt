@@ -65,4 +65,16 @@ class SpacedRepetitionSchedulerTest {
         assertThat(updated.intervalDays).isAtLeast(2)
         assertThat(updated.nextReviewAt).isGreaterThan(clock.instant())
     }
+
+    @Test
+    fun estimateRetrievability_decaysOverTime() {
+        val now = clock.instant()
+        val r0 = scheduler.estimateRetrievability(now, intervalDays = 10, now = now)
+        val r1 = scheduler.estimateRetrievability(now.minus(10, java.time.temporal.ChronoUnit.DAYS), intervalDays = 10, now = now)
+        val r2 = scheduler.estimateRetrievability(now.minus(30, java.time.temporal.ChronoUnit.DAYS), intervalDays = 10, now = now)
+
+        assertThat(r0).isWithin(0.01f).of(1.0f)
+        assertThat(r1).isWithin(0.05f).of(0.9f)
+        assertThat(r2).isLessThan(r1)
+    }
 }

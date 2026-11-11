@@ -13,8 +13,8 @@ android {
         applicationId = "com.study.englishdemo"
         minSdk = 28
         targetSdk = 35
-        versionCode = 38
-        versionName = "0.38.0"
+        versionCode = 40
+        versionName = "0.40.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -22,11 +22,13 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

@@ -1713,6 +1713,25 @@ fun buildRootMnemonicBrief(groups: List<RootGroup>, focusLimit: Int = 4): RootMn
  * Guarantees: options.size <= 4, correct term is always included,
  * distractors never equal the correct term (case-insensitive).
  */
+fun levenshteinDistance(s1: String, s2: String): Int {
+    val a = s1.lowercase()
+    val b = s2.lowercase()
+    val dp = Array(a.length + 1) { IntArray(b.length + 1) }
+    for (i in 0..a.length) dp[i][0] = i
+    for (j in 0..b.length) dp[0][j] = j
+    for (i in 1..a.length) {
+        for (j in 1..b.length) {
+            val cost = if (a[i - 1] == b[j - 1]) 0 else 1
+            dp[i][j] = minOf(
+                dp[i - 1][j] + 1,
+                dp[i][j - 1] + 1,
+                dp[i - 1][j - 1] + cost,
+            )
+        }
+    }
+    return dp[a.length][b.length]
+}
+
 fun buildQuizOptions(
     correctTerm: String,
     correctRootKey: String,
@@ -1727,8 +1746,16 @@ fun buildQuizOptions(
         .distinctBy { it.first.lowercase() }
         .toList()
     val sameRoot = filtered.filter { correctRootKey.isNotBlank() && it.second == correctRootKey }
-    val rest = filtered - sameRoot.toSet()
-    val ordered = sameRoot.shuffled(rng) + rest.shuffled(rng)
+    val remaining = filtered - sameRoot.toSet()
+    
+    // Sort remaining distractors by orthographic confusion (Levenshtein distance <= 2 or common prefix)
+    val confusables = remaining.filter {
+        val dist = levenshteinDistance(it.first, correctTerm)
+        dist in 1..2 || (it.first.length >= 3 && correctTerm.length >= 3 && it.first.take(3).equals(correctTerm.take(3), ignoreCase = true))
+    }
+    val otherRemaining = remaining - confusables.toSet()
+
+    val ordered = sameRoot.shuffled(rng) + confusables.shuffled(rng) + otherRemaining.shuffled(rng)
     val distractors = ordered.take(3).map { it.first }
     return (distractors + correctTerm).shuffled(rng)
 }
@@ -2542,6 +2569,153 @@ fun buildPracticeSessionCoach(stats: PracticeSessionStats, mode: PracticeMode): 
     }
 }
 
+fun buildReviewSessionRadar(
+    stats: PracticeSessionStats,
+    mode: PracticeMode,
+    remainingDueCount: Int,
+): ReviewSessionRadar {
+    val answered = stats.answered.coerceAtLeast(0)
+    val stable = stats.stable.coerceIn(0, answered)
+    val needsPractice = stats.needsPractice.coerceIn(0, answered)
+    val remaining = remainingDueCount.coerceAtLeast(0)
+    val stabilityPercent = if (answered == 0) 0 else (stable * 100) / answered
+    val stabilityProgress = (stabilityPercent / 100f).coerceIn(0f, 1f)
+    val retryShare = if (answered == 0) 0f else (needsPractice.toFloat() / answered.toFloat()).coerceIn(0f, 1f)
+    val completionProgress = if (answered + remaining == 0) {
+        1f
+    } else {
+        (answered.toFloat() / (answered + remaining).toFloat()).coerceIn(0f, 1f)
+    }
+    val modeLabel = practiceModeLabel(mode)
+    val lanes = listOf(
+        ReviewSessionRadarLane(
+            label = "稳定",
+            value = if (answered == 0) "0%" else "$stabilityPercent%",
+            cue = if (answered == 0) "待采样" else "$stable 稳答",
+            weight = if (answered == 0) 0.08f else stabilityProgress.coerceIn(0.08f, 1f),
+        ),
+        ReviewSessionRadarLane(
+            label = "再练",
+            value = needsPractice.toString(),
+            cue = "AGAIN/HARD",
+            weight = if (answered == 0) 0.08f else retryShare.coerceIn(0.08f, 1f),
+        ),
+        ReviewSessionRadarLane(
+            label = "剩余",
+            value = remaining.toString(),
+            cue = "到期队列",
+            weight = if (remaining == 0) 0.04f else (remaining.toFloat() / (answered + remaining).toFloat()).coerceIn(0.08f, 1f),
+        ),
+    )
+
+    fun radar(
+        kind: ReviewSessionRadarKind,
+        title: String,
+        message: String,
+        primaryLabel: String,
+        primaryValue: String,
+        secondaryLabel: String,
+        secondaryValue: String,
+        actionLabel: String,
+        progress: Float,
+    ) = ReviewSessionRadar(
+        kind = kind,
+        title = title,
+        message = message,
+        primaryLabel = primaryLabel,
+        primaryValue = primaryValue,
+        secondaryLabel = secondaryLabel,
+        secondaryValue = secondaryValue,
+        actionLabel = actionLabel,
+        progress = progress.coerceIn(0f, 1f),
+        lanes = lanes,
+    )
+
+    return when {
+        remaining == 0 -> radar(
+            kind = ReviewSessionRadarKind.EMPTY,
+            title = "错因雷达已收口",
+            message = if (answered == 0) {
+                "当前没有到期词，也没有本轮作答样本；不需要硬做诊断，先去新词或难词专攻保持手感。"
+            } else {
+                "到期队列已经清空，本轮主要风险已收口；保留错题给难词专攻，不要继续空刷。"
+            },
+            primaryLabel = "剩余",
+            primaryValue = "0",
+            secondaryLabel = if (answered == 0) "样本" else "稳定率",
+            secondaryValue = if (answered == 0) "0" else "$stabilityPercent%",
+            actionLabel = "本轮完成",
+            progress = 1f,
+        )
+        answered == 0 -> radar(
+            kind = ReviewSessionRadarKind.BASELINE,
+            title = "先采样，再判断错因",
+            message = "本轮还有 $remaining 个到期词；先用${modeLabel}做 5 题，拿到稳定率和再练数后再决定是否降速或加难。",
+            primaryLabel = "采样",
+            primaryValue = "0/5",
+            secondaryLabel = "队列",
+            secondaryValue = remaining.toString(),
+            actionLabel = "先做 5 题",
+            progress = 0f,
+        )
+        (mode == PracticeMode.SPELL || mode == PracticeMode.DICTATION) && needsPractice >= 2 && stabilityPercent < 70 -> radar(
+            kind = ReviewSessionRadarKind.MODE_FRICTION,
+            title = "难点来自主动提取门槛",
+            message = "${modeLabel}已经暴露 $needsPractice 个卡点，先退回${practiceModeFallbackLabel(mode)}修词形、语境或发音线索，再回到当前模式收口。",
+            primaryLabel = "再练",
+            primaryValue = needsPractice.toString(),
+            secondaryLabel = "模式",
+            secondaryValue = modeLabel,
+            actionLabel = "退一档修",
+            progress = stabilityProgress,
+        )
+        needsPractice >= 3 && (needsPractice > stable || stabilityPercent < 55) -> radar(
+            kind = ReviewSessionRadarKind.RECALL_LEAK,
+            title = "错因集中在回忆断点",
+            message = "再练数已经到 $needsPractice 个，说明不是速度问题，而是线索断开；先逐题说出词根、例句或巧记触发点，再继续评分。",
+            primaryLabel = "再练",
+            primaryValue = needsPractice.toString(),
+            secondaryLabel = "稳定率",
+            secondaryValue = "$stabilityPercent%",
+            actionLabel = "慢修错因",
+            progress = stabilityProgress,
+        )
+        answered >= 8 && stabilityPercent >= 85 && remaining >= 4 -> radar(
+            kind = ReviewSessionRadarKind.STABLE_PUSH,
+            title = "稳定样本足够，可以加压",
+            message = "已经完成 $answered 题且稳定率 $stabilityPercent%，错因不明显；下一组可以切到${practiceModeUpgradeLabel(mode)}，把识别推进到主动提取。",
+            primaryLabel = "稳定率",
+            primaryValue = "$stabilityPercent%",
+            secondaryLabel = "剩余",
+            secondaryValue = remaining.toString(),
+            actionLabel = "加压继续",
+            progress = stabilityProgress,
+        )
+        remaining <= 3 -> radar(
+            kind = ReviewSessionRadarKind.FINAL_SWEEP,
+            title = "剩余很少，别临时换打法",
+            message = "只剩 $remaining 个到期词，当前错因样本不够大；保持${modeLabel}做完，错的词交给难词专攻复修。",
+            primaryLabel = "剩余",
+            primaryValue = remaining.toString(),
+            secondaryLabel = "稳定率",
+            secondaryValue = "$stabilityPercent%",
+            actionLabel = "扫尾收口",
+            progress = completionProgress,
+        )
+        else -> radar(
+            kind = ReviewSessionRadarKind.BALANCED,
+            title = "错因分布还算均衡",
+            message = "本轮已经完成 $answered 题，稳定和再练还没有明显偏向；继续保持${modeLabel}到 8–10 题，再让雷达给出更明确判断。",
+            primaryLabel = "已做",
+            primaryValue = answered.toString(),
+            secondaryLabel = "剩余",
+            secondaryValue = remaining.toString(),
+            actionLabel = "继续观察",
+            progress = completionProgress,
+        )
+    }
+}
+
 fun buildReviewQueueBrief(
     words: List<WordEntry>,
     mode: PracticeMode,
@@ -2804,6 +2978,14 @@ private fun practiceModeUpgradeLabel(mode: PracticeMode): String = when (mode) {
     PracticeMode.CLOZE -> "拼写"
     PracticeMode.SPELL -> "听写"
     PracticeMode.DICTATION -> "错词回放"
+}
+
+private fun practiceModeFallbackLabel(mode: PracticeMode): String = when (mode) {
+    PracticeMode.FLIP -> "翻卡"
+    PracticeMode.CHOICE -> "翻卡"
+    PracticeMode.CLOZE -> "选择"
+    PracticeMode.SPELL -> "完形或选择"
+    PracticeMode.DICTATION -> "拼写或完形"
 }
 
 fun buildToughWordPrescription(tough: ToughWord): ToughWordPrescription {
